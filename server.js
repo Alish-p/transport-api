@@ -14,7 +14,11 @@ const waitingRouter = require("./routes/waiting");
 connectDB();
 
 app.use(express.json());
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "https://urban-api-7x8e.onrender.com"],
+  })
+);
 
 app.use("/api/students", studentRouter);
 app.use("/api/users", userRouter);
