@@ -14,27 +14,11 @@ const waitingRouter = require("./routes/waiting");
 connectDB();
 
 app.use(express.json());
-app.use(
-  cors({
-    origin: ["http://localhost:3000", "https://urban-api-7x8e.onrender.com"],
-  })
-);
+app.use(cors());
 
 app.use("/api/students", studentRouter);
 app.use("/api/users", userRouter);
 app.use("/api/waitings", waitingRouter);
-
-if (process.env.NODE_ENV === "production") {
-  // app.use(express.static(path.join(__dirname, "../frontend/build")));
-
-  app.get("/", (req, res) => {
-    res.send("API is running....");
-  });
-} else {
-  app.get("/", (req, res) => {
-    res.send("API is running....");
-  });
-}
 
 app.use(errorHandler);
 
