@@ -143,6 +143,23 @@ const fetchExpires = asyncHandler(async (req, res) => {
 });
 
 // fetch expired and about to expire registration details
+const fetchHalfDayExpires = asyncHandler(async (req, res) => {
+  let today = new Date();
+  let end = new Date().setDate(today.getDate() + 6);
+  let start = new Date().setDate(today.getDate() - 6);
+
+  const expires = await HalfDayRegistrationModel.find({
+    endDate: { $gte: today, $lt: end },
+  }).populate("student");
+
+  const expired = await HalfDayRegistrationModel.find({
+    endDate: { $gte: start, $lt: today },
+  }).populate("student");
+
+  res.status(200).json({ expires, expired });
+});
+
+// fetch expired and about to expire registration details
 const fetchTodaysData = asyncHandler(async (req, res) => {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -290,4 +307,5 @@ module.exports = {
   changeSeat,
   fetchTodaysData,
   fetchContactNumbers,
+  fetchHalfDayExpires,
 };

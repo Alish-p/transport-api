@@ -12,6 +12,7 @@ const {
   changeSeat,
   fetchTodaysData,
   fetchContactNumbers,
+  fetchHalfDayExpires,
 } = require("../controllers/student");
 const { private } = require("../middlewares/Auth");
 
@@ -25,6 +26,7 @@ router.get("/contact-numbers", fetchContactNumbers);
 router.get("/seats", private, private, fetchAvailableSeats);
 router.get("/todays", private, fetchTodaysData);
 router.get("/expires", private, fetchExpires);
+router.get("/expiresHalfDay", private, fetchHalfDayExpires);
 router.get("/:mobile", private, fetchStudentByNumber);
 
 module.exports = router;
