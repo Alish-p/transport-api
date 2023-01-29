@@ -2,13 +2,8 @@ const mongoose = require("mongoose");
 
 const waitingSchema = mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: [true, "name is required"],
-    },
     duration: Number,
-    mobileNumber: Number,
-    gender: String,
+    student: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
   },
   {
     timestamps: true,

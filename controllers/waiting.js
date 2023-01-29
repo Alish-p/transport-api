@@ -1,12 +1,25 @@
 const asyncHandler = require("express-async-handler");
 const WaitingModel = require("../model/Waiting");
+const StudentModel = require("../model/Student");
 
-const book = asyncHandler(async (req, res) => {
-  const waiting = new WaitingModel({ ...req.body });
-  const { _id, name, duration, mobileNumber, gender } = await waiting.save();
+const addWaiting = asyncHandler(async (req, res) => {
+  // check if student already exists
+  let student = await StudentModel.findOne({
+    mobileNumber: req.body.mobileNumber,
+  });
+
+  if (!student) {
+    // create new student
+    student = await new StudentModel({ ...req.body }).save();
+  }
+
+  const { name, mobileNumber, gender } = student;
+
+  const waiting = new WaitingModel({ ...req.body, student: student._id });
+  const { _id: waitingID, duration } = await waiting.save();
 
   res.status(201).json({
-    _id,
+    waitingID,
     name,
     duration,
     mobileNumber,
@@ -14,13 +27,26 @@ const book = asyncHandler(async (req, res) => {
   });
 });
 
-const fetchBookings = asyncHandler(async (req, res) => {
-  const bookings = await WaitingModel.find();
+const fetchWaitings = asyncHandler(async (req, res) => {
+  let bookings = await WaitingModel.find().populate(
+    "student",
+    "name gender mobileNumber"
+  );
+
+  bookings = bookings.map(
+    ({ _id, duration, student: { name, gender, mobileNumber } }) => ({
+      _id,
+      duration,
+      gender,
+      mobileNumber,
+      name,
+    })
+  );
 
   res.status(200).json(bookings);
 });
 
-const deleteBooking = asyncHandler(async (req, res) => {
+const deleteWaiting = asyncHandler(async (req, res) => {
   const id = req.params.id;
   const bookings = await WaitingModel.findByIdAndDelete(id);
 
@@ -28,7 +54,7 @@ const deleteBooking = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  book,
-  fetchBookings,
-  deleteBooking,
+  addWaiting,
+  fetchWaitings,
+  deleteWaiting,
 };

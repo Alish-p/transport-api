@@ -1,14 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const {
-  book,
-  fetchBookings,
-  deleteBooking,
+  addWaiting,
+  deleteWaiting,
+  fetchWaitings,
 } = require("../controllers/waiting");
 const { private } = require("../middlewares/Auth");
 
-router.post("/", private, book);
-router.get("/", private, fetchBookings);
-router.delete("/:id", private, deleteBooking);
+router.post("/", private, addWaiting);
+router.get("/", private, fetchWaitings);
+router.delete("/:id", private, deleteWaiting);
 
 module.exports = router;

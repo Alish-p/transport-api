@@ -19,29 +19,31 @@ const newRegistration = asyncHandler(async (req, res) => {
     startDate,
   } = req.body;
 
-  let seats = await RegistrationModel.find(
-    {
-      endDate: { $gte: Date.now() },
-    },
-    { seatNumber: 1, _id: 0 }
-  );
+  // check if seat is already taken
+  const seat = await RegistrationModel.findOne({
+    seatNumber,
+    endDate: { $gte: Date.now() },
+  });
 
-  seats = seats.map((i) => i["seatNumber"]);
-
-  if (seats.includes(seatNumber)) {
+  if (seat) {
     const err = new Error("Seat is not available.");
     err.status = 400;
     throw err;
   }
 
-  const student = await new StudentModel({
-    name,
-    gender,
-    age,
-    mobileNumber,
-    city,
-    exam,
-  }).save();
+  // check if student already exists
+  let student = await StudentModel.findOne({ mobileNumber });
+  if (!student) {
+    // create new student
+    student = await new StudentModel({
+      name,
+      gender,
+      age,
+      mobileNumber,
+      city,
+      exam,
+    }).save();
+  }
 
   const registration = await new RegistrationModel({
     seatNumber,
@@ -56,38 +58,74 @@ const newRegistration = asyncHandler(async (req, res) => {
 
 // Half day registrations
 const newHalfRegistration = asyncHandler(async (req, res) => {
-  const { name, gender, age, mobileNumber, city, exam, fees, duration, shift } =
-    req.body;
-
-  const student = await new StudentModel({
+  const {
     name,
     gender,
     age,
     mobileNumber,
     city,
     exam,
-  }).save();
+    fees,
+    duration,
+    shift,
+    startDate,
+  } = req.body;
+
+  // check if student already exists
+  let student = await StudentModel.findOne({ mobileNumber });
+  if (!student) {
+    // create new student
+    student = await new StudentModel({
+      name,
+      gender,
+      age,
+      mobileNumber,
+      city,
+      exam,
+    }).save();
+  }
 
   const registration = await new HalfDayRegistrationModel({
     fees,
     duration,
     shift,
+    startDate,
     student: student._id,
   }).save();
 
   res.status(201).json({ registration, student });
 });
 
-// fetch All students
-const fetchStudents = asyncHandler(async (req, res) => {
-  const registrations = await RegistrationModel.find(
-    {
-      endDate: { $gte: new Date() },
-    },
-    { seatNumber: 1, startDate: 1, endDate: 1 }
-  ).populate("student", "name gender mobileNumber");
+// fetch All full day registrations
+const fetchFulldayRegistrations = asyncHandler(async (req, res) => {
+  // Use the lean() method to retrieve plain javascript objects instead of mongoose documents
+  const registrations = await RegistrationModel.find({
+    endDate: { $gte: new Date() },
+  })
+    .select("seatNumber startDate endDate student")
+    .populate("student", "name gender mobileNumber")
+    .lean();
 
-  registrations.sort((a, b) => a.seatNumber - b.seatNumber);
+  // Sort the registrations by seatNumber
+  registrations.sort((a, b) => {
+    if (!isNaN(a.seatNumber) && !isNaN(b.seatNumber)) {
+      return a.seatNumber - b.seatNumber;
+    } else {
+      return a.seatNumber.localeCompare(b.seatNumber);
+    }
+  });
+
+  res.status(200).json(registrations);
+});
+
+// fetch All Hlaf day registrations
+const fetchHalfDayRegistrations = asyncHandler(async (req, res) => {
+  const registrations = await HalfDayRegistrationModel.find({
+    endDate: { $gte: new Date() },
+  })
+    .select("_id startDate endDate shift student")
+    .populate("student", "name gender mobileNumber")
+    .lean();
 
   res.status(200).json(registrations);
 });
@@ -113,31 +151,28 @@ const fetchContactNumbers = asyncHandler(async (req, res) => {
   res.status(200).json(registrations);
 });
 
-// fetch All Hlaf day registrations
-const fetchHalfDayRegistrations = asyncHandler(async (req, res) => {
-  const registrations = await HalfDayRegistrationModel.find(
-    {
-      endDate: { $gte: new Date() },
-    },
-    { _id: 1, startDate: 1, endDate: 1, shift: 1 }
-  ).populate("student", "name gender mobileNumber");
-
-  res.status(200).json(registrations);
-});
-
 // fetch expired and about to expire registration details
-const fetchExpires = asyncHandler(async (req, res) => {
+const fetchFulldayExpires = asyncHandler(async (req, res) => {
   let today = new Date();
   let end = new Date().setDate(today.getDate() + 6);
   let start = new Date().setDate(today.getDate() - 6);
 
-  const expires = await RegistrationModel.find({
+  const expiresPromise = RegistrationModel.find({
     endDate: { $gte: today, $lt: end },
-  }).populate("student");
+  })
+    .populate("student")
+    .lean();
 
-  const expired = await RegistrationModel.find({
+  const expiredPromise = RegistrationModel.find({
     endDate: { $gte: start, $lt: today },
-  }).populate("student");
+  })
+    .populate("student")
+    .lean();
+
+  const [expires, expired] = await Promise.all([
+    expiresPromise,
+    expiredPromise,
+  ]);
 
   res.status(200).json({ expires, expired });
 });
@@ -148,69 +183,88 @@ const fetchHalfDayExpires = asyncHandler(async (req, res) => {
   let end = new Date().setDate(today.getDate() + 6);
   let start = new Date().setDate(today.getDate() - 6);
 
-  const expires = await HalfDayRegistrationModel.find({
+  const expiresPromise = HalfDayRegistrationModel.find({
     endDate: { $gte: today, $lt: end },
-  }).populate("student");
+  })
+    .populate("student")
+    .lean();
 
-  const expired = await HalfDayRegistrationModel.find({
+  const expiredPromise = HalfDayRegistrationModel.find({
     endDate: { $gte: start, $lt: today },
-  }).populate("student");
+  })
+    .populate("student")
+    .lean();
+
+  const [expires, expired] = await Promise.all([
+    expiresPromise,
+    expiredPromise,
+  ]);
 
   res.status(200).json({ expires, expired });
 });
 
-// fetch expired and about to expire registration details
+// fetch everyday's registration and renew data
 const fetchTodaysData = asyncHandler(async (req, res) => {
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+  const endOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59
+  );
 
-  const registrations = await RegistrationModel.find({
-    startDate: { $gte: today },
-  }).populate("student");
+  const registrationPromise = RegistrationModel.find({
+    startDate: { $gte: startOfToday, $lt: endOfToday },
+  })
+    .populate("student")
+    .lean();
 
-  const renews = await RegistrationModel.find({
-    renewDate: { $gte: today },
-  }).populate("student");
+  const renewsPromise = RegistrationModel.find({
+    renewDate: { $gte: startOfToday, $lt: endOfToday },
+  })
+    .populate("student")
+    .lean();
 
-  const HalfDayRegistrations = await HalfDayRegistrationModel.find({
-    startDate: { $gte: today },
-  }).populate("student");
+  const HalfDayRegistrationsPromise = HalfDayRegistrationModel.find({
+    startDate: { $gte: startOfToday, $lt: endOfToday },
+  })
+    .populate("student")
+    .lean();
+
+  const [registrations, renews, HalfDayRegistrations] = await Promise.all([
+    registrationPromise,
+    renewsPromise,
+    HalfDayRegistrationsPromise,
+  ]);
 
   res.status(200).json({ registrations, renews, HalfDayRegistrations });
 });
 
-// fetch student by mobile number
+// fetch students registration detail by mobileNumber
 const fetchStudentByNumber = asyncHandler(async (req, res) => {
   const mobileNumber = req.params.mobile;
   let registration;
-  let halfDayRegistration;
-  const student = await StudentModel.findOne({ mobileNumber }).sort({
-    $natural: -1,
-  });
-
-  console.log();
-
-  if (student) {
-    registration =
-      (await RegistrationModel.findOne({
-        student: student._id,
-      }).sort({
-        $natural: -1,
-      })) ||
-      (await HalfDayRegistrationModel.findOne({
-        student: student._id,
-      }).sort({
-        $natural: -1,
-      }));
-  } else {
-    throw new Error("No Student exist");
+  let student = await StudentModel.findOne({ mobileNumber });
+  if (!student) {
+    throw new Error("No student found with this mobile number");
   }
-
-  if (!registration) throw new Error("No Registrations exist");
-
-  console.log(student);
-  console.log(registration);
-
+  registration = await RegistrationModel.findOne({ student: student._id }).sort(
+    { startDate: -1 }
+  );
+  if (!registration) {
+    registration = await HalfDayRegistrationModel.findOne({
+      student: student._id,
+    }).sort({ startDate: -1 });
+    if (!registration)
+      throw new Error("No registration found for this mobile number");
+  }
   res.status(200).json({ registration, student });
 });
 
@@ -223,10 +277,7 @@ const fetchAvailableSeats = asyncHandler(async (req, res) => {
     { seatNumber: 1, _id: 0 }
   ).populate("student", "gender");
 
-  const total = [...Array(151).keys()];
-
-  // to remove 0th seat
-  total.shift();
+  const total = Array.from({ length: 160 }, (_, i) => `${i + 1}`);
 
   const filled = registrations.map((i) => ({
     seatNo: i.seatNumber,
@@ -234,15 +285,20 @@ const fetchAvailableSeats = asyncHandler(async (req, res) => {
     available: false,
   }));
 
-  const filledarr = registrations.map((i) => i["seatNumber"]);
+  const filledSeats = registrations.map((i) => i["seatNumber"]);
 
-  for (let i = 1; i <= 150; i++) {
-    if (!filledarr.includes(i)) {
-      filled.push({ seatNo: i, available: true });
+  total.forEach((seat) => {
+    if (!filledSeats.includes(seat)) {
+      filled.push({ seatNo: seat, available: true });
     }
-  }
+  });
 
-  filled.sort((a, b) => a.seatNo - b.seatNo);
+  filled.sort((a, b) =>
+    a.seatNo.localeCompare(b.seatNo, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    })
+  );
 
   res.status(200).send(filled);
 });
@@ -295,12 +351,23 @@ const changeSeat = asyncHandler(async (req, res) => {
   res.status(200).json(updatedRegistration);
 });
 
+// fetch All students
+const fetchAllStudents = asyncHandler(async (req, res) => {
+  let students = await StudentModel.find({});
+
+  students.sort((a, b) => a.name - b.name);
+
+  console.log(students);
+
+  res.status(200).json({ count: students.length, students });
+});
+
 module.exports = {
   newRegistration,
-  fetchStudents,
+  fetchFulldayRegistrations,
   fetchAvailableSeats,
   fetchStudentByNumber,
-  fetchExpires,
+  fetchFulldayExpires,
   newHalfRegistration,
   fetchHalfDayRegistrations,
   extendMembershipByDay,
@@ -308,4 +375,5 @@ module.exports = {
   fetchTodaysData,
   fetchContactNumbers,
   fetchHalfDayExpires,
+  fetchAllStudents,
 };
