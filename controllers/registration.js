@@ -277,28 +277,25 @@ const fetchAvailableSeats = asyncHandler(async (req, res) => {
     { seatNumber: 1, _id: 0 }
   ).populate("student", "gender");
 
-  const total = Array.from({ length: 160 }, (_, i) => `${i + 1}`);
+  const total = [...Array(151).keys()];
 
+  // to remove 0th seat
+  total.shift();
   const filled = registrations.map((i) => ({
     seatNo: i.seatNumber,
     gender: i.student.gender,
     available: false,
   }));
 
-  const filledSeats = registrations.map((i) => i["seatNumber"]);
+  const filledarr = registrations.map((i) => i["seatNumber"]);
 
-  total.forEach((seat) => {
-    if (!filledSeats.includes(seat)) {
-      filled.push({ seatNo: seat, available: true });
+  for (let i = 1; i <= 150; i++) {
+    if (!filledarr.includes(i)) {
+      filled.push({ seatNo: i, available: true });
     }
-  });
+  }
 
-  filled.sort((a, b) =>
-    a.seatNo.localeCompare(b.seatNo, undefined, {
-      numeric: true,
-      sensitivity: "base",
-    })
-  );
+  filled.sort((a, b) => a.seatNo - b.seatNo);
 
   res.status(200).send(filled);
 });
