@@ -98,9 +98,15 @@ const newHalfRegistration = asyncHandler(async (req, res) => {
 
 // fetch All full day registrations
 const fetchFulldayRegistrations = asyncHandler(async (req, res) => {
-  // Use the lean() method to retrieve plain javascript objects instead of mongoose documents
+  const now = new Date();
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+
   const registrations = await RegistrationModel.find({
-    endDate: { $gte: new Date() },
+    endDate: { $gte: startOfToday },
   })
     .select("seatNumber startDate endDate student")
     .populate("student", "name gender mobileNumber")
@@ -153,18 +159,21 @@ const fetchContactNumbers = asyncHandler(async (req, res) => {
 
 // fetch expired and about to expire registration details
 const fetchFulldayExpires = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
   let today = new Date();
   let end = new Date().setDate(today.getDate() + 6);
   let start = new Date().setDate(today.getDate() - 6);
 
   const expiresPromise = RegistrationModel.find({
-    endDate: { $gte: today, $lt: end },
+    endDate: { $gte: endOfToday, $lt: end },
   })
     .populate("student")
     .lean();
 
   const expiredPromise = RegistrationModel.find({
-    endDate: { $gte: start, $lt: today },
+    endDate: { $gte: start, $lt: endOfToday },
   })
     .populate("student")
     .lean();
