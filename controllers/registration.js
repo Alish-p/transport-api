@@ -260,17 +260,19 @@ const fetchTodaysData = asyncHandler(async (req, res) => {
 const fetchStudentByNumber = asyncHandler(async (req, res) => {
   const mobileNumber = req.params.mobile;
   let registration;
-  let student = await StudentModel.findOne({ mobileNumber });
+  let student = await StudentModel.findOne({ mobileNumber })
+    .sort({ createdAt: -1 })
+    .limit(1);
   if (!student) {
     throw new Error("No student found with this mobile number");
   }
   registration = await RegistrationModel.findOne({ student: student._id }).sort(
-    { startDate: -1 }
+    { endDate: -1 }
   );
   if (!registration) {
     registration = await HalfDayRegistrationModel.findOne({
       student: student._id,
-    }).sort({ startDate: -1 });
+    }).sort({ endDate: -1 });
     if (!registration)
       throw new Error("No registration found for this mobile number");
   }
