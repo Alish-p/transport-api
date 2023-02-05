@@ -32,7 +32,9 @@ const newRegistration = asyncHandler(async (req, res) => {
   }
 
   // check if student already exists
-  let student = await StudentModel.findOne({ mobileNumber });
+  let student = await StudentModel.findOne({ mobileNumber })
+    .sort({ createdAt: -1 })
+    .limit(1);
   if (!student) {
     // create new student
     student = await new StudentModel({
@@ -72,7 +74,9 @@ const newHalfRegistration = asyncHandler(async (req, res) => {
   } = req.body;
 
   // check if student already exists
-  let student = await StudentModel.findOne({ mobileNumber });
+  let student = await StudentModel.findOne({ mobileNumber })
+    .sort({ createdAt: -1 })
+    .limit(1);
   if (!student) {
     // create new student
     student = await new StudentModel({
@@ -266,9 +270,11 @@ const fetchStudentByNumber = asyncHandler(async (req, res) => {
   if (!student) {
     throw new Error("No student found with this mobile number");
   }
+
   registration = await RegistrationModel.findOne({ student: student._id }).sort(
     { endDate: -1 }
   );
+
   if (!registration) {
     registration = await HalfDayRegistrationModel.findOne({
       student: student._id,
