@@ -7,20 +7,25 @@ const app = express();
 
 const cors = require("cors");
 
-const registrationRouter = require("./routes/registration");
-const userRouter = require("./routes/user");
-const waitingRouter = require("./routes/waiting");
-const issueRouter = require("./routes/issue");
+const vehicleRouter = require("./routes/vehicle");
+const transporterRouter = require("./routes/transporter");
+const driverRouter = require("./routes/driver");
+const bankRouter = require("./routes/bank");
+const pumpRouter = require("./routes/pump");
+const routeRouter = require("./routes/route");
 
 connectDB();
 
 app.use(express.json());
 app.use(cors());
 
-app.use("/api/students", registrationRouter);
-app.use("/api/users", userRouter);
-app.use("/api/waitings", waitingRouter);
-app.use("/api/issues", issueRouter);
+// Routers
+app.use("/api/vehicles", vehicleRouter);
+app.use("/api/transporters", transporterRouter);
+app.use("/api/drivers", driverRouter);
+app.use("/api/banks", bankRouter);
+app.use("/api/pumps", pumpRouter);
+app.use("/api/routes", routeRouter);
 
 app.use(errorHandler);
 
