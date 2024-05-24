@@ -12,6 +12,6 @@ const router = Router();
 router.post("/", createPump);
 router.get("/", fetchPumps);
 router.delete("/:id", deletePump);
-router.post("/:id", updatePump);
+router.put("/:id", updatePump);
 
 module.exports = router;

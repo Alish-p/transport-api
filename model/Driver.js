@@ -14,9 +14,9 @@ const driverSchema = new Schema({
   experience: { type: Number, required: true },
   dob: { type: Date, required: true },
   permanentAddress: { type: String, required: true },
-  dlImage: { type: String, required: true },
-  photoImage: { type: String, required: true },
-  aadharImage: { type: String, required: true },
+  dlImage: { type: String },
+  photoImage: { type: String },
+  aadharImage: { type: String },
   bankCd: { type: String, required: true },
   accNo: { type: String, required: true },
 });

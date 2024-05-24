@@ -12,6 +12,6 @@ const router = Router();
 router.post("/", createBank);
 router.get("/", fetchBanks);
 router.delete("/:id", admin, deleteBank);
-router.post("/:id", updateBank);
+router.put("/:id", updateBank);
 
 module.exports = router;
