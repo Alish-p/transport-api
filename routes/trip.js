@@ -8,7 +8,7 @@ const {
   addSubtripToTrip,
 } = require("../controllers/trip");
 
-const { private, admin } = require("../middlewares/auth");
+const { private, admin } = require("../middlewares/Auth");
 const router = Router();
 
 router.post("/", createTrip);

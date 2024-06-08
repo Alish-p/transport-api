@@ -10,7 +10,7 @@ const {
   closeLR,
 } = require("../controllers/subtrip");
 
-const { admin } = require("../middlewares/auth");
+const { admin } = require("../middlewares/Auth");
 const router = Router();
 
 router.post("/:tripId", createSubtrip);
