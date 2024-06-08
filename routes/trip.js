@@ -1,0 +1,21 @@
+const { Router } = require("express");
+const {
+  createTrip,
+  fetchTrips,
+  fetchTripWithTotals,
+  updateTrip,
+  deleteTrip,
+  addSubtripToTrip,
+} = require("../controllers/trip");
+
+const { private, admin } = require("../middlewares/auth");
+const router = Router();
+
+router.post("/", createTrip);
+router.get("/", fetchTrips);
+router.get("/:id/totals", fetchTripWithTotals);
+router.put("/:id", updateTrip);
+router.delete("/:id", deleteTrip);
+router.post("/:id/subtrip", addSubtripToTrip);
+
+module.exports = router;

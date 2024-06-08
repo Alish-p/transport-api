@@ -11,7 +11,7 @@ const router = Router();
 
 router.post("/", createDriver);
 router.get("/", fetchDrivers);
-router.delete("/:id", admin, deleteDriver);
+router.delete("/:id", deleteDriver);
 router.put("/:id", updateDriver);
 
 module.exports = router;

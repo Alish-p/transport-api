@@ -13,6 +13,9 @@ const driverRouter = require("./routes/driver");
 const bankRouter = require("./routes/bank");
 const pumpRouter = require("./routes/pump");
 const routeRouter = require("./routes/route");
+const tripRouter = require("./routes/trip");
+const expenseRouter = require("./routes/expense");
+const lrRouter = require("./routes/lr");
 
 connectDB();
 
@@ -26,6 +29,9 @@ app.use("/api/drivers", driverRouter);
 app.use("/api/banks", bankRouter);
 app.use("/api/pumps", pumpRouter);
 app.use("/api/routes", routeRouter);
+app.use("/api/trips", tripRouter);
+app.use("/api/subtrips", lrRouter);
+app.use("/api/expenses", expenseRouter);
 
 app.use(errorHandler);
 

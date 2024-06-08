@@ -7,7 +7,7 @@ const routeSchema = new Schema({
   advanceAmt: { type: Number, required: true },
   diesel: { type: Number, required: true },
   adBlue: { type: Number, required: true },
-  fromPlace: { type: String, required: true },
+  fromPlace: { type: String, required: true }, // mudhol
   toPlace: { type: String, required: true },
   noOfDays: { type: Number, required: true },
   driverSalary: { type: Number, required: true },

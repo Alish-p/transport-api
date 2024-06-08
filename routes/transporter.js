@@ -12,6 +12,6 @@ const router = Router();
 router.post("/", createTransporter);
 router.get("/", fetchTransporters);
 router.delete("/:id", deleteTransporter);
-router.post("/:id", updateTransporter);
+router.put("/:id", updateTransporter);
 
 module.exports = router;
