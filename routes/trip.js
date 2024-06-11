@@ -11,8 +11,8 @@ const {
 const { private, admin } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", createTrip);
 router.get("/", fetchTrips);
+router.post("/", createTrip);
 router.get("/:id/totals", fetchTripWithTotals);
 router.put("/:id", updateTrip);
 router.delete("/:id", deleteTrip);
