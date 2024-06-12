@@ -15,7 +15,12 @@ const createSubtrip = asyncHandler(async (req, res) => {
     return;
   }
 
-  const subtrip = new Subtrip({ ...req.body, tripId });
+  // setting a status in-queue when created
+  const subtrip = new Subtrip({
+    ...req.body,
+    tripId,
+    subtripStatus: "In-queue",
+  });
   const newSubtrip = await subtrip.save();
 
   trip.subtrips.push(newSubtrip._id);
@@ -26,7 +31,9 @@ const createSubtrip = asyncHandler(async (req, res) => {
 
 // Fetch Subtrips
 const fetchSubtrips = asyncHandler(async (req, res) => {
-  const subtrips = await Subtrip.find().populate("expenses");
+  const subtrips = await Subtrip.find()
+    .populate("expenses")
+    .populate("routeCd");
   res.status(200).json(subtrips);
 });
 
@@ -45,7 +52,20 @@ const fetchSubtrip = asyncHandler(async (req, res) => {
 // Add Material Info to Subtrip
 const addMaterialInfo = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { materialType, quantity, grade } = req.body;
+  const {
+    materialType,
+    quantity,
+    grade,
+    loadingWeight,
+    rate,
+    startKm,
+    invoiceNo,
+    shipmentNo,
+    orderNo,
+    ewayBill,
+    ewayExpiryDate,
+    tds,
+  } = req.body;
 
   const subtrip = await Subtrip.findById(id);
 
@@ -54,9 +74,20 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     return;
   }
 
+  subtrip.loadingWeight = loadingWeight;
+  subtrip.startKm = startKm;
+  subtrip.rate = rate;
+  subtrip.invoiceNo = invoiceNo;
+  subtrip.shipmentNo = shipmentNo;
+  subtrip.orderNo = orderNo;
+  subtrip.ewayBill = ewayBill;
+  subtrip.ewayExpiryDate = ewayExpiryDate;
   subtrip.materialType = materialType;
   subtrip.quantity = quantity;
   subtrip.grade = grade;
+  subtrip.tds = tds;
+
+  subtrip.subtripStatus = "Loaded";
 
   await subtrip.save();
 
