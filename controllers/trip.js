@@ -50,7 +50,7 @@ const fetchTripWithTotals = asyncHandler(async (req, res) => {
   const trip = await Trip.findById(req.params.id)
     .populate({
       path: "subtrips",
-      populate: { path: "expenses" },
+      populate: { path: "expenses", path: "routeCd" },
     })
     .populate("driverId")
     .populate("vehicleId");

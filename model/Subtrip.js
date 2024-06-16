@@ -27,6 +27,7 @@ const subtripSchema = new Schema({
   detentionTime: { type: Number },
   tds: { type: Number },
   deductedWeight: { type: Number },
+  hasError: { type: Boolean, default: false },
   tripId: { type: String, ref: "Trip", required: true },
   expenses: [{ type: String, ref: "Expense" }],
 });

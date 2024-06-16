@@ -7,7 +7,7 @@ const {
   deleteSubtrip,
   addExpenseToSubtrip,
   addMaterialInfo,
-  closeLR,
+  recieveLR,
 } = require("../controllers/subtrip");
 
 const { admin } = require("../middlewares/Auth");
@@ -22,6 +22,6 @@ router.delete("/:id", admin, deleteSubtrip);
 router.post("/:id/expense", addExpenseToSubtrip);
 
 router.put("/:id/material-info", addMaterialInfo); // New route
-router.put("/:id/close", closeLR); // New route
+router.put("/:id/recieve", recieveLR); // New route
 
 module.exports = router;
