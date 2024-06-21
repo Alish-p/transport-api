@@ -41,7 +41,14 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
 const fetchSubtrip = asyncHandler(async (req, res) => {
   const subtrip = await Subtrip.findById(req.params.id)
     .populate("expenses")
-    .populate("routeCd");
+    .populate("routeCd")
+    .populate({
+      path: "tripId",
+      populate: [
+        { path: "driverId", model: "Driver" },
+        { path: "vehicleId", model: "Vehicle" },
+      ],
+    });
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
@@ -96,8 +103,42 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
   res.status(200).json(subtrip);
 });
 
-// Close Subtrip (LR)
+// Recieve Subtrip (LR)
 const recieveLR = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const {
+    unloadingWeight,
+    endDate,
+    endKm,
+    deductedWeight,
+    detentionTime,
+    hasError,
+    remarks,
+  } = req.body;
+
+  const subtrip = await Subtrip.findById(id);
+
+  if (!subtrip) {
+    res.status(404).json({ message: "Subtrip not found" });
+    return;
+  }
+
+  subtrip.unloadingWeight = unloadingWeight;
+  subtrip.endDate = endDate;
+  subtrip.endKm = endKm;
+  subtrip.deductedWeight = deductedWeight;
+  subtrip.detentionTime = detentionTime;
+
+  subtrip.subtripStatus = subtrip.hasError ? "recieved" : "error";
+
+  subtrip.remarks = remarks;
+
+  await subtrip.save();
+
+  res.status(200).json(subtrip);
+});
+
+const CloseSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
     unloadingWeight,
@@ -193,4 +234,5 @@ module.exports = {
   addExpenseToSubtrip,
   addMaterialInfo,
   recieveLR,
+  CloseSubtrip,
 };
