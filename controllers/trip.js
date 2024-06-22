@@ -47,6 +47,7 @@ const fetchTrips = asyncHandler(async (req, res) => {
 // fetch All details of trip
 const fetchTripWithTotals = asyncHandler(async (req, res) => {
   console.log(req.params.id);
+
   const trip = await Trip.findById(req.params.id)
     .populate({
       path: "subtrips",

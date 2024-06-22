@@ -9,14 +9,14 @@ const expenseSchema = new Schema({
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle" },
   date: { type: Date, default: Date.now },
   expenseType: { type: String, required: true },
-  installment: { type: Number, required: true },
+  installment: { type: Number },
   amount: { type: Number, required: true },
   slipNo: { type: String, required: true },
   pumpCd: { type: Schema.Types.ObjectId, ref: "Pump" },
   remarks: { type: String },
   dieselLtr: { type: Number },
   paidThrough: { type: String, required: true },
-  authorisedBy: { type: String, required: true },
+  authorisedBy: { type: String },
 });
 
 // for creating incremental id

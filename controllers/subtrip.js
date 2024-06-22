@@ -40,7 +40,10 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
 // Fetch Single Subtrip
 const fetchSubtrip = asyncHandler(async (req, res) => {
   const subtrip = await Subtrip.findById(req.params.id)
-    .populate("expenses")
+    .populate({
+      path: "expenses",
+      populate: [{ path: "pumpCd", model: "Pump" }],
+    })
     .populate("routeCd")
     .populate({
       path: "tripId",
@@ -74,6 +77,9 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     ewayBill,
     ewayExpiryDate,
     tds,
+    driverAdvance,
+    dieselLtr,
+    pumpCd,
   } = req.body;
 
   const subtrip = await Subtrip.findById(id);
@@ -97,6 +103,38 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
   subtrip.tds = tds;
 
   subtrip.subtripStatus = "Loaded";
+
+  // Create expenses for driverAdvance and dieselLtr
+  const driverAdvanceExpense = new Expense({
+    tripId: subtrip.tripId,
+    subtripId: id,
+    expenseType: "Driver Advance",
+    amount: driverAdvance,
+    paidThrough: "Pump",
+    authorisedBy: "System",
+    slipNo: "N/A",
+    remarks: "Advance paid to driver",
+  });
+
+  const dieselExpense = new Expense({
+    tripId: subtrip.tripId,
+    subtripId: id,
+    expenseType: "Diesel",
+    amount: dieselLtr,
+    dieselLtr: dieselLtr,
+    pumpCd: pumpCd,
+    paidThrough: "Pump",
+    authorisedBy: "System",
+    slipNo: "N/A",
+    remarks: "Advance Diesel purchased",
+  });
+
+  // Save expenses
+  const savedDriverAdvanceExpense = await driverAdvanceExpense.save();
+  const savedDieselExpense = await dieselExpense.save();
+
+  // Add expense IDs to subtrip
+  subtrip.expenses.push(savedDriverAdvanceExpense._id, savedDieselExpense._id);
 
   await subtrip.save();
 
