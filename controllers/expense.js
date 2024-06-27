@@ -11,7 +11,9 @@ const createExpense = asyncHandler(async (req, res) => {
 
 // Fetch Expenses
 const fetchExpenses = asyncHandler(async (req, res) => {
-  const expenses = await Expense.find().populate("pumpCd");
+  const expenses = await Expense.find()
+    .populate("pumpCd")
+    .populate("vehicleId");
   res.status(200).json(expenses);
 });
 

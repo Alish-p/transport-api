@@ -13,7 +13,7 @@ const createTrip = asyncHandler(async (req, res) => {
     const trip = new Trip({
       driverId,
       vehicleId,
-      tripStatus,
+      tripStatus: "pending",
       fromDate,
       toDate,
       remarks,
