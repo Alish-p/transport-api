@@ -33,7 +33,13 @@ const createSubtrip = asyncHandler(async (req, res) => {
 const fetchSubtrips = asyncHandler(async (req, res) => {
   const subtrips = await Subtrip.find()
     .populate("expenses")
-    .populate("routeCd");
+    .populate("routeCd")
+    .populate({
+      path: "tripId",
+      populate: {
+        path: "vehicleId",
+      },
+    });
   res.status(200).json(subtrips);
 });
 
