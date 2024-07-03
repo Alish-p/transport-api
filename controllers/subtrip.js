@@ -19,7 +19,7 @@ const createSubtrip = asyncHandler(async (req, res) => {
   const subtrip = new Subtrip({
     ...req.body,
     tripId,
-    subtripStatus: "In-queue",
+    subtripStatus: "in-queue",
   });
   const newSubtrip = await subtrip.save();
 
@@ -86,6 +86,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     driverAdvance,
     dieselLtr,
     pumpCd,
+    vehicleId,
   } = req.body;
 
   const subtrip = await Subtrip.findById(id);
@@ -108,24 +109,25 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
   subtrip.grade = grade;
   subtrip.tds = tds;
 
-  subtrip.subtripStatus = "Loaded";
+  subtrip.subtripStatus = "loaded";
 
   // Create expenses for driverAdvance and dieselLtr
   const driverAdvanceExpense = new Expense({
     tripId: subtrip.tripId,
     subtripId: id,
-    expenseType: "Driver Advance",
+    expenseType: "trip-advance",
     amount: driverAdvance,
     paidThrough: "Pump",
     authorisedBy: "System",
     slipNo: "N/A",
     remarks: "Advance paid to driver",
+    vehicleId: vehicleId,
   });
 
   const dieselExpense = new Expense({
     tripId: subtrip.tripId,
     subtripId: id,
-    expenseType: "Diesel",
+    expenseType: "diesel",
     amount: dieselLtr,
     dieselLtr: dieselLtr,
     pumpCd: pumpCd,
@@ -133,6 +135,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     authorisedBy: "System",
     slipNo: "N/A",
     remarks: "Advance Diesel purchased",
+    vehicleId: vehicleId,
   });
 
   // Save expenses
@@ -142,13 +145,13 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
   // Add expense IDs to subtrip
   subtrip.expenses.push(savedDriverAdvanceExpense._id, savedDieselExpense._id);
 
-  await subtrip.save();
+  const updated = await subtrip.save();
 
-  res.status(200).json(subtrip);
+  res.status(200).json(updated);
 });
 
-// Recieve Subtrip (LR)
-const recieveLR = asyncHandler(async (req, res) => {
+// received Subtrip (LR)
+const receiveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
     unloadingWeight,
@@ -173,7 +176,30 @@ const recieveLR = asyncHandler(async (req, res) => {
   subtrip.deductedWeight = deductedWeight;
   subtrip.detentionTime = detentionTime;
 
-  subtrip.subtripStatus = subtrip.hasError ? "recieved" : "error";
+  subtrip.subtripStatus = hasError ? "error" : "received";
+
+  subtrip.remarks = remarks;
+
+  await subtrip.save();
+
+  res.status(200).json(subtrip);
+});
+
+// received Subtrip (LR)
+const resolveLR = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { hasError, remarks } = req.body;
+
+  const subtrip = await Subtrip.findById(id);
+
+  if (!subtrip) {
+    res.status(404).json({ message: "Subtrip not found" });
+    return;
+  }
+
+  subtrip.hasError = hasError;
+
+  subtrip.subtripStatus = "received";
 
   subtrip.remarks = remarks;
 
@@ -184,15 +210,6 @@ const recieveLR = asyncHandler(async (req, res) => {
 
 const CloseSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const {
-    unloadingWeight,
-    endDate,
-    endKm,
-    deductedWeight,
-    detentionTime,
-    hasError,
-    remarks,
-  } = req.body;
 
   const subtrip = await Subtrip.findById(id);
 
@@ -201,16 +218,7 @@ const CloseSubtrip = asyncHandler(async (req, res) => {
     return;
   }
 
-  subtrip.unloadingWeight = unloadingWeight;
-  subtrip.endDate = endDate;
-  subtrip.endKm = endKm;
-  subtrip.deductedWeight = deductedWeight;
-  subtrip.detentionTime = detentionTime;
-
-  subtrip.subtripStatus = subtrip.hasError ? "recieved" : "error";
-
-  subtrip.remarks = remarks;
-
+  subtrip.subtripStatus = "closed";
   await subtrip.save();
 
   res.status(200).json(subtrip);
@@ -277,6 +285,7 @@ module.exports = {
   deleteSubtrip,
   addExpenseToSubtrip,
   addMaterialInfo,
-  recieveLR,
+  receiveLR,
+  resolveLR,
   CloseSubtrip,
 };
