@@ -5,7 +5,7 @@ const CounterModel = require("./Counter");
 const subtripSchema = new Schema({
   _id: { type: String, immutable: true, unique: true },
   routeCd: { type: Schema.Types.ObjectId, ref: "Route", required: true },
-  customerId: { type: String, required: true },
+  customerId: { type: String, required: true, ref: "Customer" },
   loadingPoint: { type: String, required: true },
   unloadingPoint: { type: String, required: true },
   loadingWeight: { type: Number },
@@ -18,6 +18,7 @@ const subtripSchema = new Schema({
   subtripStatus: { type: String },
   invoiceNo: { type: String },
   shipmentNo: { type: String },
+  consignee: { type: String },
   orderNo: { type: String },
   ewayBill: { type: String },
   ewayExpiryDate: { type: Date },

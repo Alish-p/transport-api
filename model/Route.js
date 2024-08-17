@@ -15,7 +15,6 @@ const routeSchema = new Schema({
   fixMilage: { type: Number, required: true },
   performanceMilage: { type: Number, required: true },
   ratePerTon: { type: Number, required: true },
-  salary: { type: Number, required: true },
   salaryPercentage: { type: Number, required: true },
   distance: { type: Number, required: true },
   validFromDate: { type: Date, required: true },

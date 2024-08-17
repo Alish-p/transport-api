@@ -34,6 +34,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
   const subtrips = await Subtrip.find()
     .populate("expenses")
     .populate("routeCd")
+    .populate("customerId")
     .populate({
       path: "tripId",
       populate: {
@@ -51,6 +52,7 @@ const fetchSubtrip = asyncHandler(async (req, res) => {
       populate: [{ path: "pumpCd", model: "Pump" }],
     })
     .populate("routeCd")
+    .populate("customerId")
     .populate({
       path: "tripId",
       populate: [
@@ -277,6 +279,24 @@ const addExpenseToSubtrip = asyncHandler(async (req, res) => {
   res.status(201).json(newExpense);
 });
 
+// Billings
+
+const fetchClosedTripsByCustomerAndDate = asyncHandler(async (req, res) => {
+  console.log("Fetch closed trips");
+  const { customerId, fromDate, toDate } = req.body;
+
+  const closedSubtrips = await Subtrip.find({
+    subtripStatus: "closed",
+    customerId,
+    startDate: {
+      $gte: new Date(fromDate),
+      $lte: new Date(toDate),
+    },
+  });
+
+  res.status(200).json(closedSubtrips);
+});
+
 module.exports = {
   createSubtrip,
   fetchSubtrips,
@@ -288,4 +308,7 @@ module.exports = {
   receiveLR,
   resolveLR,
   CloseSubtrip,
+
+  // billing
+  fetchClosedTripsByCustomerAndDate,
 };
