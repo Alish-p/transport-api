@@ -21,11 +21,13 @@ const loginUser = asyncHandler(async (req, res) => {
 
   if (user && matched) {
     res.status(200).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      isAdmin: user.isAdmin,
-      token: generateToken(user._id),
+      accessToken: generateToken(user._id),
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   } else {
     res.status(400).json({ message: "Invalid Credentials" });
@@ -33,7 +35,7 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const getUser = asyncHandler(async (req, res) => {
-  res.status(200).json(req.user);
+  res.status(200).json({ user: req.user });
 });
 
 module.exports = {
