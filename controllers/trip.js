@@ -32,7 +32,10 @@ const createTrip = asyncHandler(async (req, res) => {
 // Fetch Trips
 const fetchTrips = asyncHandler(async (req, res) => {
   const trips = await Trip.find()
-    .populate("subtrips")
+    .populate({
+      path: "subtrips",
+      populate: [{ path: "customerId", model: "Customer" }],
+    })
     .populate({
       path: "driverId",
       select: "driverName",
@@ -46,12 +49,14 @@ const fetchTrips = asyncHandler(async (req, res) => {
 
 // fetch All details of trip
 const fetchTripWithTotals = asyncHandler(async (req, res) => {
-  console.log(req.params.id);
-
   const trip = await Trip.findById(req.params.id)
     .populate({
       path: "subtrips",
-      populate: [{ path: "expenses" }, { path: "routeCd" }],
+      populate: [
+        { path: "expenses" },
+        { path: "routeCd" },
+        { path: "customerId" },
+      ],
     })
     .populate({
       path: "vehicleId",
@@ -97,12 +102,50 @@ const fetchTripWithTotals = asyncHandler(async (req, res) => {
   });
 });
 
+// Update Trip and Close it
+const closeTrip = asyncHandler(async (req, res) => {
+  const tripId = req.params.id;
+
+  // Find the trip by ID and update it
+  const trip = await Trip.findByIdAndUpdate(
+    tripId,
+    {
+      tripStatus: "closed",
+      toDate: new Date(), // Set the toDate to the current date
+    },
+    { new: true } // Return the updated document
+  );
+
+  if (!trip) {
+    res.status(404);
+    throw new Error("Trip not found");
+  }
+
+  res.status(200).json(trip);
+});
+
+// Update Trip
 // Update Trip
 const updateTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-  });
-  res.status(200).json(trip);
+  try {
+    const trip = await Trip.findById(req.params.id);
+
+    if (!trip) {
+      res.status(404);
+      throw new Error("Trip not found");
+    }
+
+    const updatedTrip = await Trip.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json(updatedTrip);
+  } catch (error) {
+    console.error(error);
+    res.status(500);
+    throw new Error("Error updating trip");
+  }
 });
 
 // Delete Trip and Associated Subtrips and Expenses
@@ -147,6 +190,7 @@ module.exports = {
   createTrip,
   fetchTrips,
   fetchTripWithTotals,
+  closeTrip,
   updateTrip,
   deleteTrip,
   addSubtripToTrip,

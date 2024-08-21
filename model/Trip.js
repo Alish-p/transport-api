@@ -8,7 +8,7 @@ const tripSchema = new Schema({
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   tripStatus: { type: String, required: true },
   fromDate: { type: Date, required: true },
-  toDate: { type: Date, required: true },
+  toDate: { type: Date },
   remarks: { type: String },
   subtrips: [{ type: String, ref: "Subtrip" }],
 });

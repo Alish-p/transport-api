@@ -91,7 +91,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     vehicleId,
   } = req.body;
 
-  const subtrip = await Subtrip.findById(id);
+  const subtrip = await Subtrip.findById(id).populate("customerId");
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
@@ -165,7 +165,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     remarks,
   } = req.body;
 
-  const subtrip = await Subtrip.findById(id);
+  const subtrip = await Subtrip.findById(id).populate("customerId");
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
@@ -192,7 +192,7 @@ const resolveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { hasError, remarks } = req.body;
 
-  const subtrip = await Subtrip.findById(id);
+  const subtrip = await Subtrip.findById(id).populate("customerId");
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
@@ -213,7 +213,7 @@ const resolveLR = asyncHandler(async (req, res) => {
 const CloseSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const subtrip = await Subtrip.findById(id);
+  const subtrip = await Subtrip.findById(id).populate("customerId");
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
@@ -259,7 +259,7 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
 // Add Expense to Subtrip
 const addExpenseToSubtrip = asyncHandler(async (req, res) => {
   const subtripId = req.params.id;
-  const subtrip = await Subtrip.findById(subtripId);
+  const subtrip = await Subtrip.findById(subtripId).populate("customerId");
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });

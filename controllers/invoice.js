@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Invoice = require("../model/Invoice");
+const Subtrip = require("../model/Subtrip");
 
 const createInvoice = asyncHandler(async (req, res) => {
   const { subtrips } = req.body;
