@@ -4,18 +4,20 @@ const { Schema, model } = require("mongoose");
 const routeSchema = new Schema({
   routeName: { type: String, required: true },
   tollAmt: { type: Number, required: true },
-  advanceAmt: { type: Number, required: true },
-  diesel: { type: Number, required: true },
-  adBlue: { type: Number, required: true },
   fromPlace: { type: String, required: true }, // mudhol
   toPlace: { type: String, required: true },
   noOfDays: { type: Number, required: true },
-  driverSalary: { type: Number, required: true },
+  salary: [
+    {
+      vehicleType: { type: String, required: true },
+      fixedSalary: { type: Number, required: true },
+      percentageSalary: { type: Number, required: true },
+      fixMilage: { type: Number, required: true },
+      performanceMilage: { type: Number, required: true },
+    },
+  ],
   tripType: { type: String, required: true },
-  fixMilage: { type: Number, required: true },
-  performanceMilage: { type: Number, required: true },
   ratePerTon: { type: Number, required: true },
-  salaryPercentage: { type: Number, required: true },
   distance: { type: Number, required: true },
   validFromDate: { type: Date, required: true },
   transportType: { type: String, required: true },

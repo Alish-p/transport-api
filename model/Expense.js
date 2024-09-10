@@ -4,18 +4,24 @@ const CounterModel = require("./Counter");
 // Expense Schema
 const expenseSchema = new Schema({
   _id: { type: String, immutable: true, unique: true },
-  tripId: { type: String, ref: "Trip", required: true },
-  subtripId: { type: String, ref: "Subtrip", required: true },
+  tripId: { type: String, ref: "Trip" },
+  subtripId: { type: String, ref: "Subtrip" },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle" },
   date: { type: Date, default: Date.now },
+  expenseCategory: {
+    type: String,
+    enum: ["vehicle", "subtrip"],
+    required: true,
+  },
   expenseType: { type: String, required: true },
   installment: { type: Number },
   amount: { type: Number, required: true },
   slipNo: { type: String, required: true },
   pumpCd: { type: Schema.Types.ObjectId, ref: "Pump", default: null },
   remarks: { type: String },
-  dieselLtr: { type: Number },
-  paidThrough: { type: String, required: true },
+  fuelLtr: { type: Number },
+  fuelRate: { type: Number },
+  paidThrough: { type: String },
   authorisedBy: { type: String },
 });
 

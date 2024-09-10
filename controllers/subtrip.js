@@ -118,6 +118,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     tripId: subtrip.tripId,
     subtripId: id,
     expenseType: "trip-advance",
+    expenseCategory: "subtrip",
     amount: driverAdvance,
     paidThrough: "Pump",
     authorisedBy: "System",
@@ -130,6 +131,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     tripId: subtrip.tripId,
     subtripId: id,
     expenseType: "diesel",
+    expenseCategory: "subtrip",
     amount: dieselLtr,
     dieselLtr: dieselLtr,
     pumpCd: pumpCd,
@@ -270,6 +272,7 @@ const addExpenseToSubtrip = asyncHandler(async (req, res) => {
     ...req.body,
     subtripId,
     tripId: subtrip.tripId,
+    expenseCategory: "subtrip",
   });
   const newExpense = await expense.save();
 
