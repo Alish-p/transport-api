@@ -36,7 +36,15 @@ const fetchInvoices = asyncHandler(async (req, res) => {
 const fetchInvoice = asyncHandler(async (req, res) => {
   const invoice = await Invoice.findById(req.params.id)
     .populate("customerId")
-    .populate("subtrips");
+    .populate({
+      path: "subtrips",
+      populate: {
+        path: "tripId",
+        populate: {
+          path: "vehicleId",
+        },
+      },
+    });
 
   if (!invoice) {
     res.status(404).json({ message: "Invoice not found" });

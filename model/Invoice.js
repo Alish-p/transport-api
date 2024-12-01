@@ -6,9 +6,10 @@ const invoiceSchema = new Schema({
   _id: { type: String, immutable: true, unique: true },
   customerId: { type: String, required: true, ref: "Customer" },
   invoiceStatus: { type: String, required: true },
-  createdDate: { type: Date, required: true },
+  createdDate: { type: Date, default: Date.now },
   dueDate: { type: Date },
   subtrips: [{ type: String, ref: "Subtrip" }],
+  totalAmount: { type: Number },
 });
 
 // for creating incremental id

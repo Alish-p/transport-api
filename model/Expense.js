@@ -16,7 +16,7 @@ const expenseSchema = new Schema({
   expenseType: { type: String, required: true },
   installment: { type: Number },
   amount: { type: Number, required: true },
-  slipNo: { type: String, required: true },
+  slipNo: { type: String },
   pumpCd: { type: Schema.Types.ObjectId, ref: "Pump", default: null },
   remarks: { type: String },
   fuelLtr: { type: Number },

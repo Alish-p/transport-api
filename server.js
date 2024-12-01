@@ -17,6 +17,8 @@ const routeRouter = require("./routes/route");
 const tripRouter = require("./routes/trip");
 const expenseRouter = require("./routes/expense");
 const invoiceRouter = require("./routes/invoice");
+const driverSalaryRouter = require("./routes/driverSalary");
+
 const lrRouter = require("./routes/lr");
 const accountRouter = require("./routes/user");
 
@@ -37,6 +39,7 @@ app.use("/api/trips", tripRouter);
 app.use("/api/subtrips", lrRouter);
 app.use("/api/expenses", expenseRouter);
 app.use("/api/invoices", invoiceRouter);
+app.use("/api/driverPayroll", driverSalaryRouter);
 
 // authentication
 app.use("/api/account", accountRouter);

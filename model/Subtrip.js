@@ -29,6 +29,9 @@ const subtripSchema = new Schema({
   tds: { type: Number },
   deductedWeight: { type: Number },
   hasError: { type: Boolean, default: false },
+  initialDiesel: {
+    type: Schema.Types.Mixed, // Can accept Number or FULL
+  },
   tripId: { type: String, ref: "Trip", required: true },
   expenses: [{ type: String, ref: "Expense" }],
 });

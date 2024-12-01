@@ -11,6 +11,7 @@ const {
   CloseSubtrip,
   resolveLR,
   fetchClosedTripsByCustomerAndDate,
+  fetchTripsCompletedByDriverAndDate,
 } = require("../controllers/subtrip");
 
 const { admin } = require("../middlewares/Auth");
@@ -20,6 +21,11 @@ const router = Router();
 router.post(
   "/fetchClosedTripsByCustomerAndDate",
   fetchClosedTripsByCustomerAndDate
+);
+// Billing
+router.post(
+  "/fetchTripsCompletedByDriverAndDate",
+  fetchTripsCompletedByDriverAndDate
 );
 
 router.post("/:tripId", createSubtrip);

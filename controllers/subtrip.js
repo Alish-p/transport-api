@@ -91,7 +91,20 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     vehicleId,
   } = req.body;
 
-  const subtrip = await Subtrip.findById(id).populate("customerId");
+  const subtrip = await Subtrip.findById(id)
+    .populate({
+      path: "expenses",
+      populate: [{ path: "pumpCd", model: "Pump" }],
+    })
+    .populate("routeCd")
+    .populate("customerId")
+    .populate({
+      path: "tripId",
+      populate: [
+        { path: "driverId", model: "Driver" },
+        { path: "vehicleId", model: "Vehicle" },
+      ],
+    });
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
@@ -110,6 +123,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
   subtrip.quantity = quantity;
   subtrip.grade = grade;
   subtrip.tds = tds;
+  subtrip.initialDiesel = dieselLtr;
 
   subtrip.subtripStatus = "loaded";
 
@@ -125,29 +139,30 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     slipNo: "N/A",
     remarks: "Advance paid to driver",
     vehicleId: vehicleId,
+    pumpCd: pumpCd,
   });
 
-  const dieselExpense = new Expense({
-    tripId: subtrip.tripId,
-    subtripId: id,
-    expenseType: "diesel",
-    expenseCategory: "subtrip",
-    amount: dieselLtr,
-    dieselLtr: dieselLtr,
-    pumpCd: pumpCd,
-    paidThrough: "Pump",
-    authorisedBy: "System",
-    slipNo: "N/A",
-    remarks: "Advance Diesel purchased",
-    vehicleId: vehicleId,
-  });
+  // const dieselExpense = new Expense({
+  //   tripId: subtrip.tripId,
+  //   subtripId: id,
+  //   expenseType: "diesel",
+  //   expenseCategory: "subtrip",
+  //   amount: dieselLtr,
+  //   dieselLtr: dieselLtr,
+  //   pumpCd: pumpCd,
+  //   paidThrough: "Pump",
+  //   authorisedBy: "System",
+  //   slipNo: "N/A",
+  //   remarks: "Advance Diesel purchased",
+  //   vehicleId: vehicleId,
+  // });
 
   // Save expenses
   const savedDriverAdvanceExpense = await driverAdvanceExpense.save();
-  const savedDieselExpense = await dieselExpense.save();
+  // const savedDieselExpense = await dieselExpense.save();
 
   // Add expense IDs to subtrip
-  subtrip.expenses.push(savedDriverAdvanceExpense._id, savedDieselExpense._id);
+  subtrip.expenses.push(savedDriverAdvanceExpense._id);
 
   const updated = await subtrip.save();
 
@@ -167,7 +182,20 @@ const receiveLR = asyncHandler(async (req, res) => {
     remarks,
   } = req.body;
 
-  const subtrip = await Subtrip.findById(id).populate("customerId");
+  const subtrip = await Subtrip.findById(id)
+    .populate({
+      path: "expenses",
+      populate: [{ path: "pumpCd", model: "Pump" }],
+    })
+    .populate("routeCd")
+    .populate("customerId")
+    .populate({
+      path: "tripId",
+      populate: [
+        { path: "driverId", model: "Driver" },
+        { path: "vehicleId", model: "Vehicle" },
+      ],
+    });
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
@@ -194,8 +222,20 @@ const resolveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { hasError, remarks } = req.body;
 
-  const subtrip = await Subtrip.findById(id).populate("customerId");
-
+  const subtrip = await Subtrip.findById(id)
+    .populate({
+      path: "expenses",
+      populate: [{ path: "pumpCd", model: "Pump" }],
+    })
+    .populate("routeCd")
+    .populate("customerId")
+    .populate({
+      path: "tripId",
+      populate: [
+        { path: "driverId", model: "Driver" },
+        { path: "vehicleId", model: "Vehicle" },
+      ],
+    });
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
     return;
@@ -215,7 +255,20 @@ const resolveLR = asyncHandler(async (req, res) => {
 const CloseSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const subtrip = await Subtrip.findById(id).populate("customerId");
+  const subtrip = await Subtrip.findById(id)
+    .populate({
+      path: "expenses",
+      populate: [{ path: "pumpCd", model: "Pump" }],
+    })
+    .populate("routeCd")
+    .populate("customerId")
+    .populate({
+      path: "tripId",
+      populate: [
+        { path: "driverId", model: "Driver" },
+        { path: "vehicleId", model: "Vehicle" },
+      ],
+    });
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
@@ -261,7 +314,20 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
 // Add Expense to Subtrip
 const addExpenseToSubtrip = asyncHandler(async (req, res) => {
   const subtripId = req.params.id;
-  const subtrip = await Subtrip.findById(subtripId).populate("customerId");
+  const subtrip = await Subtrip.findById(subtripId)
+    .populate({
+      path: "expenses",
+      populate: [{ path: "pumpCd", model: "Pump" }],
+    })
+    .populate("routeCd")
+    .populate("customerId")
+    .populate({
+      path: "tripId",
+      populate: [
+        { path: "driverId", model: "Driver" },
+        { path: "vehicleId", model: "Vehicle" },
+      ],
+    });
 
   if (!subtrip) {
     res.status(404).json({ message: "Subtrip not found" });
@@ -295,9 +361,43 @@ const fetchClosedTripsByCustomerAndDate = asyncHandler(async (req, res) => {
       $gte: new Date(fromDate),
       $lte: new Date(toDate),
     },
-  });
+  })
+    .populate("routeCd")
+    .populate({
+      path: "tripId",
+      populate: {
+        path: "vehicleId",
+      },
+    });
 
   res.status(200).json(closedSubtrips);
+});
+
+// DriverSalary
+const fetchTripsCompletedByDriverAndDate = asyncHandler(async (req, res) => {
+  console.log("Fetch completed trips by driver and date range");
+  const { driverId, fromDate, toDate } = req.body;
+
+  const completedTrips = await Subtrip.find({
+    subtripStatus: "closed",
+    startDate: {
+      $gte: new Date(fromDate),
+      $lte: new Date(toDate),
+    },
+  })
+    .populate({
+      path: "tripId",
+      match: { driverId },
+      populate: {
+        path: "vehicleId",
+      },
+    })
+    .populate("routeCd");
+
+  // Filter out any null values in the result if no trip matches the driverId
+  const filteredTrips = completedTrips.filter((subtrip) => subtrip.tripId);
+
+  res.status(200).json(filteredTrips);
 });
 
 module.exports = {
@@ -314,4 +414,5 @@ module.exports = {
 
   // billing
   fetchClosedTripsByCustomerAndDate,
+  fetchTripsCompletedByDriverAndDate,
 };
