@@ -89,8 +89,10 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     dieselLtr,
     pumpCd,
     vehicleId,
+    consignee,
   } = req.body;
 
+  // Fetch the subtrip with all necessary populates
   const subtrip = await Subtrip.findById(id)
     .populate({
       path: "expenses",
@@ -107,27 +109,29 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     });
 
   if (!subtrip) {
-    res.status(404).json({ message: "Subtrip not found" });
-    return;
+    return res.status(404).json({ message: "Subtrip not found" });
   }
 
-  subtrip.loadingWeight = loadingWeight;
-  subtrip.startKm = startKm;
-  subtrip.rate = rate;
-  subtrip.invoiceNo = invoiceNo;
-  subtrip.shipmentNo = shipmentNo;
-  subtrip.orderNo = orderNo;
-  subtrip.ewayBill = ewayBill;
-  subtrip.ewayExpiryDate = ewayExpiryDate;
-  subtrip.materialType = materialType;
-  subtrip.quantity = quantity;
-  subtrip.grade = grade;
-  subtrip.tds = tds;
-  subtrip.initialDiesel = dieselLtr;
+  // Update subtrip fields
+  Object.assign(subtrip, {
+    loadingWeight,
+    startKm,
+    rate,
+    invoiceNo,
+    shipmentNo,
+    orderNo,
+    ewayBill,
+    ewayExpiryDate,
+    materialType,
+    quantity,
+    grade,
+    tds,
+    initialDiesel: dieselLtr,
+    consignee,
+    subtripStatus: "loaded",
+  });
 
-  subtrip.subtripStatus = "loaded";
-
-  // Create expenses for driverAdvance and dieselLtr
+  // Create driver advance expense
   const driverAdvanceExpense = new Expense({
     tripId: subtrip.tripId,
     subtripId: id,
@@ -142,31 +146,33 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     pumpCd: pumpCd,
   });
 
-  // const dieselExpense = new Expense({
-  //   tripId: subtrip.tripId,
-  //   subtripId: id,
-  //   expenseType: "diesel",
-  //   expenseCategory: "subtrip",
-  //   amount: dieselLtr,
-  //   dieselLtr: dieselLtr,
-  //   pumpCd: pumpCd,
-  //   paidThrough: "Pump",
-  //   authorisedBy: "System",
-  //   slipNo: "N/A",
-  //   remarks: "Advance Diesel purchased",
-  //   vehicleId: vehicleId,
-  // });
-
-  // Save expenses
+  // Save the driver advance expense
   const savedDriverAdvanceExpense = await driverAdvanceExpense.save();
-  // const savedDieselExpense = await dieselExpense.save();
 
-  // Add expense IDs to subtrip
+  // Add the new expense to the subtrip's expenses
   subtrip.expenses.push(savedDriverAdvanceExpense._id);
 
-  const updated = await subtrip.save();
+  // Save the updated subtrip
+  await subtrip.save();
 
-  res.status(200).json(updated);
+  // Re-fetch the updated subtrip with all populates
+  const updatedSubtrip = await Subtrip.findById(id)
+    .populate({
+      path: "expenses",
+      populate: [{ path: "pumpCd", model: "Pump" }],
+    })
+    .populate("routeCd")
+    .populate("customerId")
+    .populate({
+      path: "tripId",
+      populate: [
+        { path: "driverId", model: "Driver" },
+        { path: "vehicleId", model: "Vehicle" },
+      ],
+    });
+
+  // Return the fully populated subtrip
+  res.status(200).json(updatedSubtrip);
 });
 
 // received Subtrip (LR)
