@@ -398,7 +398,8 @@ const fetchTripsCompletedByDriverAndDate = asyncHandler(async (req, res) => {
         path: "vehicleId",
       },
     })
-    .populate("routeCd");
+    .populate("routeCd")
+    .populate("expenses");
 
   // Filter out any null values in the result if no trip matches the driverId
   const filteredTrips = completedTrips.filter((subtrip) => subtrip.tripId);

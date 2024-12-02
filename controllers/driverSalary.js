@@ -57,6 +57,9 @@ const fetchDriverSalary = asyncHandler(async (req, res) => {
         {
           path: "routeCd",
         },
+        {
+          path: "expenses",
+        },
       ],
     });
 
