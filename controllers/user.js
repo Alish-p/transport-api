@@ -4,11 +4,11 @@ const { generateToken } = require("../Utils/generateToken");
 
 const registerUser = asyncHandler(async (req, res) => {
   const user = new UserModel({ ...req.body });
-  const { _id, name, email, isAdmin } = await user.save();
+  const { _id, displayName, email, isAdmin } = await user.save();
 
   res.status(201).json({
     _id,
-    name,
+    displayName,
     email,
     isAdmin,
     token: generateToken(_id),
@@ -24,7 +24,7 @@ const loginUser = asyncHandler(async (req, res) => {
       accessToken: generateToken(user._id),
       user: {
         _id: user._id,
-        name: user.name,
+        displayName: user.displayName,
         email: user.email,
         role: user.role,
       },
