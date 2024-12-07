@@ -17,8 +17,7 @@ const driverSchema = new Schema({
   dlImage: { type: String },
   photoImage: { type: String },
   aadharImage: { type: String },
-  bankCd: { type: String, required: true },
-  accNo: { type: String, required: true },
+  bankDetails: { type: Schema.Types.ObjectId, ref: "Bank" },
 });
 
 module.exports = model("Driver", driverSchema);

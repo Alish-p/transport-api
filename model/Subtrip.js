@@ -4,10 +4,10 @@ const CounterModel = require("./Counter");
 // subtrip Schema
 const subtripSchema = new Schema({
   _id: { type: String, immutable: true, unique: true },
-  routeCd: { type: Schema.Types.ObjectId, ref: "Route", required: true },
+  routeCd: { type: Schema.Types.ObjectId, ref: "Route" },
   customerId: { type: String, required: true, ref: "Customer" },
-  loadingPoint: { type: String, required: true },
-  unloadingPoint: { type: String, required: true },
+  loadingPoint: { type: String },
+  unloadingPoint: { type: String },
   loadingWeight: { type: Number },
   unloadingWeight: { type: Number },
   startDate: { type: Date, required: true },
@@ -34,6 +34,14 @@ const subtripSchema = new Schema({
   },
   tripId: { type: String, ref: "Trip", required: true },
   expenses: [{ type: String, ref: "Expense" }],
+
+  events: [
+    {
+      eventType: String, // e.g., "CREATED", "MATERIAL_ADDED", "RECEIVED"
+      timestamp: Date,
+      details: Schema.Types.Mixed, // additional info, if needed
+    },
+  ],
 });
 
 // for creating incremental id
@@ -53,6 +61,30 @@ subtripSchema.pre("save", async function (next) {
   } catch (error) {
     return next(error);
   }
+});
+
+// for locking once subtrip is closed
+subtripSchema.pre("save", function (next) {
+  // If no modifications, proceed
+
+  console.log({
+    modi: this.isModified("subtripStatus"),
+    current: this.subtripStatus,
+  });
+
+  if (!this.isModified()) return next();
+
+  // Allow updates only for transitioning to "closed"
+  if (this.isModified("subtripStatus") && this.subtripStatus === "closed") {
+    return next(); // Transition to "closed" is allowed
+  }
+
+  // If the subtrip is already closed, block further modifications
+  if (this.subtripStatus === "closed") {
+    return next(new Error("Closed subtrips cannot be modified."));
+  }
+
+  next(); // Allow other modifications
 });
 
 module.exports = model("Subtrip", subtripSchema);

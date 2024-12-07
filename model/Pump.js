@@ -11,6 +11,7 @@ const pumpSchema = new Schema({
   district: { type: String, required: true },
   contactPerson: { type: String, required: true },
   address: { type: String, required: true },
+  bankDetails: { type: Schema.Types.ObjectId, ref: "Bank" },
 });
 
 module.exports = model("Pump", pumpSchema);
