@@ -11,7 +11,13 @@ const pumpSchema = new Schema({
   district: { type: String, required: true },
   contactPerson: { type: String, required: true },
   address: { type: String, required: true },
-  bankDetails: { type: Schema.Types.ObjectId, ref: "Bank" },
+  bankDetails: {
+    bankCd: { type: String, required: true },
+    bankBranch: { type: String, required: true },
+    ifscCode: { type: String, required: true },
+    place: { type: String },
+    accNo: { type: String, required: true },
+  },
 });
 
 module.exports = model("Pump", pumpSchema);

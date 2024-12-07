@@ -18,7 +18,13 @@ const CustomerSchema = new Schema({
       pinCode: { type: String, required: true },
     },
   ],
-  bankDetails: { type: Schema.Types.ObjectId, ref: "Bank" },
+  bankDetails: {
+    bankCd: { type: String, required: true },
+    bankBranch: { type: String, required: true },
+    ifscCode: { type: String, required: true },
+    place: { type: String },
+    accNo: { type: String, required: true },
+  },
 });
 
 module.exports = model("Customer", CustomerSchema);

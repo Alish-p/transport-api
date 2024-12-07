@@ -16,7 +16,13 @@ const transporterSchema = new Schema({
   transportType: { type: String, required: true },
   agreementNo: { type: String, required: true },
   tdsPercentage: { type: Number, required: true },
-  bankDetails: { type: Schema.Types.ObjectId, ref: "Bank" },
+  bankDetails: {
+    bankCd: { type: String, required: true },
+    bankBranch: { type: String, required: true },
+    ifscCode: { type: String, required: true },
+    place: { type: String },
+    accNo: { type: String, required: true },
+  },
 });
 
 module.exports = model("Transporter", transporterSchema);
