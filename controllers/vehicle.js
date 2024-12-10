@@ -3,6 +3,11 @@ const Vehicle = require("../model/Vehicle");
 
 // Create Vehicle
 const createVehicle = asyncHandler(async (req, res) => {
+  // Ensure transporter is null if the vehicle is owned
+  if (req.body.isOwn) {
+    req.body.transporter = null;
+  }
+
   const vehicle = new Vehicle({ ...req.body });
   const newVehicle = await vehicle.save();
 
@@ -21,6 +26,11 @@ const fetchVehicles = asyncHandler(async (req, res) => {
 // Update Vehicle
 const updateVehicle = asyncHandler(async (req, res) => {
   const id = req.params.id;
+
+  // Ensure transporter is null if the vehicle is owned
+  if (req.body.isOwn) {
+    req.body.transporter = null;
+  }
   const vehicle = await Vehicle.findByIdAndUpdate(id, req.body, { new: true });
 
   res.status(200).json(vehicle);

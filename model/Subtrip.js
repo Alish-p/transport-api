@@ -25,9 +25,10 @@ const subtripSchema = new Schema({
   materialType: { type: String },
   quantity: { type: Number },
   grade: { type: String },
-  detentionTime: { type: Number },
+  diNumber: { type: String },
   tds: { type: Number },
   deductedWeight: { type: Number },
+  deductedAmount: { type: Number },
   hasError: { type: Boolean, default: false },
   initialDiesel: {
     type: Schema.Types.Mixed, // Can accept Number or FULL

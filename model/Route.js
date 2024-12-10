@@ -19,11 +19,9 @@ const routeSchema = new Schema({
       advanceAmt: { type: Number, required: true },
     },
   ],
-  tripType: { type: String, required: true },
   ratePerTon: { type: Number, required: true },
   distance: { type: Number, required: true },
   validFromDate: { type: Date, required: true },
-  transportType: { type: String, required: true },
   validTillDate: { type: Date, required: true },
 });
 
