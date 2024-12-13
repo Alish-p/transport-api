@@ -16,6 +16,7 @@ const driverSchema = new Schema({
   dlImage: { type: String },
   photoImage: { type: String },
   aadharImage: { type: String },
+  isActive: { type: Boolean, default: true },
   bankDetails: {
     bankCd: { type: String, required: true },
     bankBranch: { type: String, required: true },
