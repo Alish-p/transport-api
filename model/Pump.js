@@ -12,10 +12,10 @@ const pumpSchema = new Schema({
   contactPerson: { type: String, required: true },
   address: { type: String, required: true },
   bankDetails: {
-    bankCd: { type: String, required: true },
-    bankBranch: { type: String, required: true },
-    ifscCode: { type: String, required: true },
-    place: { type: String },
+    name: { type: String, required: true },
+    branch: { type: String, required: true },
+    ifsc: { type: String, required: true },
+    place: { type: String, required: true },
     accNo: { type: String, required: true },
   },
 });
