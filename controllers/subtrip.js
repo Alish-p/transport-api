@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
+const Vehicle = require("../model/Vehicle");
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) => {
@@ -372,6 +373,70 @@ const fetchTripsCompletedByDriverAndDate = asyncHandler(async (req, res) => {
   }
 });
 
+const fetchClosedSubtripsByTransporterAndDate = asyncHandler(
+  async (req, res) => {
+    const { transporterId, fromDate, toDate } = req.body;
+
+    try {
+      // Fetch vehicles that belong to the transporter (isOwn false or matching transporterId)
+      const vehicles = await Vehicle.find({
+        $or: [{ isOwn: false, transporter: transporterId }, { isOwn: true }],
+      }).select("_id");
+
+      if (!vehicles.length) {
+        return res.status(404).json({
+          message: "No vehicles found for the specified transporter.",
+        });
+      }
+
+      // Fetch trips for these vehicles
+      const trips = await Trip.find({
+        vehicleId: { $in: vehicles.map((v) => v._id) },
+      })
+        .select("_id")
+        .populate("vehicleId");
+
+      if (!trips.length) {
+        return res.status(404).json({
+          message: "No trips found for the specified vehicles.",
+        });
+      }
+
+      // Fetch closed subtrips for these trips within the date range
+      const closedSubtrips = await Subtrip.find({
+        subtripStatus: "closed",
+        startDate: {
+          $gte: new Date(fromDate),
+          $lte: new Date(toDate),
+        },
+        tripId: { $in: trips.map((t) => t._id) },
+      })
+        .populate("routeCd")
+        .populate("expenses")
+        .populate({
+          path: "tripId",
+          populate: {
+            path: "vehicleId",
+            populate: { path: "transporter" },
+          },
+        });
+
+      if (!closedSubtrips.length) {
+        return res.status(404).json({
+          message: "No closed subtrips found for the specified criteria.",
+        });
+      }
+
+      res.status(200).json(closedSubtrips);
+    } catch (error) {
+      res.status(500).json({
+        message: "An error occurred while fetching closed subtrips",
+        error: error.message,
+      });
+    }
+  }
+);
+
 module.exports = {
   createSubtrip,
   fetchSubtrips,
@@ -387,4 +452,5 @@ module.exports = {
   // billing
   fetchClosedTripsByCustomerAndDate,
   fetchTripsCompletedByDriverAndDate,
+  fetchClosedSubtripsByTransporterAndDate,
 };
