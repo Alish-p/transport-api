@@ -5,7 +5,12 @@ const CounterModel = require("./Counter");
 const invoiceSchema = new Schema({
   _id: { type: String, immutable: true, unique: true },
   customerId: { type: String, required: true, ref: "Customer" },
-  invoiceStatus: { type: String, required: true },
+
+  invoiceStatus: {
+    type: String,
+    required: true,
+    enum: ["pending", "paid", "overdue"],
+  },
   createdDate: { type: Date, default: Date.now },
   dueDate: { type: Date },
   subtrips: [{ type: String, ref: "Subtrip" }],

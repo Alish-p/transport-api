@@ -23,6 +23,11 @@ const routeSchema = new Schema({
   distance: { type: Number, required: true },
   validFromDate: { type: Date, required: true },
   validTillDate: { type: Date, required: true },
+  isCustomerSpecific: { type: Boolean, default: false },
+  customer: {
+    type: Schema.Types.ObjectId,
+    ref: "Customer",
+  },
 });
 
 module.exports = model("Route", routeSchema);
