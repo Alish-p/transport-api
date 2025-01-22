@@ -2,6 +2,27 @@ const asyncHandler = require("express-async-handler");
 const DriverSalaryReceipt = require("../model/DriverSalary");
 const Subtrip = require("../model/Subtrip");
 
+// Helper function to populate DriverSalary
+const populateDriverSalary = (query) => {
+  return query.populate("driverId").populate({
+    path: "subtripComponents.subtripId",
+    populate: [
+      {
+        path: "tripId",
+        populate: [
+          {
+            path: "vehicleId",
+            populate: { path: "transporter" },
+          },
+        ],
+      },
+      { path: "routeCd" },
+      { path: "expenses" },
+      { path: "customerId" },
+    ],
+  });
+};
+
 // Create Driver Salary Receipt with User-Selected Subtrips
 const createDriverSalary = asyncHandler(async (req, res) => {
   const {
@@ -32,36 +53,15 @@ const createDriverSalary = asyncHandler(async (req, res) => {
 
 // Fetch All Driver Salary Receipts
 const fetchDriverSalaries = asyncHandler(async (req, res) => {
-  const driverSalaries = await DriverSalaryReceipt.find()
-    .populate("driverId")
-    .populate("subtripComponents.subtripId");
-
+  const driverSalaries = await populateDriverSalary(DriverSalaryReceipt.find());
   res.status(200).json(driverSalaries);
 });
 
 // Fetch Single Driver Salary Receipt
 const fetchDriverSalary = asyncHandler(async (req, res) => {
-  const driverSalary = await DriverSalaryReceipt.findById(
-    req.params.id.toUpperCase()
-  )
-    .populate("driverId")
-    .populate({
-      path: "subtripComponents.subtripId",
-      populate: [
-        {
-          path: "tripId",
-          populate: {
-            path: "vehicleId",
-          },
-        },
-        {
-          path: "routeCd",
-        },
-        {
-          path: "expenses",
-        },
-      ],
-    });
+  const driverSalary = await populateDriverSalary(
+    DriverSalaryReceipt.findById(req.params.id.toUpperCase())
+  );
 
   if (!driverSalary) {
     res.status(404).json({ message: "Driver salary receipt not found" });

@@ -17,7 +17,11 @@ const populateSubtrip = (query) => {
       path: "tripId",
       populate: [
         { path: "driverId", model: "Driver" },
-        { path: "vehicleId", model: "Vehicle" },
+        {
+          path: "vehicleId",
+          model: "Vehicle",
+          populate: { path: "transporter", model: "Transporter" },
+        },
       ],
     });
 };
