@@ -73,12 +73,10 @@ const fetchDriverSalary = asyncHandler(async (req, res) => {
 
 // Update Driver Salary Receipt
 const updateDriverSalary = asyncHandler(async (req, res) => {
-  const updatedDriverSalary = await DriverSalaryReceipt.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    {
+  const updatedDriverSalary = await populateDriverSalary(
+    DriverSalaryReceipt.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
-    }
+    })
   );
 
   if (!updatedDriverSalary) {

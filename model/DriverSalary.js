@@ -50,12 +50,4 @@ driverSalarySchema.pre("save", async function (next) {
   }
 });
 
-// Middleware to calculate total salary before saving
-driverSalarySchema.pre("save", function (next) {
-  this.totalSalary =
-    this.fixedSalaryComponent +
-    this.subtripComponents.reduce((sum, trip) => sum + trip.earnings, 0);
-  next();
-});
-
 module.exports = model("DriverSalary", driverSalarySchema);

@@ -3,7 +3,7 @@ const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
 
 const createInvoice = asyncHandler(async (req, res) => {
-  const { subtrips } = req.body;
+  const { invoicedSubTrips } = req.body;
 
   // Create a new invoice
   const newInvoice = new Invoice({
@@ -17,7 +17,7 @@ const createInvoice = asyncHandler(async (req, res) => {
 
   // Update the status of the subtrips to "billed"
   await Subtrip.updateMany(
-    { _id: { $in: subtrips }, subtripStatus: "closed" },
+    { _id: { $in: invoicedSubTrips }, subtripStatus: "closed" },
     { $set: { subtripStatus: "billed" } }
   );
 
@@ -28,7 +28,7 @@ const createInvoice = asyncHandler(async (req, res) => {
 const fetchInvoices = asyncHandler(async (req, res) => {
   const invoices = await Invoice.find()
     .populate("customerId")
-    .populate("subtrips");
+    .populate("invoicedSubTrips");
   res.status(200).json(invoices);
 });
 
@@ -37,7 +37,7 @@ const fetchInvoice = asyncHandler(async (req, res) => {
   const invoice = await Invoice.findById(req.params.id)
     .populate("customerId")
     .populate({
-      path: "subtrips",
+      path: "invoicedSubTrips",
       populate: {
         path: "tripId",
         populate: {
@@ -62,20 +62,39 @@ const updateInvoice = asyncHandler(async (req, res) => {
     {
       new: true,
     }
-  );
+  )
+    .populate("customerId")
+    .populate({
+      path: "invoicedSubTrips",
+      populate: {
+        path: "tripId",
+        populate: {
+          path: "vehicleId",
+        },
+      },
+    });
   res.status(200).json(updatedInvoice);
 });
 
-// Delete Invoice
 const deleteInvoice = asyncHandler(async (req, res) => {
-  const invoice = await Invoice.findById(req.params.id);
+  const { id } = req.params;
+
+  // Find the invoice to be deleted
+  const invoice = await Invoice.findById(id);
 
   if (!invoice) {
-    res.status(404).json({ message: "Invoice not found" });
-    return;
+    return res.status(404).json({ message: "Invoice not found" });
   }
 
-  await Invoice.findByIdAndDelete(req.params.id);
+  // Revert the status of associated subtrips to "closed" and remove invoiceId
+  await Subtrip.updateMany(
+    { invoiceId: id },
+    { $set: { subtripStatus: "closed", invoiceId: null } }
+  );
+
+  // Delete the invoice
+  await Invoice.findByIdAndDelete(id);
+
   res.status(200).json({ message: "Invoice deleted successfully" });
 });
 
