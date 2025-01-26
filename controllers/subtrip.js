@@ -343,32 +343,38 @@ const fetchTripsCompletedByDriverAndDate = asyncHandler(async (req, res) => {
   const { driverId, fromDate, toDate } = req.body;
 
   try {
-    // Fetch completed trips for the driver in the given date range
-    const completedTrips = await Subtrip.find({
+    // Find trips associated with the driver
+    const trips = await Trip.find({
+      driverId: driverId,
+    }).select("_id");
+
+    console.log({ trips });
+
+    const tripIds = trips.map((trip) => trip._id);
+
+    // Fetch completed subtrips that belong to the found trips and match date range
+    const completedSubtrips = await Subtrip.find({
       subtripStatus: { $in: ["closed", "billed"] },
+      tripId: { $in: tripIds },
       startDate: {
         $gte: new Date(fromDate),
         $lte: new Date(toDate),
-      },
+      }, // Match subtrips within date range
     })
       .populate({
         path: "tripId",
-        match: { driverId },
-        populate: { path: "vehicleId" },
+        populate: { path: "vehicleId driverId" },
       })
       .populate("routeCd")
       .populate("expenses");
 
-    // Filter out subtrips without matching trip data
-    const filteredTrips = completedTrips.filter((subtrip) => subtrip.tripId);
-
-    if (!completedTrips.length) {
+    if (!completedSubtrips.length) {
       return res.status(404).json({
         message: "No completed trips found for the specified criteria.",
       });
     }
 
-    res.status(200).json(completedTrips);
+    res.status(200).json(completedSubtrips);
   } catch (error) {
     res.status(500).json({
       message: "An error occurred while fetching trips for the driver",

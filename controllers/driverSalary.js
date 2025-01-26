@@ -61,7 +61,25 @@ const fetchDriverSalaries = asyncHandler(async (req, res) => {
 const fetchDriverSalary = asyncHandler(async (req, res) => {
   const driverSalary = await populateDriverSalary(
     DriverSalaryReceipt.findById(req.params.id.toUpperCase())
-  );
+  )
+    .populate("driverId")
+    .populate({
+      path: "subtripComponents",
+      populate: [
+        {
+          path: "tripId",
+          populate: {
+            path: "vehicleId",
+          },
+        },
+        {
+          path: "routeCd",
+        },
+        {
+          path: "expenses",
+        },
+      ],
+    });
 
   if (!driverSalary) {
     res.status(404).json({ message: "Driver salary receipt not found" });
@@ -77,7 +95,25 @@ const updateDriverSalary = asyncHandler(async (req, res) => {
     DriverSalaryReceipt.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     })
-  );
+  )
+    .populate("driverId")
+    .populate({
+      path: "subtripComponents",
+      populate: [
+        {
+          path: "tripId",
+          populate: {
+            path: "vehicleId",
+          },
+        },
+        {
+          path: "routeCd",
+        },
+        {
+          path: "expenses",
+        },
+      ],
+    });
 
   if (!updatedDriverSalary) {
     res.status(404).json({ message: "Driver salary receipt not found" });

@@ -14,7 +14,6 @@ const invoiceSchema = new Schema({
   createdDate: { type: Date, default: Date.now },
   dueDate: { type: Date },
   invoicedSubTrips: [{ type: String, ref: "Subtrip" }],
-  totalAmount: { type: Number },
 });
 
 // for creating incremental id
