@@ -53,7 +53,9 @@ const fetchExpenses = asyncHandler(async (req, res) => {
 
 // Fetch Single Expense
 const fetchExpense = asyncHandler(async (req, res) => {
-  const expense = await Expense.findById(req.params.id);
+  const expense = await Expense.findById(req.params.id)
+    .populate("vehicleId")
+    .populate("pumpCd");
 
   if (!expense) {
     res.status(404).json({ message: "Expense not found" });
