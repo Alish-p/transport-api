@@ -7,6 +7,7 @@ const expenseSchema = new Schema({
   tripId: { type: String, ref: "Trip" },
   subtripId: { type: String, ref: "Subtrip" },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle" },
+  pumpCd: { type: Schema.Types.ObjectId, ref: "Pump", default: null },
   date: { type: Date, default: Date.now },
   expenseCategory: {
     type: String,
@@ -14,10 +15,8 @@ const expenseSchema = new Schema({
     required: true,
   },
   expenseType: { type: String, required: true },
-
   amount: { type: Number, required: true },
   slipNo: { type: String },
-  pumpCd: { type: Schema.Types.ObjectId, ref: "Pump", default: null },
   remarks: { type: String },
   fuelLtr: { type: Number },
   fuelRate: { type: Number },

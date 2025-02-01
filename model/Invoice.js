@@ -13,6 +13,8 @@ const invoiceSchema = new Schema({
   },
   createdDate: { type: Date, default: Date.now },
   dueDate: { type: Date },
+  periodStartDate: { type: Date },
+  periodEndDate: { type: Date },
   invoicedSubTrips: [{ type: String, ref: "Subtrip" }],
 });
 

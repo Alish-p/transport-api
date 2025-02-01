@@ -6,7 +6,7 @@ const transporterSchema = new Schema({
   address: { type: String, required: true },
   place: { type: String, required: true },
   pinNo: { type: String, required: true },
-  mobileNo: { type: String, required: true },
+  cellNo: { type: String, required: true },
   paymentMode: { type: String, required: true },
   panNo: { type: String, required: true },
   ownerName: { type: String, required: true },

@@ -383,6 +383,7 @@ const fetchTripsCompletedByDriverAndDate = asyncHandler(async (req, res) => {
   }
 });
 
+// Trips Completed By transporter for Payslip
 const fetchClosedSubtripsByTransporterAndDate = asyncHandler(
   async (req, res) => {
     const { transporterId, fromDate, toDate } = req.body;

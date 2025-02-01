@@ -4,11 +4,16 @@ const CounterModel = require("./Counter");
 const transporterPaymentReceiptSchema = new Schema({
   _id: { type: String, immutable: true, unique: true },
   transporterId: { type: String, required: true, ref: "Transporter" },
-  status: { type: String, required: true },
+  status: {
+    type: String,
+    required: true,
+    enum: ["pending", "paid", "overdue"],
+  },
   createdDate: { type: Date, default: Date.now },
   dueDate: { type: Date },
-  subtrips: [{ type: String, ref: "Subtrip" }],
-  totalAmount: { type: Number },
+  associatedSubtrips: [{ type: String, ref: "Subtrip" }],
+  periodStartDate: { type: Date },
+  periodEndDate: { type: Date },
 });
 
 // for creating incremental id

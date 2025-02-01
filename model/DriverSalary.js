@@ -11,9 +11,8 @@ const driverSalarySchema = new Schema({
     enum: ["pending", "paid", "processing"],
   },
   createdDate: { type: Date, default: Date.now },
-  periodStartDate: { type: Date, required: true },
-  periodEndDate: { type: Date, required: true },
-
+  periodStartDate: { type: Date },
+  periodEndDate: { type: Date },
   subtripComponents: [{ type: String, ref: "Subtrip" }],
   otherSalaryComponent: [
     {

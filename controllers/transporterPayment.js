@@ -20,7 +20,19 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
   const receipts = await TransporterPaymentReceipt.find()
     .populate("transporterId")
-    .populate("subtrips");
+    .populate({
+      path: "associatedSubtrips",
+      populate: [
+        {
+          path: "tripId",
+          populate: {
+            path: "vehicleId",
+          },
+        },
+        { path: "expenses" },
+        { path: "routeCd" },
+      ],
+    });
   res.status(200).json(receipts);
 });
 
@@ -29,13 +41,17 @@ const fetchTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   const receipt = await TransporterPaymentReceipt.findById(req.params.id)
     .populate("transporterId")
     .populate({
-      path: "subtrips",
-      populate: {
-        path: "tripId",
-        populate: {
-          path: "vehicleId",
+      path: "associatedSubtrips",
+      populate: [
+        {
+          path: "tripId",
+          populate: {
+            path: "vehicleId",
+          },
         },
-      },
+        { path: "expenses" },
+        { path: "routeCd" },
+      ],
     });
 
   if (!receipt) {
@@ -54,7 +70,17 @@ const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     {
       new: true,
     }
-  );
+  )
+    .populate("transporterId")
+    .populate({
+      path: "associatedSubtrips",
+      populate: {
+        path: "tripId",
+        populate: {
+          path: "vehicleId",
+        },
+      },
+    });
   res.status(200).json(updatedReceipt);
 });
 
