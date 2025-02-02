@@ -18,10 +18,47 @@ const expenseSchema = new Schema({
   amount: { type: Number, required: true },
   slipNo: { type: String },
   remarks: { type: String },
-  fuelLtr: { type: Number },
-  fuelRate: { type: Number },
+  dieselLtr: { type: Number },
+  dieselPrice: { type: Number },
   paidThrough: { type: String },
   authorisedBy: { type: String },
+  variableSalary: { type: Number },
+  fixedSalary: { type: Number },
+  performanceSalary: { type: Number },
+  adblueLiters: { type: Number },
+  adbluePrice: { type: Number },
+});
+
+expenseSchema.pre("validate", function (next) {
+  if (this.expenseType === "diesel") {
+    this.dieselLtr = this.dieselLtr || undefined;
+    this.dieselPrice = this.dieselPrice || undefined;
+    this.pumpCd = this.pumpCd || undefined;
+  } else {
+    this.dieselLtr = undefined;
+    this.dieselPrice = undefined;
+    this.pumpCd = undefined;
+  }
+
+  if (this.expenseType === "salary") {
+    this.variableSalary = this.variableSalary || undefined;
+    this.fixedSalary = this.fixedSalary || undefined;
+    this.performanceSalary = this.performanceSalary || undefined;
+  } else {
+    this.variableSalary = undefined;
+    this.fixedSalary = undefined;
+    this.performanceSalary = undefined;
+  }
+
+  if (this.expenseType === "adblue") {
+    this.adblueLiters = this.adblueLiters || undefined;
+    this.adbluePrice = this.adbluePrice || undefined;
+  } else {
+    this.adblueLiters = undefined;
+    this.adbluePrice = undefined;
+  }
+
+  next();
 });
 
 // for creating incremental id

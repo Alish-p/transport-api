@@ -32,6 +32,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
     otherSalaryComponent,
     subtripComponents,
     totalSalary,
+    status,
   } = req.body;
 
   // Create a new driver salary receipt
@@ -40,7 +41,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
     periodStartDate,
     periodEndDate,
     otherSalaryComponent,
-    status: "Pending",
+    status,
     totalSalary,
     createdDate: new Date(),
     subtripComponents,
