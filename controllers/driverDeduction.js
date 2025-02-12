@@ -28,6 +28,17 @@ const fetchDriverDeduction = asyncHandler(async (req, res) => {
   res.status(200).json(deduction);
 });
 
+// Fetch Pending Driver Deductions
+const fetchPendingDriverDeductions = asyncHandler(async (req, res) => {
+  const driverId = req.params.id;
+  const pendingDeductions = await DriverDeductions.find({
+    driverId,
+    status: "pending",
+  });
+
+  res.status(200).json(pendingDeductions);
+});
+
 // Update Driver Deduction
 const updateDriverDeduction = asyncHandler(async (req, res) => {
   const id = req.params.id;
@@ -96,4 +107,5 @@ module.exports = {
   updateDriverDeduction,
   repaymentDriverDeduction,
   deleteDriverDeduction,
+  fetchPendingDriverDeductions,
 };
