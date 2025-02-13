@@ -21,6 +21,12 @@ const driverSalarySchema = new Schema({
       remarks: { type: String },
     },
   ],
+  selectedLoans: [
+    {
+      _id: { type: Schema.Types.ObjectId },
+      installmentAmount: { type: Number },
+    },
+  ],
 
   totalSalary: { type: Number },
 });

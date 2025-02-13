@@ -4,7 +4,6 @@ const {
   fetchAllLoans,
   fetchLoanById,
   fetchPendingLoans,
-  fetchNextPendingInstallment,
   updateLoan,
   deleteLoan,
   repayLoan,
@@ -15,10 +14,9 @@ const router = express.Router();
 
 router.post("/", createLoan);
 router.get("/", fetchAllLoans);
-router.get("/pending/:borrowerType/:id", fetchNextPendingInstallment);
+router.get("/pending/:borrowerType/:id", fetchPendingLoans);
 router.get("/:id", fetchLoanById);
 router.put("/:id", updateLoan);
 router.delete("/:id", deleteLoan);
-router.post("/:id/repay", repayLoan);
 
 module.exports = router;

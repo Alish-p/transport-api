@@ -34,10 +34,6 @@ const loanSchema = new mongoose.Schema({
     type: Number, // Total tenure in months
     required: true,
   },
-  loanAmount: {
-    type: Number, // Fixed EMI amount per month
-    required: true,
-  },
   totalAmount: {
     type: Number, // Total amount payable (principal + interest)
     required: true,
@@ -46,24 +42,25 @@ const loanSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  installmentDetails: [
+
+  installmentAmount: { type: Number, required: true },
+  installmentsPaid: [
     {
-      installmentNumber: Number,
-      dueDate: Date,
-      amount: Number,
-      status: {
-        type: String,
-        enum: ["Pending", "Paid", "Overdue"],
-        default: "Pending",
+      amount: {
+        type: Number,
+        required: true,
       },
-      paymentDate: Date,
-      paymentMode: {
-        type: String,
-        enum: ["UPI", "Net Banking", "Credit Card", "Debit Card", "Cash"],
+      paidDate: {
+        type: Date,
+        required: true,
       },
-      transactionId: String,
     },
   ],
+  status: {
+    type: String,
+    enum: ["pending", "paid", "defaulted"],
+    default: "pending",
+  },
 
   remarks: String,
   createdAt: {

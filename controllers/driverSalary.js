@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const DriverSalaryReceipt = require("../model/DriverSalary");
 const Subtrip = require("../model/Subtrip");
+const Loan = require("../model/Loan");
 
 // Helper function to populate DriverSalary
 const populateDriverSalary = (query) => {
@@ -23,7 +24,7 @@ const populateDriverSalary = (query) => {
   });
 };
 
-// Create Driver Salary Receipt with User-Selected Subtrips
+// Create Driver Salary Receipt with User-Selected Subtrips and Loan Payments
 const createDriverSalary = asyncHandler(async (req, res) => {
   const {
     driverId,
@@ -33,7 +34,28 @@ const createDriverSalary = asyncHandler(async (req, res) => {
     subtripComponents,
     totalSalary,
     status,
+    selectedLoans,
   } = req.body;
+
+  // Deduct installment amounts from loans
+  for (const loan of selectedLoans) {
+    const existingLoan = await Loan.findById(loan._id);
+    if (existingLoan) {
+      existingLoan.remainingBalance -= loan.installmentAmount;
+      existingLoan.installmentsPaid.push({
+        amount: loan.installmentAmount,
+        paidDate: new Date(),
+      });
+
+      // Check if remaining balance is 0, then mark loan as paid
+      if (existingLoan.remainingBalance <= 0) {
+        existingLoan.remainingBalance = 0;
+        existingLoan.status = "paid";
+      }
+
+      await existingLoan.save();
+    }
+  }
 
   // Create a new driver salary receipt
   const newDriverSalary = new DriverSalaryReceipt({
@@ -45,6 +67,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
     totalSalary,
     createdDate: new Date(),
     subtripComponents,
+    selectedLoans,
   });
 
   // Save the new driver salary receipt
