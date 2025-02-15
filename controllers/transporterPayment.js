@@ -1,8 +1,31 @@
 const asyncHandler = require("express-async-handler");
 const TransporterPaymentReceipt = require("../model/TransporterPayment");
+const Loan = require("../model/Loan");
 
 // Create a new Transporter Payment Receipt
 const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
+  const { selectedLoans } = req.body;
+
+  // Deduct installment amounts from loans
+  for (const loan of selectedLoans) {
+    const existingLoan = await Loan.findById(loan._id);
+    if (existingLoan) {
+      existingLoan.remainingBalance -= loan.installmentAmount;
+      existingLoan.installmentsPaid.push({
+        amount: loan.installmentAmount,
+        paidDate: new Date(),
+      });
+
+      // Check if remaining balance is 0, then mark loan as paid
+      if (existingLoan.remainingBalance <= 0) {
+        existingLoan.remainingBalance = 0;
+        existingLoan.status = "paid";
+      }
+
+      await existingLoan.save();
+    }
+  }
+
   // Create a new receipt
   const newReceipt = new TransporterPaymentReceipt({
     ...req.body,

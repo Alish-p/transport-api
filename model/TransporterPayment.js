@@ -12,6 +12,12 @@ const transporterPaymentReceiptSchema = new Schema({
   createdDate: { type: Date, default: Date.now },
   dueDate: { type: Date },
   associatedSubtrips: [{ type: String, ref: "Subtrip" }],
+  selectedLoans: [
+    {
+      _id: { type: Schema.Types.ObjectId },
+      installmentAmount: { type: Number },
+    },
+  ],
   periodStartDate: { type: Date },
   periodEndDate: { type: Date },
 });
