@@ -3,6 +3,7 @@ const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const Vehicle = require("../model/Vehicle");
+const { recordSubtripEvent } = require("../helpers/subtrip-event-helper");
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) => {
@@ -28,7 +29,7 @@ const populateSubtrip = (query) => {
 
 // Create Subtrip
 const createSubtrip = asyncHandler(async (req, res) => {
-  const { tripId } = req.params;
+  const { tripId } = req.body;
   const trip = await Trip.findById(tripId);
 
   if (!trip) {
@@ -41,7 +42,11 @@ const createSubtrip = asyncHandler(async (req, res) => {
     subtripStatus: "in-queue",
   });
 
+  // Record creation event
+  recordSubtripEvent(subtrip, "CREATED", { note: "Subtrip created" });
+
   const newSubtrip = await subtrip.save();
+
   trip.subtrips.push(newSubtrip._id);
   await trip.save();
 
@@ -140,6 +145,13 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
   const savedExpense = await driverAdvanceExpense.save();
   subtrip.expenses.push(savedExpense._id);
 
+  // Record the material addition event
+  recordSubtripEvent(subtrip, "MATERIAL_ADDED", {
+    materialType,
+    quantity,
+    grade,
+  });
+
   await subtrip.save();
 
   const updatedSubtrip = await populateSubtrip(Subtrip.findById(id));
@@ -224,7 +236,7 @@ const updateSubtrip = asyncHandler(async (req, res) => {
   // Find and update the subtrip
   const updatedSubtrip = await Subtrip.findByIdAndUpdate(id, req.body, {
     new: true,
-    runValidators: true, // Ensures input data is validated
+    runValidators: true,
   });
 
   if (!updatedSubtrip) {

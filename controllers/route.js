@@ -16,26 +16,34 @@ const createRoute = asyncHandler(async (req, res) => {
 
 // Fetch Routes
 const fetchRoutes = asyncHandler(async (req, res) => {
-  const routes = await Route.find().populate("customer");
+  const { customerId } = req.query;
+  let routes;
+  if (customerId) {
+    // Fetch both customer-specific routes for the given ID and generic routes
+    routes = await Route.find({
+      $or: [
+        { isCustomerSpecific: false },
+        { isCustomerSpecific: true, customer: customerId },
+      ],
+    }).populate("customer");
+  } else {
+    routes = await Route.find().populate("customer");
+  }
+
   res.status(200).json(routes);
 });
 
-// Fetch Customer-Specific and Generic Routes
-const fetchCustomerSpecificRoutes = asyncHandler(async (req, res) => {
-  const { customerId } = req.body;
+// Fetch Single Route by ID
+const fetchSingleRoute = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const route = await Route.findById(id).populate("customer");
 
-  if (!customerId) {
-    return res.status(400).json({ message: "Customer ID is required" });
+  if (!route) {
+    res.status(404).json({ message: "Route not found" });
+    return;
   }
 
-  const routes = await Route.find({
-    $or: [
-      { isCustomerSpecific: false }, // Fetch all generic routes
-      { isCustomerSpecific: true, customer: customerId }, // Fetch routes specific to the given customer
-    ],
-  }).populate("customer");
-
-  res.status(200).json(routes);
+  res.status(200).json(route);
 });
 
 // Update Route
@@ -62,7 +70,7 @@ const deleteRoute = asyncHandler(async (req, res) => {
 module.exports = {
   createRoute,
   fetchRoutes,
+  fetchSingleRoute,
   updateRoute,
   deleteRoute,
-  fetchCustomerSpecificRoutes,
 };

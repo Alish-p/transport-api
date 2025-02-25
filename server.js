@@ -7,6 +7,7 @@ const app = express();
 
 const cors = require("cors");
 
+const dashboardRouter = require("./routes/dashboard");
 const vehicleRouter = require("./routes/vehicle");
 const transporterRouter = require("./routes/transporter");
 const driverRouter = require("./routes/driver");
@@ -31,6 +32,8 @@ app.use(express.json());
 app.use(cors());
 
 // Routers
+app.use("/dashboard", dashboardRouter);
+
 app.use("/api/vehicles", vehicleRouter);
 app.use("/api/transporters", transporterRouter);
 app.use("/api/drivers", driverRouter);

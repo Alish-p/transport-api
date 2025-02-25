@@ -6,7 +6,7 @@ const tripSchema = new Schema({
   _id: { type: String, immutable: true, unique: true },
   driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
-  tripStatus: { type: String, required: true },
+  tripStatus: { type: String, required: true }, // Billed or Pending
   fromDate: { type: Date, required: true },
   toDate: { type: Date },
   remarks: { type: String },

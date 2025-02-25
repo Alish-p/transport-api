@@ -3,44 +3,60 @@ const CounterModel = require("./Counter");
 
 // subtrip Schema
 const subtripSchema = new Schema({
+  // Unique id for the subtrip
   _id: { type: String, immutable: true, unique: true },
+
+  // References to related entities
+  tripId: { type: String, ref: "Trip", required: true },
   routeCd: { type: Schema.Types.ObjectId, ref: "Route" },
   customerId: { type: String, required: true, ref: "Customer" },
+  expenses: [{ type: String, ref: "Expense" }],
+
+  // Route and logistics details
   loadingPoint: { type: String },
   unloadingPoint: { type: String },
-  loadingWeight: { type: Number },
-  unloadingWeight: { type: Number },
   startDate: { type: Date, required: true },
   endDate: { type: Date },
   startKm: { type: Number },
   endKm: { type: Number },
-  rate: { type: Number },
-  subtripStatus: { type: String },
+
+  // Shipment and invoice details
   invoiceNo: { type: String },
   shipmentNo: { type: String },
   consignee: { type: String },
   orderNo: { type: String },
   ewayBill: { type: String },
   ewayExpiryDate: { type: Date },
+
+  // Material details
   materialType: { type: String },
   quantity: { type: Number },
   grade: { type: String },
   diNumber: { type: String },
-  tds: { type: Number },
+
+  // Weight-related details
+  loadingWeight: { type: Number },
+  unloadingWeight: { type: Number },
   deductedWeight: { type: Number },
   deductedAmount: { type: Number },
-  hasError: { type: Boolean, default: false },
-  initialDiesel: {
-    type: Schema.Types.Mixed, // Can accept Number or FULL
-  },
-  tripId: { type: String, ref: "Trip", required: true },
-  expenses: [{ type: String, ref: "Expense" }],
 
+  // Financial details
+  rate: { type: Number },
+  tds: { type: Number },
+
+  // Fuel management
+  initialDiesel: { type: Schema.Types.Mixed },
+
+  // Status tracking
+  subtripStatus: { type: String },
+  hasError: { type: Boolean, default: false },
+
+  // Event history (timeline for tracking changes)
   events: [
     {
       eventType: String, // e.g., "CREATED", "MATERIAL_ADDED", "RECEIVED"
       timestamp: Date,
-      details: Schema.Types.Mixed, // additional info, if needed
+      details: Schema.Types.Mixed,
     },
   ],
 });

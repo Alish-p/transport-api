@@ -4,6 +4,7 @@ const {
   fetchBanks,
   deleteBank,
   updateBank,
+  fetchBankDetails,
 } = require("../controllers/bank");
 
 const { private, admin } = require("../middlewares/Auth");
@@ -11,7 +12,8 @@ const router = Router();
 
 router.post("/", createBank);
 router.get("/", fetchBanks);
-router.delete("/:id", admin, deleteBank);
+router.get("/:id", fetchBankDetails);
+router.delete("/:id", deleteBank);
 router.put("/:id", updateBank);
 
 module.exports = router;

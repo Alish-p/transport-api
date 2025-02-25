@@ -23,15 +23,43 @@ const createDieselPrice = asyncHandler(async (req, res) => {
 
 // Fetch Diesel Prices (can be filtered)
 const fetchDieselPrices = asyncHandler(async (req, res) => {
-  const { pump, startDate, endDate } = req.query;
-
-  let filter = {};
-  if (pump) filter.pump = pump;
-  if (startDate) filter.startDate = { $gte: new Date(startDate) };
-  if (endDate) filter.endDate = { $lte: new Date(endDate) };
-
-  const dieselPrices = await DieselPrice.find(filter).populate("pump");
+  const dieselPrices = await DieselPrice.find().populate("pump");
   res.status(200).json(dieselPrices);
+});
+
+// Fetch Diesel Price on a particular day for any pump
+const fetchDieselPriceOnDate = asyncHandler(async (req, res) => {
+  const { pump, date } = req.params;
+
+  if (!pump || !date) {
+    return res.status(400).json({ message: "Pump and date are required." });
+  }
+
+  // Convert date string to actual Date object
+  const queryDate = new Date(date);
+
+  // Query: Find diesel price where the given date falls between startDate and endDate
+  const dieselPrices = await DieselPrice.find({
+    pump,
+    startDate: { $lte: queryDate },
+    endDate: { $gte: queryDate },
+  });
+
+  if (dieselPrices.length === 0) {
+    return res.status(404).json({
+      message: "No diesel prices found for this pump on the given date.",
+    });
+  }
+
+  if (dieselPrices.length > 1) {
+    return res.status(400).json({
+      message: "Multiple diesel prices found for this pump on the given date.",
+    });
+  }
+
+  const dieselPrice = dieselPrices[0];
+
+  res.status(200).json(dieselPrice);
 });
 
 const fetchDieselPrice = asyncHandler(async (req, res) => {
@@ -76,6 +104,7 @@ const deleteDieselPrice = asyncHandler(async (req, res) => {
 module.exports = {
   createDieselPrice,
   fetchDieselPrices,
+  fetchDieselPriceOnDate,
   fetchDieselPrice,
   updateDieselPrice,
   deleteDieselPrice,

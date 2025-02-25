@@ -4,15 +4,15 @@ const {
   fetchRoutes,
   deleteRoute,
   updateRoute,
-  fetchCustomerSpecificRoutes,
+  fetchSingleRoute,
 } = require("../controllers/route");
 
 const { private, admin } = require("../middlewares/Auth");
 const router = Router();
 
 router.post("/", createRoute);
-router.post("/fetchCustomerSpecificRoutes", fetchCustomerSpecificRoutes);
 router.get("/", fetchRoutes);
+router.get("/:id", fetchSingleRoute);
 router.delete("/:id", deleteRoute);
 router.put("/:id", updateRoute);
 

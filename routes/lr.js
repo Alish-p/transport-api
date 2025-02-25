@@ -35,7 +35,7 @@ router.post(
   fetchClosedSubtripsByTransporterAndDate
 );
 
-router.post("/:tripId", createSubtrip);
+router.post("/", createSubtrip);
 router.get("/", fetchSubtrips);
 router.get("/:id", fetchSubtrip);
 

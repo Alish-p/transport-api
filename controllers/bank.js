@@ -15,6 +15,19 @@ const fetchBanks = asyncHandler(async (req, res) => {
   res.status(200).json(banks);
 });
 
+// Fetch Bank Details by ID
+const fetchBankDetails = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const bank = await Bank.findById(id);
+
+  if (!bank) {
+    res.status(404).json({ message: "Bank not found" });
+    return;
+  }
+
+  res.status(200).json(bank);
+});
+
 // Update Bank
 const updateBank = asyncHandler(async (req, res) => {
   const id = req.params.id;
@@ -36,4 +49,5 @@ module.exports = {
   fetchBanks,
   updateBank,
   deleteBank,
+  fetchBankDetails,
 };
