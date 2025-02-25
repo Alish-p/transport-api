@@ -1,6 +1,7 @@
 const express = require("express");
 const connectDB = require("./config/db");
 const { errorHandler } = require("./middlewares/ErrorHandler");
+const rateLimit = require("express-rate-limit");
 const dotenv = require("dotenv").config();
 const port = process.env.PORT || 5001;
 const app = express();
@@ -30,6 +31,16 @@ connectDB();
 
 app.use(express.json());
 app.use(cors());
+
+// ratelimits
+const limiter = rateLimit({
+  windowMs: 2 * 60 * 1000, //  100 reqs in 2 minutes only
+  max: 100,
+  message: "Too many requests from this Devices, please try again later.",
+  headers: true,
+});
+
+app.use(limiter);
 
 // Routers
 app.use("/api/dashboard", dashboardRouter);
