@@ -32,7 +32,7 @@ app.use(express.json());
 app.use(cors());
 
 // Routers
-app.use("/dashboard", dashboardRouter);
+app.use("/api/dashboard", dashboardRouter);
 
 app.use("/api/vehicles", vehicleRouter);
 app.use("/api/transporters", transporterRouter);
