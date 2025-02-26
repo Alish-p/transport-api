@@ -4,7 +4,7 @@ const Loan = require("../model/Loan");
 
 // Create a new Transporter Payment Receipt
 const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
-  const { selectedLoans } = req.body;
+  const { selectedLoans, associatedSubtrips } = req.body;
 
   // Deduct installment amounts from loans
   for (const loan of selectedLoans) {
@@ -35,6 +35,14 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
   // Save the new receipt
   const savedReceipt = await newReceipt.save();
+
+  await Subtrip.updateMany(
+    {
+      _id: { $in: associatedSubtrips },
+      transporterPaymentReceiptId: { $exists: false },
+    },
+    { $set: { transporterPaymentReceiptId: savedReceipt._id } }
+  );
 
   res.status(201).json(savedReceipt);
 });

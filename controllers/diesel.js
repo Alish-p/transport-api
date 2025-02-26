@@ -10,6 +10,19 @@ const createDieselPrice = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Pump not found" });
   }
 
+  // Check if there is any overlapping diesel price entry for this pump
+  const overlappingDieselPrice = await DieselPrice.findOne({
+    pump,
+    $or: [{ startDate: { $lte: endDate }, endDate: { $gte: startDate } }],
+  });
+
+  if (overlappingDieselPrice) {
+    return res.status(400).json({
+      message: "A diesel price entry already exists in the given date range.",
+    });
+  }
+
+  // Save new diesel price entry
   const dieselPrice = new DieselPrice({
     pump,
     price,
@@ -78,6 +91,20 @@ const updateDieselPrice = asyncHandler(async (req, res) => {
   const id = req.params.id;
   const { pump, price, startDate, endDate } = req.body;
 
+  // Check for overlapping diesel price entries (excluding the current one)
+  const overlappingDieselPrice = await DieselPrice.findOne({
+    _id: { $ne: id }, // Exclude the current record
+    pump,
+    $or: [{ startDate: { $lte: endDate }, endDate: { $gte: startDate } }],
+  });
+
+  if (overlappingDieselPrice) {
+    return res.status(400).json({
+      message: "A diesel price entry already exists in the given date range.",
+    });
+  }
+
+  // Update diesel price entry
   const updatedDieselPrice = await DieselPrice.findByIdAndUpdate(
     id,
     { pump, price, startDate, endDate },

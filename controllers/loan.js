@@ -93,6 +93,7 @@ const updateLoan = asyncHandler(async (req, res) => {
 // Delete an Loan record
 const deleteLoan = asyncHandler(async (req, res) => {
   const deletedLoan = await Loan.findByIdAndDelete(req.params.id);
+
   if (!deletedLoan) return res.status(404).json({ message: "Loan not found" });
 
   res.status(200).json(deletedLoan);

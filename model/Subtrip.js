@@ -51,6 +51,11 @@ const subtripSchema = new Schema({
   subtripStatus: { type: String },
   hasError: { type: Boolean, default: false },
 
+  // Billing details
+  invoiceId: { type: String, ref: "Invoice" },
+  driverSalaryId: { type: String, ref: "DriverSalary" },
+  transporterPaymentReceiptId: { type: String, ref: "TransporterPayment" },
+
   // Event history (timeline for tracking changes)
   events: [
     {

@@ -17,8 +17,14 @@ const createInvoice = asyncHandler(async (req, res) => {
 
   // Update the status of the subtrips to "billed"
   await Subtrip.updateMany(
-    { _id: { $in: invoicedSubTrips }, subtripStatus: "closed" },
-    { $set: { subtripStatus: "billed" } }
+    {
+      _id: { $in: invoicedSubTrips },
+      subtripStatus: "closed",
+      invoiceId: { $exists: false },
+    },
+    {
+      $set: { subtripStatus: "billed", invoiceId: savedInvoice._id },
+    }
   );
 
   res.status(201).json(savedInvoice);

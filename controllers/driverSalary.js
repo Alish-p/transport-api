@@ -72,6 +72,15 @@ const createDriverSalary = asyncHandler(async (req, res) => {
 
   // Save the new driver salary receipt
   const savedDriverSalary = await newDriverSalary.save();
+
+  Subtrip.updateMany(
+    {
+      _id: { $in: subtripComponents },
+      driverSalaryId: { $exists: false },
+    },
+    { $set: { driverSalaryId: savedDriverSalary._id } }
+  );
+
   res.status(201).json(savedDriverSalary);
 });
 

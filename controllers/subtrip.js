@@ -250,21 +250,40 @@ const updateSubtrip = asyncHandler(async (req, res) => {
 const deleteSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  // Find the subtrip
+  // 1. Find the subtrip
   const subtrip = await Subtrip.findById(id);
 
   if (!subtrip) {
     return res.status(404).json({ message: "Subtrip not found" });
   }
 
-  try {
-    // Delete related expenses
-    await Expense.deleteMany({ _id: { $in: subtrip.expenses } });
+  // ──────────────────────────────────────────────────────────
+  // OPTIONAL: Block deletion if subtrip is closed or has
+  // financial references (invoiceId, driverSalaryId, transporterPaymentReceiptId)
+  // ──────────────────────────────────────────────────────────
+  if (
+    subtrip.subtripStatus === "closed" ||
+    subtrip.invoiceId ||
+    subtrip.driverSalaryId ||
+    subtrip.transporterPaymentReceiptId
+  ) {
+    return res.status(400).json({
+      message:
+        "Cannot delete subtrip because it is closed or has associated financial documents.",
+    });
+  }
 
-    // Delete the subtrip itself
+  try {
+    // 2. Delete all related expenses
+    //    (Subtrip.expenses is an array of expense _ids)
+    if (subtrip.expenses && subtrip.expenses.length > 0) {
+      await Expense.deleteMany({ _id: { $in: subtrip.expenses } });
+    }
+
+    // 3. Delete the subtrip itself
     await Subtrip.findByIdAndDelete(id);
 
-    // Update the associated trip to remove the deleted subtrip
+    // 4. Remove the deleted subtrip ID from the Trip's `subtrips` array
     const trip = await Trip.findOne({ subtrips: id });
     if (trip) {
       trip.subtrips.pull(id);
@@ -328,6 +347,7 @@ const fetchClosedTripsByCustomerAndDate = asyncHandler(async (req, res) => {
         $gte: new Date(fromDate),
         $lte: new Date(toDate),
       },
+      invoiceId: { $exists: false },
     })
       .populate("routeCd")
       .populate({
@@ -372,6 +392,7 @@ const fetchTripsCompletedByDriverAndDate = asyncHandler(async (req, res) => {
         $gte: new Date(fromDate),
         $lte: new Date(toDate),
       }, // Match subtrips within date range
+      driverSalaryId: { $exists: false },
     })
       .populate({
         path: "tripId",
@@ -427,12 +448,13 @@ const fetchClosedSubtripsByTransporterAndDate = asyncHandler(
 
       // Fetch closed subtrips for these trips within the date range
       const closedSubtrips = await Subtrip.find({
-        subtripStatus: "closed",
+        subtripStatus: { $in: ["closed", "billed"] },
         startDate: {
           $gte: new Date(fromDate),
           $lte: new Date(toDate),
         },
         tripId: { $in: trips.map((t) => t._id) },
+        transporterPaymentReceiptId: { $exists: false },
       })
         .populate("routeCd")
         .populate("expenses")
