@@ -1,33 +1,122 @@
 const mongoose = require("mongoose");
 
-const userSchema = mongoose.Schema(
+const userSchema = new mongoose.Schema(
   {
-    displayName: {
-      type: String,
-      required: [true, "Name is required"],
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    mobile: { type: String, required: true, unique: true },
+    address: { type: String, required: true },
+    password: { type: String, required: true },
+
+    permissions: {
+      bank: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      customer: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      diesel: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      driver: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      driverSalary: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      expense: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      invoice: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      loan: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      pump: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      route: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      subtrip: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      transporter: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      transporterPayment: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      trip: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      user: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      vehicle: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
     },
-    email: {
-      type: String,
-      required: [true, "email is required"],
-      unique: true,
-    },
-    password: {
-      type: String,
-      required: [true, "password is required"],
-    },
-    isAdmin: {
-      type: Boolean,
-      default: false,
-    },
-    role: {
-      type: String,
+
+    bankDetails: {
+      name: { type: String },
+      branch: { type: String },
+      ifsc: { type: String },
+      place: { type: String },
+      accNo: { type: String },
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
-
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return enteredPassword === this.password;
 };

@@ -23,9 +23,9 @@ const invoiceRouter = require("./routes/invoice");
 const driverSalaryRouter = require("./routes/driverSalary");
 const loanRouter = require("./routes/loan");
 const transporterPaymentRouter = require("./routes/transporterPayment");
-
 const lrRouter = require("./routes/lr");
-const accountRouter = require("./routes/user");
+const userRouter = require("./routes/user");
+const authRouter = require("./routes/auth");
 
 connectDB();
 
@@ -60,9 +60,10 @@ app.use("/api/invoices", invoiceRouter);
 app.use("/api/driverPayroll", driverSalaryRouter);
 app.use("/api/loans", loanRouter);
 app.use("/api/transporter-payments", transporterPaymentRouter);
+app.use("/api/users", userRouter);
 
 // authentication
-app.use("/api/account", accountRouter);
+app.use("/api/account", authRouter);
 
 app.use(errorHandler);
 

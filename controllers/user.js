@@ -1,45 +1,42 @@
 const asyncHandler = require("express-async-handler");
 const UserModel = require("../model/User");
-const { generateToken } = require("../Utils/generateToken");
 
-const registerUser = asyncHandler(async (req, res) => {
-  const user = new UserModel({ ...req.body });
-  const { _id, displayName, email, isAdmin } = await user.save();
+// Create User
+const createUser = asyncHandler(async (req, res) => {
+  const newUser = await new UserModel({ ...req.body }).save();
+  res.status(201).json(newUser);
+});
 
-  res.status(201).json({
-    _id,
-    displayName,
-    email,
-    isAdmin,
-    token: generateToken(_id),
+// Fetch Users
+const fetchUsers = asyncHandler(async (req, res) => {
+  const users = await UserModel.find();
+  res.status(200).json(users);
+});
+
+// Fetch User
+const fetchUser = asyncHandler(async (req, res) => {
+  const user = await UserModel.findById(req.params.id);
+  res.status(200).json(user);
+});
+
+// Delete User
+const deleteUser = asyncHandler(async (req, res) => {
+  const user = await UserModel.findByIdAndDelete(req.params.id);
+  res.status(200).json(user);
+});
+
+// Update User
+const updateUser = asyncHandler(async (req, res) => {
+  const user = await UserModel.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
   });
-});
-
-const loginUser = asyncHandler(async (req, res) => {
-  const user = await UserModel.findOne({ email: req.body.email });
-  const matched = user ? await user.matchPassword(req.body.password) : false;
-
-  if (user && matched) {
-    res.status(200).json({
-      accessToken: generateToken(user._id),
-      user: {
-        _id: user._id,
-        displayName: user.displayName,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } else {
-    res.status(400).json({ message: "Invalid Credentials" });
-  }
-});
-
-const getUser = asyncHandler(async (req, res) => {
-  res.status(200).json({ user: req.user });
+  res.status(200).json(user);
 });
 
 module.exports = {
-  registerUser,
-  loginUser,
-  getUser,
+  createUser,
+  fetchUsers,
+  fetchUser,
+  deleteUser,
+  updateUser,
 };
