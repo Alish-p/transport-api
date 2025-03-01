@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema(
     mobile: { type: String, required: true, unique: true },
     address: { type: String, required: true },
     password: { type: String, required: true },
+    designation: { type: String, required: true },
 
     permissions: {
       bank: {
