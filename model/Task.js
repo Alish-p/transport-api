@@ -34,7 +34,7 @@ const taskSchema = new Schema(
       ref: "User",
       required: true,
     },
-    department: {
+    departments: {
       type: [String],
     },
     activities: {

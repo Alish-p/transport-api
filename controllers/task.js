@@ -26,13 +26,18 @@ exports.createTask = asyncHandler(async (req, res) => {
 // @route   PUT /api/tasks/:taskId
 // @access  Private
 exports.updateTask = asyncHandler(async (req, res) => {
-  const { status } = req.body;
+  const { status, assignees } = req.body;
 
   let task = await Task.findById(req.params.taskId);
 
   if (!task) {
     res.status(404);
     throw new Error("Task not found");
+  }
+
+  // Handle assignees array - extract _ids
+  if (assignees) {
+    req.body.assignees = assignees.map((user) => user._id);
   }
 
   // Add activity for status change if status is being updated
@@ -166,7 +171,7 @@ exports.fetchTasksByStatus = asyncHandler(async (req, res) => {
 // @route   GET /api/tasks
 // @access  Private
 exports.fetchAllTasks = asyncHandler(async (req, res) => {
-  const { status, priority, department, assignee } = req.query;
+  const { status, priority, department, assignees } = req.query;
 
   // Build query
   const query = {};
@@ -175,7 +180,7 @@ exports.fetchAllTasks = asyncHandler(async (req, res) => {
   if (status) query.status = status;
   if (priority) query.priority = priority;
   if (department) query.department = department;
-  if (assignee) query.assignees = assignee;
+  if (assignees) query.assignees = assignees;
 
   const tasks = await Task.find(query)
     .populate("reporter", "name email")
