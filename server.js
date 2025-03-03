@@ -26,6 +26,7 @@ const transporterPaymentRouter = require("./routes/transporterPayment");
 const lrRouter = require("./routes/lr");
 const userRouter = require("./routes/user");
 const authRouter = require("./routes/auth");
+const taskRouter = require("./routes/task");
 
 connectDB();
 
@@ -61,6 +62,7 @@ app.use("/api/driverPayroll", driverSalaryRouter);
 app.use("/api/loans", loanRouter);
 app.use("/api/transporter-payments", transporterPaymentRouter);
 app.use("/api/users", userRouter);
+app.use("/api/tasks", taskRouter);
 
 // authentication
 app.use("/api/account", authRouter);
