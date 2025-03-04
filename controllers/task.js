@@ -186,8 +186,8 @@ exports.fetchAllTasks = asyncHandler(async (req, res) => {
     .populate("reporter", "name email")
     .populate("assignees", "name email")
     .populate("activities.user", "name email")
-    .populate("vehicle", "vehicleNumber")
-    .populate("driver", "name phoneNumber")
+    .populate("vehicle", "vehicleNo")
+    .populate("driver", "driverName driverCellNo")
     .sort({ updatedAt: -1 });
 
   // Group tasks by status
