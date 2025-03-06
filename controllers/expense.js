@@ -7,12 +7,8 @@ const Subtrip = require("../model/Subtrip");
 const createExpense = asyncHandler(async (req, res) => {
   const { expenseCategory, subtripId } = req.body;
 
-  console.log({ expenseCategory, subtripId });
-
   if (expenseCategory === "subtrip") {
     const subtrip = await Subtrip.findById(subtripId);
-
-    console.log({ subtrip });
 
     if (!subtrip) {
       res.status(404).json({ message: "Subtrip not found" });
@@ -23,10 +19,9 @@ const createExpense = asyncHandler(async (req, res) => {
       ...req.body,
       subtripId,
       tripId: subtrip.tripId,
+      vehicleId: subtrip.tripId.vehicleId,
     });
     const newExpense = await expense.save();
-
-    console.log({ newExpense });
 
     subtrip.expenses.push(newExpense._id);
     await subtrip.save();
