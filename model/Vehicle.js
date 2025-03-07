@@ -2,7 +2,7 @@ const { Schema, model } = require("mongoose");
 
 // Vehicle Schema
 const vehicleSchema = new Schema({
-  vehicleNo: { type: String, required: true },
+  vehicleNo: { type: String, required: true, unique: true },
   vehicleType: { type: String, required: true },
   modelType: { type: String, required: true },
   vehicleCompany: { type: String, required: true },
