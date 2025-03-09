@@ -9,7 +9,7 @@ const CustomerSchema = new Schema({
   place: { type: String },
   state: { type: String, required: true },
   pinCode: { type: String, required: true },
-  cellNo: { type: Number, required: true },
+  cellNo: { type: String, required: true },
   consignees: [
     {
       name: { type: String, required: true },
@@ -25,6 +25,9 @@ const CustomerSchema = new Schema({
     place: { type: String, required: true },
     accNo: { type: String, required: true },
   },
+
+  // code given by customer to Transport company
+  transporterCode: { type: String },
 });
 
 module.exports = model("Customer", CustomerSchema);

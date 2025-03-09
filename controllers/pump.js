@@ -9,6 +9,19 @@ const createPump = asyncHandler(async (req, res) => {
   res.status(201).json(newPump);
 });
 
+// fetch Pump by ID
+const fetchPumpById = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const pump = await Pump.findById(id);
+
+  if (!pump) {
+    res.status(404);
+    throw new Error("Pump not found");
+  }
+
+  res.status(200).json(pump);
+});
+
 // Fetch Pumps
 const fetchPumps = asyncHandler(async (req, res) => {
   const pumps = await Pump.find();
@@ -34,6 +47,7 @@ const deletePump = asyncHandler(async (req, res) => {
 module.exports = {
   createPump,
   fetchPumps,
+  fetchPumpById,
   updatePump,
   deletePump,
 };
