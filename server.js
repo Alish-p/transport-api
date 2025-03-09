@@ -8,6 +8,16 @@ const app = express();
 
 const cors = require("cors");
 
+// Add CORS options
+const corsOptions = {
+  origin: ["https://transport-rewrite.onrender.com", "http://localhost:3000"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+
+app.use(cors(corsOptions));
+
 const dashboardRouter = require("./routes/dashboard");
 const vehicleRouter = require("./routes/vehicle");
 const transporterRouter = require("./routes/transporter");
@@ -31,7 +41,6 @@ const taskRouter = require("./routes/task");
 connectDB();
 
 app.use(express.json());
-app.use(cors());
 
 // ratelimits
 const limiter = rateLimit({
