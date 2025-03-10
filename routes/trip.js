@@ -5,7 +5,7 @@ const {
   fetchTripWithTotals,
   updateTrip,
   deleteTrip,
-  addSubtripToTrip,
+  changeTripStatusToBilled,
 } = require("../controllers/trip");
 
 const { private, admin } = require("../middlewares/Auth");
@@ -16,6 +16,6 @@ router.post("/", createTrip);
 router.get("/:id", fetchTripWithTotals);
 router.put("/:id", updateTrip);
 router.delete("/:id", deleteTrip);
-router.post("/:id/subtrip", addSubtripToTrip);
+router.put("/:id/billed", changeTripStatusToBilled);
 
 module.exports = router;

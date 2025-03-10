@@ -111,7 +111,7 @@ const closeTrip = asyncHandler(async (req, res) => {
     tripId,
     {
       tripStatus: "closed",
-      toDate: new Date(), // Set the toDate to the current date
+      toDate: new Date(),
     },
     { new: true } // Return the updated document
   );
@@ -125,7 +125,6 @@ const closeTrip = asyncHandler(async (req, res) => {
 });
 
 // Update Trip
-// Update Trip
 const updateTrip = asyncHandler(async (req, res) => {
   try {
     const trip = await Trip.findById(req.params.id);
@@ -133,6 +132,12 @@ const updateTrip = asyncHandler(async (req, res) => {
     if (!trip) {
       res.status(404);
       throw new Error("Trip not found");
+    }
+
+    // Check if trip is billed
+    if (trip.tripStatus === "billed") {
+      res.status(400);
+      throw new Error("Cannot update a billed trip");
     }
 
     const updatedTrip = await Trip.findByIdAndUpdate(req.params.id, req.body, {
@@ -167,23 +172,42 @@ const deleteTrip = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Trip deleted successfully" });
 });
 
-// Add Subtrip to Trip
-const addSubtripToTrip = asyncHandler(async (req, res) => {
+const changeTripStatusToBilled = asyncHandler(async (req, res) => {
   const tripId = req.params.id;
-  const trip = await Trip.findById(tripId);
+
+  // Find the trip and populate its subtrips
+  const trip = await Trip.findById(tripId).populate("subtrips");
 
   if (!trip) {
-    res.status(404).json({ message: "Trip not found" });
-    return;
+    res.status(404);
+    throw new Error("Trip not found");
   }
 
-  const subtrip = new Subtrip({ ...req.body });
-  const newSubtrip = await subtrip.save();
+  // Check if trip is already billed
+  if (trip.tripStatus === "billed") {
+    res.status(400);
+    throw new Error("Trip is already billed");
+  }
 
-  trip.subtrips.push(newSubtrip._id);
-  await trip.save();
+  // Check if all subtrips exist and are billed
+  if (trip.subtrips.length === 0) {
+    res.status(400);
+    throw new Error("Cannot bill a trip with no subtrips");
+  }
 
-  res.status(201).json(newSubtrip);
+  const allSubtripsBilled = trip.subtrips.every(
+    (subtrip) => subtrip.subtripStatus === "billed"
+  );
+  if (!allSubtripsBilled) {
+    res.status(400);
+    throw new Error("All subtrips must be billed before billing the trip");
+  }
+
+  // Update trip status to billed
+  trip.tripStatus = "billed";
+  const updatedTrip = await trip.save();
+
+  res.status(200).json(updatedTrip);
 });
 
 module.exports = {
@@ -193,5 +217,5 @@ module.exports = {
   closeTrip,
   updateTrip,
   deleteTrip,
-  addSubtripToTrip,
+  changeTripStatusToBilled,
 };

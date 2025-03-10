@@ -10,7 +10,7 @@ const cors = require("cors");
 
 // Add CORS options
 const corsOptions = {
-  origin: ["https://transport-rewrite.onrender.com", "http://localhost:3000"],
+  origin: ["https://transport-rewrite.onrender.com", "http://localhost:3031"],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
