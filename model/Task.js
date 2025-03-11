@@ -22,6 +22,17 @@ const activitySchema = new Schema(
   }
 );
 
+const subtaskSchema = new Schema({
+  text: {
+    type: String,
+    required: true,
+  },
+  completed: {
+    type: Boolean,
+    default: false,
+  },
+});
+
 // Define the Task schema
 const taskSchema = new Schema(
   {
@@ -76,6 +87,7 @@ const taskSchema = new Schema(
       enum: ["todo", "in-progress", "done"],
       default: "todo",
     },
+    subtasks: [subtaskSchema],
   },
   {
     timestamps: true,

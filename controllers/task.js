@@ -201,3 +201,105 @@ exports.fetchAllTasks = asyncHandler(async (req, res) => {
 
   res.json(groupedTasks);
 });
+
+// @desc    Add a subtask to a task
+// @route   POST /api/tasks/:taskId/subtasks
+// @access  Private
+exports.addSubtask = asyncHandler(async (req, res) => {
+  const task = await Task.findById(req.params.taskId);
+
+  if (!task) {
+    res.status(404);
+    throw new Error("Task not found");
+  }
+
+  const { text } = req.body;
+
+  if (!text) {
+    res.status(400);
+    throw new Error("Subtask text is required");
+  }
+
+  task.subtasks.push({ text });
+
+  // Add activity for subtask addition
+  task.activities.push({
+    user: req.user._id,
+    action: "subtask_added",
+    message: `Added subtask: ${text}`,
+  });
+
+  await task.save();
+
+  res.status(201).json(task);
+});
+
+// @desc    Mark subtask as complete/incomplete
+// @route   PATCH /api/tasks/:taskId/subtasks/:subtaskId
+// @access  Private
+exports.toggleSubtaskComplete = asyncHandler(async (req, res) => {
+  const task = await Task.findById(req.params.taskId);
+
+  if (!task) {
+    res.status(404);
+    throw new Error("Task not found");
+  }
+
+  const subtask = task.subtasks.id(req.params.subtaskId);
+
+  if (!subtask) {
+    res.status(404);
+    throw new Error("Subtask not found");
+  }
+
+  subtask.completed = !subtask.completed;
+
+  // Add activity for status change
+  task.activities.push({
+    user: req.user._id,
+    action: "subtask_status_changed",
+    message: `Marked subtask "${subtask.text}" as ${
+      subtask.completed ? "completed" : "incomplete"
+    }`,
+  });
+
+  await task.save();
+
+  res.json(task);
+});
+
+// @desc    Delete a subtask
+// @route   DELETE /api/tasks/:taskId/subtasks/:subtaskId
+// @access  Private
+exports.deleteSubtask = asyncHandler(async (req, res) => {
+  const task = await Task.findById(req.params.taskId);
+
+  if (!task) {
+    res.status(404);
+    throw new Error("Task not found");
+  }
+
+  const subtask = task.subtasks.id(req.params.subtaskId);
+
+  if (!subtask) {
+    res.status(404);
+    throw new Error("Subtask not found");
+  }
+
+  // Store subtask text for activity log before removal
+  const subtaskText = subtask.text;
+
+  // Remove the subtask
+  subtask.remove();
+
+  // Add activity for subtask deletion
+  task.activities.push({
+    user: req.user._id,
+    action: "subtask_deleted",
+    message: `Deleted subtask: ${subtaskText}`,
+  });
+
+  await task.save();
+
+  res.json(task);
+});
