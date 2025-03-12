@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const TransporterPaymentReceipt = require("../model/TransporterPayment");
 const Loan = require("../model/Loan");
+const Subtrip = require("../model/Subtrip");
 
 // Create a new Transporter Payment Receipt
 const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
