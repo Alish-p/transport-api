@@ -4,6 +4,7 @@ const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const Vehicle = require("../model/Vehicle");
 const { recordSubtripEvent } = require("../helpers/subtrip-event-helper");
+const { SUBTRIP_STATUS } = require("../constants/status");
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) => {
@@ -39,7 +40,7 @@ const createSubtrip = asyncHandler(async (req, res) => {
   const subtrip = new Subtrip({
     ...req.body,
     tripId,
-    subtripStatus: "in-queue",
+    subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
   });
 
   // Record creation event
@@ -53,10 +54,91 @@ const createSubtrip = asyncHandler(async (req, res) => {
   res.status(201).json(newSubtrip);
 });
 
-// Fetch all Subtrips
+// Fetch Subtrips with flexible querying
 const fetchSubtrips = asyncHandler(async (req, res) => {
-  const subtrips = await populateSubtrip(Subtrip.find());
-  res.status(200).json(subtrips);
+  try {
+    const { customerId, driverId, transporterId, fromDate, toDate, status } =
+      req.query;
+
+    console.log({ query: req.query });
+
+    let query = {};
+    let tripQuery = {};
+    let vehicleQuery = {};
+
+    // Date range filter
+    if (fromDate && toDate) {
+      query.startDate = {
+        $gte: new Date(fromDate),
+        $lte: new Date(toDate),
+      };
+    }
+
+    // Status filter
+    if (status) {
+      // Handle array of statuses or single status
+      const statusArray = Array.isArray(status) ? status : [status];
+      query.subtripStatus = { $in: statusArray };
+    }
+
+    // Customer filter
+    if (customerId) {
+      query.customerId = customerId;
+    }
+
+    // Driver filter
+    if (driverId) {
+      tripQuery.driverId = driverId;
+    }
+
+    // Transporter filter
+    if (transporterId) {
+      vehicleQuery.$or = [
+        { isOwn: false, transporter: transporterId },
+        { isOwn: true },
+      ];
+    }
+
+    // If we have driver or transporter filters, we need to first get the relevant trips
+    if (driverId || transporterId) {
+      let vehicles = [];
+      if (transporterId) {
+        vehicles = await Vehicle.find(vehicleQuery).select("_id");
+        if (!vehicles.length) {
+          return res.status(404).json({
+            message: "No vehicles found for the specified transporter.",
+          });
+        }
+        tripQuery.vehicleId = { $in: vehicles.map((v) => v._id) };
+      }
+
+      const trips = await Trip.find(tripQuery).select("_id");
+      if (!trips.length) {
+        return res.status(404).json({
+          message: driverId
+            ? "No trips found for the specified driver."
+            : "No trips found for the specified vehicles.",
+        });
+      }
+      query.tripId = { $in: trips.map((trip) => trip._id) };
+    }
+
+    // Execute the query with population
+    const subtrips = await populateSubtrip(Subtrip.find(query));
+
+    if (!subtrips.length) {
+      return res.status(404).json({
+        message: "No subtrips found for the specified criteria.",
+      });
+    }
+
+    res.status(200).json(subtrips);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching subtrips",
+      error: error.message,
+    });
+  }
 });
 
 // Fetch a single Subtrip by ID
@@ -120,7 +202,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     tds,
     initialDiesel: dieselLtr,
     consignee,
-    subtripStatus: "loaded",
+    subtripStatus: SUBTRIP_STATUS.LOADED,
 
     routeCd,
     loadingPoint,
@@ -183,7 +265,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     endKm,
     deductedWeight,
     detentionTime,
-    subtripStatus: hasError ? "error" : "received",
+    subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,
     remarks,
   });
 
@@ -205,7 +287,7 @@ const resolveLR = asyncHandler(async (req, res) => {
   // Update fields
   Object.assign(subtrip, {
     hasError,
-    subtripStatus: "received",
+    subtripStatus: SUBTRIP_STATUS.RECEIVED,
     remarks,
   });
 
@@ -213,7 +295,7 @@ const resolveLR = asyncHandler(async (req, res) => {
   res.status(200).json(subtrip);
 });
 
-const CloseSubtrip = asyncHandler(async (req, res) => {
+const closeSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const subtrip = await populateSubtrip(Subtrip.findById(id));
@@ -223,7 +305,7 @@ const CloseSubtrip = asyncHandler(async (req, res) => {
   }
 
   // Update subtrip status
-  subtrip.subtripStatus = "closed";
+  subtrip.subtripStatus = SUBTRIP_STATUS.CLOSED;
   await subtrip.save();
 
   res.status(200).json(subtrip);
@@ -262,7 +344,7 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
   // financial references (invoiceId, driverSalaryId, transporterPaymentReceiptId)
   // ──────────────────────────────────────────────────────────
   if (
-    subtrip.subtripStatus === "closed" ||
+    subtrip.subtripStatus === SUBTRIP_STATUS.CLOSED ||
     subtrip.invoiceId ||
     subtrip.driverSalaryId ||
     subtrip.transporterPaymentReceiptId
@@ -334,154 +416,6 @@ const addExpenseToSubtrip = asyncHandler(async (req, res) => {
   }
 });
 
-// Customers Trips completed for Invoice Billing
-const fetchClosedTripsByCustomerAndDate = asyncHandler(async (req, res) => {
-  const { customerId, fromDate, toDate } = req.body;
-
-  try {
-    // Fetch closed subtrips for the customer in the given date range
-    const closedSubtrips = await Subtrip.find({
-      subtripStatus: "closed",
-      customerId,
-      startDate: {
-        $gte: new Date(fromDate),
-        $lte: new Date(toDate),
-      },
-      invoiceId: { $exists: false },
-    })
-      .populate("routeCd")
-      .populate({
-        path: "tripId",
-        populate: { path: "vehicleId" },
-      });
-
-    if (!closedSubtrips.length) {
-      return res
-        .status(404)
-        .json({ message: "No closed trips found for the specified criteria." });
-    }
-
-    res.status(200).json(closedSubtrips);
-  } catch (error) {
-    res.status(500).json({
-      message: "An error occurred while fetching closed trips",
-      error: error.message,
-    });
-  }
-});
-
-// Trips Completed By driver for Payslip
-const fetchTripsCompletedByDriverAndDate = asyncHandler(async (req, res) => {
-  const { driverId, fromDate, toDate } = req.body;
-
-  try {
-    // Find trips associated with the driver
-    const trips = await Trip.find({
-      driverId: driverId,
-    }).select("_id");
-
-    console.log({ trips });
-
-    const tripIds = trips.map((trip) => trip._id);
-
-    // Fetch completed subtrips that belong to the found trips and match date range
-    const completedSubtrips = await Subtrip.find({
-      subtripStatus: { $in: ["closed", "billed"] },
-      tripId: { $in: tripIds },
-      startDate: {
-        $gte: new Date(fromDate),
-        $lte: new Date(toDate),
-      }, // Match subtrips within date range
-      driverSalaryId: { $exists: false },
-    })
-      .populate({
-        path: "tripId",
-        populate: { path: "vehicleId driverId" },
-      })
-      .populate("routeCd")
-      .populate("expenses");
-
-    if (!completedSubtrips.length) {
-      return res.status(404).json({
-        message: "No completed trips found for the specified criteria.",
-      });
-    }
-
-    res.status(200).json(completedSubtrips);
-  } catch (error) {
-    res.status(500).json({
-      message: "An error occurred while fetching trips for the driver",
-      error: error.message,
-    });
-  }
-});
-
-// Trips Completed By transporter for Payslip
-const fetchClosedSubtripsByTransporterAndDate = asyncHandler(
-  async (req, res) => {
-    const { transporterId, fromDate, toDate } = req.body;
-
-    try {
-      // Fetch vehicles that belong to the transporter (isOwn false or matching transporterId)
-      const vehicles = await Vehicle.find({
-        $or: [{ isOwn: false, transporter: transporterId }, { isOwn: true }],
-      }).select("_id");
-
-      if (!vehicles.length) {
-        return res.status(404).json({
-          message: "No vehicles found for the specified transporter.",
-        });
-      }
-
-      // Fetch trips for these vehicles
-      const trips = await Trip.find({
-        vehicleId: { $in: vehicles.map((v) => v._id) },
-      })
-        .select("_id")
-        .populate("vehicleId");
-
-      if (!trips.length) {
-        return res.status(404).json({
-          message: "No trips found for the specified vehicles.",
-        });
-      }
-
-      // Fetch closed subtrips for these trips within the date range
-      const closedSubtrips = await Subtrip.find({
-        subtripStatus: { $in: ["closed", "billed"] },
-        startDate: {
-          $gte: new Date(fromDate),
-          $lte: new Date(toDate),
-        },
-        tripId: { $in: trips.map((t) => t._id) },
-        transporterPaymentReceiptId: { $exists: false },
-      })
-        .populate("routeCd")
-        .populate("expenses")
-        .populate({
-          path: "tripId",
-          populate: {
-            path: "vehicleId",
-            populate: { path: "transporter" },
-          },
-        });
-
-      if (!closedSubtrips.length) {
-        return res.status(404).json({
-          message: "No closed subtrips found for the specified criteria.",
-        });
-      }
-
-      res.status(200).json(closedSubtrips);
-    } catch (error) {
-      res.status(500).json({
-        message: "An error occurred while fetching closed subtrips",
-        error: error.message,
-      });
-    }
-  }
-);
-
 module.exports = {
   createSubtrip,
   fetchSubtrips,
@@ -492,10 +426,5 @@ module.exports = {
   addMaterialInfo,
   receiveLR,
   resolveLR,
-  CloseSubtrip,
-
-  // billing
-  fetchClosedTripsByCustomerAndDate,
-  fetchTripsCompletedByDriverAndDate,
-  fetchClosedSubtripsByTransporterAndDate,
+  closeSubtrip,
 };

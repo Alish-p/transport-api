@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
+const { INVOICE_STATUS, SUBTRIP_STATUS } = require("../constants/status");
 
 const createInvoice = asyncHandler(async (req, res) => {
   const { invoicedSubTrips } = req.body;
@@ -19,11 +20,14 @@ const createInvoice = asyncHandler(async (req, res) => {
   await Subtrip.updateMany(
     {
       _id: { $in: invoicedSubTrips },
-      subtripStatus: "closed",
+      subtripStatus: SUBTRIP_STATUS.CLOSED,
       invoiceId: { $exists: false },
     },
     {
-      $set: { subtripStatus: "billed", invoiceId: savedInvoice._id },
+      $set: {
+        subtripStatus: SUBTRIP_STATUS.BILLED_PENDING,
+        invoiceId: savedInvoice._id,
+      },
     }
   );
 
@@ -62,6 +66,9 @@ const fetchInvoice = asyncHandler(async (req, res) => {
 
 // Update Invoice
 const updateInvoice = asyncHandler(async (req, res) => {
+  const { invoiceStatus } = req.body;
+
+  // Update invoice
   const updatedInvoice = await Invoice.findByIdAndUpdate(
     req.params.id,
     req.body,
@@ -79,6 +86,32 @@ const updateInvoice = asyncHandler(async (req, res) => {
         },
       },
     });
+
+  if (!updatedInvoice) {
+    return res.status(404).json({ message: "Invoice not found" });
+  }
+
+  // Update subtrip statuses based on invoice status
+  let newSubtripStatus;
+  switch (invoiceStatus) {
+    case INVOICE_STATUS.PENDING:
+      newSubtripStatus = SUBTRIP_STATUS.BILLED_PENDING;
+      break;
+    case INVOICE_STATUS.PAID:
+      newSubtripStatus = SUBTRIP_STATUS.BILLED_PAID;
+      break;
+    case INVOICE_STATUS.OVERDUE:
+      newSubtripStatus = SUBTRIP_STATUS.BILLED_OVERDUE;
+      break;
+  }
+
+  if (newSubtripStatus) {
+    await Subtrip.updateMany(
+      { invoiceId: req.params.id },
+      { $set: { subtripStatus: newSubtripStatus } }
+    );
+  }
+
   res.status(200).json(updatedInvoice);
 });
 
@@ -95,7 +128,7 @@ const deleteInvoice = asyncHandler(async (req, res) => {
   // Revert the status of associated subtrips to "closed" and remove invoiceId
   await Subtrip.updateMany(
     { invoiceId: id },
-    { $set: { subtripStatus: "closed", invoiceId: null } }
+    { $set: { subtripStatus: SUBTRIP_STATUS.CLOSED, invoiceId: null } }
   );
 
   // Delete the invoice
