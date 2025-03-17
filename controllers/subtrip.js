@@ -5,6 +5,7 @@ const Expense = require("../model/Expense");
 const Vehicle = require("../model/Vehicle");
 const { recordSubtripEvent } = require("../helpers/subtrip-event-helper");
 const { SUBTRIP_STATUS } = require("../constants/status");
+const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) => {
@@ -44,7 +45,12 @@ const createSubtrip = asyncHandler(async (req, res) => {
   });
 
   // Record creation event
-  recordSubtripEvent(subtrip, "CREATED", { note: "Subtrip created" });
+  recordSubtripEvent(
+    subtrip,
+    SUBTRIP_EVENT_TYPES.CREATED,
+    { note: "Subtrip created" },
+    req.user
+  );
 
   const newSubtrip = await subtrip.save();
 
@@ -174,7 +180,6 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     pumpCd,
     vehicleId,
     consignee,
-
     routeCd,
     loadingPoint,
     unloadingPoint,
@@ -203,7 +208,6 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     initialDiesel: dieselLtr,
     consignee,
     subtripStatus: SUBTRIP_STATUS.LOADED,
-
     routeCd,
     loadingPoint,
     unloadingPoint,
@@ -228,11 +232,27 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
   subtrip.expenses.push(savedExpense._id);
 
   // Record the material addition event
-  recordSubtripEvent(subtrip, "MATERIAL_ADDED", {
-    materialType,
-    quantity,
-    grade,
-  });
+  recordSubtripEvent(
+    subtrip,
+    SUBTRIP_EVENT_TYPES.MATERIAL_ADDED,
+    {
+      materialType,
+      quantity,
+      grade,
+    },
+    req.user
+  );
+
+  // Record expense event
+  recordSubtripEvent(
+    subtrip,
+    SUBTRIP_EVENT_TYPES.EXPENSE_ADDED,
+    {
+      expenseType: "trip-advance",
+      amount: driverAdvance,
+    },
+    req.user
+  );
 
   await subtrip.save();
 
@@ -269,11 +289,28 @@ const receiveLR = asyncHandler(async (req, res) => {
     remarks,
   });
 
+  // Record appropriate event
+  if (hasError) {
+    recordSubtripEvent(
+      subtrip,
+      SUBTRIP_EVENT_TYPES.ERROR_REPORTED,
+      { remarks },
+      req.user
+    );
+  } else {
+    recordSubtripEvent(
+      subtrip,
+      SUBTRIP_EVENT_TYPES.RECEIVED,
+      { unloadingWeight },
+      req.user
+    );
+  }
+
   await subtrip.save();
   res.status(200).json(subtrip);
 });
 
-// received Subtrip (LR)
+// resolve LR
 const resolveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { hasError, remarks } = req.body;
@@ -291,6 +328,14 @@ const resolveLR = asyncHandler(async (req, res) => {
     remarks,
   });
 
+  // Record error resolution event
+  recordSubtripEvent(
+    subtrip,
+    SUBTRIP_EVENT_TYPES.ERROR_RESOLVED,
+    { remarks },
+    req.user
+  );
+
   await subtrip.save();
   res.status(200).json(subtrip);
 });
@@ -306,6 +351,10 @@ const closeSubtrip = asyncHandler(async (req, res) => {
 
   // Update subtrip status
   subtrip.subtripStatus = SUBTRIP_STATUS.CLOSED;
+
+  // Record closing event
+  recordSubtripEvent(subtrip, SUBTRIP_EVENT_TYPES.CLOSED, {}, req.user);
+
   await subtrip.save();
 
   res.status(200).json(subtrip);
@@ -315,15 +364,56 @@ const closeSubtrip = asyncHandler(async (req, res) => {
 const updateSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
+  // Find the subtrip first to compare changes
+  const existingSubtrip = await Subtrip.findById(id);
+
+  if (!existingSubtrip) {
+    return res.status(404).json({ message: "Subtrip not found" });
+  }
+
   // Find and update the subtrip
   const updatedSubtrip = await Subtrip.findByIdAndUpdate(id, req.body, {
     new: true,
     runValidators: true,
   });
 
-  if (!updatedSubtrip) {
-    return res.status(404).json({ message: "Subtrip not found" });
+  // Record the update event with changed fields
+  const changedFields = {};
+  Object.keys(req.body).forEach((key) => {
+    if (existingSubtrip[key] !== req.body[key]) {
+      changedFields[key] = {
+        from: existingSubtrip[key],
+        to: req.body[key],
+      };
+    }
+  });
+
+  // Record status change event if status was changed
+  if (
+    req.body.subtripStatus &&
+    existingSubtrip.subtripStatus !== req.body.subtripStatus
+  ) {
+    recordSubtripEvent(
+      updatedSubtrip,
+      SUBTRIP_EVENT_TYPES.STATUS_CHANGED,
+      {
+        oldStatus: existingSubtrip.subtripStatus,
+        newStatus: req.body.subtripStatus,
+      },
+      req.user
+    );
   }
+
+  // Record general update event
+  recordSubtripEvent(
+    updatedSubtrip,
+    SUBTRIP_EVENT_TYPES.UPDATED,
+    {
+      changedFields,
+      message: "Subtrip details updated",
+    },
+    req.user
+  );
 
   res.status(200).json(updatedSubtrip);
 });
@@ -405,6 +495,18 @@ const addExpenseToSubtrip = asyncHandler(async (req, res) => {
 
     // Add the expense to the subtrip
     subtrip.expenses.push(newExpense._id);
+
+    // Record expense event
+    recordSubtripEvent(
+      subtrip,
+      SUBTRIP_EVENT_TYPES.EXPENSE_ADDED,
+      {
+        expenseType: expenseData.expenseType,
+        amount: expenseData.amount,
+      },
+      req.user
+    );
+
     await subtrip.save();
 
     res.status(201).json(newExpense);

@@ -12,20 +12,20 @@ const {
   resolveLR,
 } = require("../controllers/subtrip");
 
-const { admin } = require("../middlewares/Auth");
+const { private } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", createSubtrip);
-router.get("/", fetchSubtrips);
-router.get("/:id", fetchSubtrip);
+router.post("/", private, createSubtrip);
+router.get("/", private, fetchSubtrips);
+router.get("/:id", private, fetchSubtrip);
 
-router.put("/:id", updateSubtrip);
-router.delete("/:id", deleteSubtrip);
-router.post("/:id/expense", addExpenseToSubtrip);
+router.put("/:id", private, updateSubtrip);
+router.delete("/:id", private, deleteSubtrip);
+router.post("/:id/expense", private, addExpenseToSubtrip);
 
-router.put("/:id/material-info", addMaterialInfo);
-router.put("/:id/receive", receiveLR);
-router.put("/:id/resolve", resolveLR);
-router.put("/:id/close", closeSubtrip);
+router.put("/:id/material-info", private, addMaterialInfo);
+router.put("/:id/receive", private, receiveLR);
+router.put("/:id/resolve", private, resolveLR);
+router.put("/:id/close", private, closeSubtrip);
 
 module.exports = router;

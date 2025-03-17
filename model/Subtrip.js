@@ -59,9 +59,13 @@ const subtripSchema = new Schema({
   // Event history (timeline for tracking changes)
   events: [
     {
-      eventType: String, // e.g., "CREATED", "MATERIAL_ADDED", "RECEIVED"
+      eventType: String,
       timestamp: Date,
       details: Schema.Types.Mixed,
+      user: {
+        _id: { type: String, ref: "User" },
+        name: String,
+      },
     },
   ],
 });

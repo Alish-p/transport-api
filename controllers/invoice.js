@@ -2,6 +2,10 @@ const asyncHandler = require("express-async-handler");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
 const { INVOICE_STATUS, SUBTRIP_STATUS } = require("../constants/status");
+const {
+  recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES,
+} = require("../helpers/subtrip-event-helper");
 
 const createInvoice = asyncHandler(async (req, res) => {
   const { invoicedSubTrips } = req.body;
@@ -16,20 +20,30 @@ const createInvoice = asyncHandler(async (req, res) => {
   // Save the new invoice
   const savedInvoice = await newInvoice.save();
 
-  // Update the status of the subtrips to "billed"
-  await Subtrip.updateMany(
-    {
-      _id: { $in: invoicedSubTrips },
-      subtripStatus: SUBTRIP_STATUS.CLOSED,
-      invoiceId: { $exists: false },
-    },
-    {
-      $set: {
-        subtripStatus: SUBTRIP_STATUS.BILLED_PENDING,
-        invoiceId: savedInvoice._id,
+  // Update the status of the subtrips to "billed" and record events
+  const subtrips = await Subtrip.find({
+    _id: { $in: invoicedSubTrips },
+    subtripStatus: SUBTRIP_STATUS.CLOSED,
+    invoiceId: { $exists: false },
+  });
+
+  for (const subtrip of subtrips) {
+    subtrip.subtripStatus = SUBTRIP_STATUS.BILLED_PENDING;
+    subtrip.invoiceId = savedInvoice._id;
+
+    // Record invoice generation event
+    recordSubtripEvent(
+      subtrip,
+      SUBTRIP_EVENT_TYPES.INVOICE_GENERATED,
+      {
+        invoiceNo: savedInvoice.invoiceNo,
+        amount: savedInvoice.totalAmount,
       },
-    }
-  );
+      req.user
+    );
+
+    await subtrip.save();
+  }
 
   res.status(201).json(savedInvoice);
 });
@@ -91,7 +105,7 @@ const updateInvoice = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Invoice not found" });
   }
 
-  // Update subtrip statuses based on invoice status
+  // Update subtrip statuses based on invoice status and record events
   let newSubtripStatus;
   switch (invoiceStatus) {
     case INVOICE_STATUS.PENDING:
@@ -106,10 +120,25 @@ const updateInvoice = asyncHandler(async (req, res) => {
   }
 
   if (newSubtripStatus) {
-    await Subtrip.updateMany(
-      { invoiceId: req.params.id },
-      { $set: { subtripStatus: newSubtripStatus } }
-    );
+    const subtrips = await Subtrip.find({ invoiceId: req.params.id });
+
+    for (const subtrip of subtrips) {
+      subtrip.subtripStatus = newSubtripStatus;
+
+      if (invoiceStatus === INVOICE_STATUS.PAID) {
+        recordSubtripEvent(
+          subtrip,
+          SUBTRIP_EVENT_TYPES.INVOICE_PAID,
+          {
+            invoiceNo: updatedInvoice.invoiceNo,
+            amount: updatedInvoice.totalAmount,
+          },
+          req.user
+        );
+      }
+
+      await subtrip.save();
+    }
   }
 
   res.status(200).json(updatedInvoice);
