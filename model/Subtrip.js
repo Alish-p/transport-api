@@ -42,6 +42,7 @@ const subtripSchema = new Schema({
 
   // Financial details
   rate: { type: Number },
+  commissionRate: { type: Number },
   tds: { type: Number },
 
   // Fuel management

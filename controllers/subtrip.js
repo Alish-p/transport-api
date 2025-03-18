@@ -284,6 +284,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     detentionTime,
     hasError,
     remarks,
+    commissionRate,
   } = req.body;
 
   const subtrip = await populateSubtrip(Subtrip.findById(id));
@@ -300,6 +301,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     detentionTime,
     subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,
     remarks,
+    commissionRate,
   });
 
   // Record appropriate event
