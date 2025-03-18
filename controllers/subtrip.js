@@ -63,8 +63,15 @@ const createSubtrip = asyncHandler(async (req, res) => {
 // Fetch Subtrips with flexible querying
 const fetchSubtrips = asyncHandler(async (req, res) => {
   try {
-    const { customerId, driverId, transporterId, fromDate, toDate, status } =
-      req.query;
+    const {
+      customerId,
+      driverId,
+      vehicleId,
+      transporterId,
+      fromDate,
+      toDate,
+      status,
+    } = req.query;
 
     console.log({ query: req.query });
 
@@ -97,16 +104,18 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       tripQuery.driverId = driverId;
     }
 
-    // Transporter filter
-    if (transporterId) {
-      vehicleQuery.$or = [
-        { isOwn: false, transporter: transporterId },
-        { isOwn: true },
-      ];
+    // Vehicle filter
+    if (vehicleId) {
+      tripQuery.vehicleId = vehicleId;
     }
 
-    // If we have driver or transporter filters, we need to first get the relevant trips
-    if (driverId || transporterId) {
+    // Transporter filter
+    if (transporterId) {
+      vehicleQuery = { isOwn: false, transporter: transporterId };
+    }
+
+    // If we have driver, vehicle or transporter filters, we need to first get the relevant trips
+    if (driverId || transporterId || vehicleId) {
       let vehicles = [];
       if (transporterId) {
         vehicles = await Vehicle.find(vehicleQuery).select("_id");
@@ -123,11 +132,15 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
         return res.status(404).json({
           message: driverId
             ? "No trips found for the specified driver."
+            : vehicleId
+            ? "No trips found for the specified vehicle."
             : "No trips found for the specified vehicles.",
         });
       }
       query.tripId = { $in: trips.map((trip) => trip._id) };
     }
+
+    console.log({ dbQuery: query });
 
     // Execute the query with population
     const subtrips = await populateSubtrip(Subtrip.find(query));
