@@ -64,20 +64,42 @@ const createSubtrip = asyncHandler(async (req, res) => {
 const fetchSubtrips = asyncHandler(async (req, res) => {
   try {
     const {
+      subtripId,
+      tripId,
+      routeCd,
       customerId,
+      subtripStatus,
+      invoiceId,
+      driverSalaryId,
       driverId,
       vehicleId,
       transporterId,
       fromDate,
       toDate,
-      status,
     } = req.query;
 
-    console.log({ query: req.query });
+    console.log({ req: req.query });
 
+    // Initialize base query
     let query = {};
     let tripQuery = {};
     let vehicleQuery = {};
+
+    // Direct field filters
+    if (subtripId) query._id = subtripId;
+    if (tripId) query.tripId = tripId;
+    if (routeCd) query.routeCd = routeCd;
+    if (customerId) query.customerId = customerId;
+    if (invoiceId) query.invoiceId = invoiceId;
+    if (driverSalaryId) query.driverSalaryId = driverSalaryId;
+
+    // Handle status filter (single or array)
+    if (subtripStatus) {
+      const statusArray = Array.isArray(subtripStatus)
+        ? subtripStatus
+        : [subtripStatus];
+      query.subtripStatus = { $in: statusArray };
+    }
 
     // Date range filter
     if (fromDate && toDate) {
@@ -87,67 +109,55 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       };
     }
 
-    // Status filter
-    if (status) {
-      // Handle array of statuses or single status
-      const statusArray = Array.isArray(status) ? status : [status];
-      query.subtripStatus = { $in: statusArray };
-    }
-
-    // Customer filter
-    if (customerId) {
-      query.customerId = customerId;
-    }
-
-    // Driver filter
-    if (driverId) {
-      tripQuery.driverId = driverId;
-    }
-
-    // Vehicle filter
-    if (vehicleId) {
-      tripQuery.vehicleId = vehicleId;
-    }
-
-    // Transporter filter
-    if (transporterId) {
-      vehicleQuery = { isOwn: false, transporter: transporterId };
-    }
-
-    // If we have driver, vehicle or transporter filters, we need to first get the relevant trips
-    if (driverId || transporterId || vehicleId) {
-      let vehicles = [];
+    // Handle nested filters (driverId, vehicleId, transporterId)
+    if (driverId || vehicleId || transporterId) {
+      // Build vehicle query if transporterId is provided
       if (transporterId) {
+        vehicleQuery = { isOwn: false, transporter: transporterId };
+      }
+
+      // If vehicleId is provided, add it to vehicle query
+      if (vehicleId) {
+        vehicleQuery._id = vehicleId;
+      }
+
+      // Fetch vehicles based on vehicle query
+      let vehicles = [];
+      if (Object.keys(vehicleQuery).length > 0) {
         vehicles = await Vehicle.find(vehicleQuery).select("_id");
         if (!vehicles.length) {
           return res.status(404).json({
-            message: "No vehicles found for the specified transporter.",
+            message: "No vehicles found matching the specified criteria.",
           });
         }
         tripQuery.vehicleId = { $in: vehicles.map((v) => v._id) };
       }
 
-      const trips = await Trip.find(tripQuery).select("_id");
-      if (!trips.length) {
-        return res.status(404).json({
-          message: driverId
-            ? "No trips found for the specified driver."
-            : vehicleId
-            ? "No trips found for the specified vehicle."
-            : "No trips found for the specified vehicles.",
-        });
+      // Add driverId to trip query if provided
+      if (driverId) {
+        tripQuery.driverId = driverId;
       }
-      query.tripId = { $in: trips.map((trip) => trip._id) };
+
+      // Fetch trips based on trip query
+      if (Object.keys(tripQuery).length > 0) {
+        const trips = await Trip.find(tripQuery).select("_id");
+        if (!trips.length) {
+          return res.status(404).json({
+            message: "No trips found matching the specified criteria.",
+          });
+        }
+        query.tripId = { $in: trips.map((trip) => trip._id) };
+      }
     }
 
-    console.log({ dbQuery: query });
+    console.log({ query, tripQuery, vehicleQuery });
 
     // Execute the query with population
     const subtrips = await populateSubtrip(Subtrip.find(query));
 
     if (!subtrips.length) {
       return res.status(404).json({
-        message: "No subtrips found for the specified criteria.",
+        message: "No subtrips found matching the specified criteria.",
       });
     }
 

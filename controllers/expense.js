@@ -38,12 +38,93 @@ const createExpense = asyncHandler(async (req, res) => {
   }
 });
 
-// Fetch Expenses
+// Fetch Expenses with flexible querying
 const fetchExpenses = asyncHandler(async (req, res) => {
-  const expenses = await Expense.find()
-    .populate("pumpCd")
-    .populate("vehicleId");
-  res.status(200).json(expenses);
+  try {
+    const {
+      tripId,
+      subtripId,
+      vehicleId,
+      pumpCd,
+      expenseType,
+      expenseCategory,
+      fromDate,
+      toDate,
+      paidThrough,
+      authorisedBy,
+    } = req.query;
+
+    let query = {};
+
+    // Trip filter
+    if (tripId) {
+      query.tripId = tripId;
+    }
+
+    // Subtrip filter
+    if (subtripId) {
+      query.subtripId = subtripId;
+    }
+
+    // Vehicle filter
+    if (vehicleId) {
+      query.vehicleId = vehicleId;
+    }
+
+    // Pump filter
+    if (pumpCd) {
+      query.pumpCd = pumpCd;
+    }
+
+    // Expense type filter
+    if (expenseType) {
+      query.expenseType = expenseType;
+    }
+
+    // Expense category filter
+    if (expenseCategory) {
+      query.expenseCategory = expenseCategory;
+    }
+
+    // Date range filter
+    if (fromDate && toDate) {
+      query.date = {
+        $gte: new Date(fromDate),
+        $lte: new Date(toDate),
+      };
+    }
+
+    // Payment method filter
+    if (paidThrough) {
+      query.paidThrough = paidThrough;
+    }
+
+    // Authorizer filter
+    if (authorisedBy) {
+      query.authorisedBy = authorisedBy;
+    }
+
+    // Execute the query with population
+    const expenses = await Expense.find(query)
+      .populate("pumpCd")
+      .populate("vehicleId")
+      .populate("tripId")
+      .populate("subtripId")
+      .sort({ date: -1 }); // Sort by date in descending order
+
+    if (!expenses.length) {
+      return res.status(404).json({
+        message: "No expenses found for the specified criteria.",
+      });
+    }
+
+    res.status(200).json(expenses);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching expenses",
+      error: error.message,
+    });
+  }
 });
 
 // Fetch Single Expense
