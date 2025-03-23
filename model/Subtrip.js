@@ -37,8 +37,8 @@ const subtripSchema = new Schema({
   // Weight-related details
   loadingWeight: { type: Number },
   unloadingWeight: { type: Number },
-  deductedWeight: { type: Number },
-  deductedAmount: { type: Number },
+  shortageWeight: { type: Number },
+  shortageAmount: { type: Number },
 
   // Financial details
   rate: { type: Number },
@@ -50,7 +50,10 @@ const subtripSchema = new Schema({
 
   // Status tracking
   subtripStatus: { type: String },
+
+  // Incase of any error
   hasError: { type: Boolean, default: false },
+  errorRemarks: { type: String },
 
   // Billing details
   invoiceId: { type: String, ref: "Invoice" },

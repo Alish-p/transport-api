@@ -42,6 +42,7 @@ const createExpense = asyncHandler(async (req, res) => {
 const fetchExpenses = asyncHandler(async (req, res) => {
   try {
     const {
+      _id,
       tripId,
       subtripId,
       vehicleId,
@@ -54,67 +55,102 @@ const fetchExpenses = asyncHandler(async (req, res) => {
       authorisedBy,
     } = req.query;
 
+    console.log({ query: req.query });
+
+    // Initialize query object
     let query = {};
 
-    // Trip filter
+    // Direct field filters with support for arrays
+    if (_id) query._id = _id;
+
+    // Trip filter - support for multiple trip IDs
     if (tripId) {
-      query.tripId = tripId;
+      const tripIds = Array.isArray(tripId) ? tripId : [tripId];
+      query.tripId = { $in: tripIds };
     }
 
-    // Subtrip filter
+    // Subtrip filter - support for multiple subtrip IDs
     if (subtripId) {
-      query.subtripId = subtripId;
+      const subtripIds = Array.isArray(subtripId) ? subtripId : [subtripId];
+      query.subtripId = { $in: subtripIds };
     }
 
-    // Vehicle filter
+    // Vehicle filter - support for multiple vehicle IDs
     if (vehicleId) {
-      query.vehicleId = vehicleId;
+      const vehicleIds = Array.isArray(vehicleId) ? vehicleId : [vehicleId];
+      query.vehicleId = { $in: vehicleIds };
     }
 
-    // Pump filter
+    // Pump filter - support for multiple pump IDs
     if (pumpCd) {
-      query.pumpCd = pumpCd;
+      const pumpIds = Array.isArray(pumpCd) ? pumpCd : [pumpCd];
+      query.pumpCd = { $in: pumpIds };
     }
 
-    // Expense type filter
+    // Expense type filter - support for multiple expense types
     if (expenseType) {
-      query.expenseType = expenseType;
+      const expenseTypes = Array.isArray(expenseType)
+        ? expenseType
+        : [expenseType];
+      query.expenseType = { $in: expenseTypes };
     }
 
-    // Expense category filter
+    // Expense category filter - support for multiple categories
     if (expenseCategory) {
-      query.expenseCategory = expenseCategory;
+      const expenseCategories = Array.isArray(expenseCategory)
+        ? expenseCategory
+        : [expenseCategory];
+      query.expenseCategory = { $in: expenseCategories };
     }
 
     // Date range filter
-    if (fromDate && toDate) {
-      query.date = {
-        $gte: new Date(fromDate),
-        $lte: new Date(toDate),
-      };
+    if (fromDate || toDate) {
+      query.date = {};
+
+      if (fromDate) {
+        query.date.$gte = new Date(fromDate);
+      }
+
+      if (toDate) {
+        query.date.$lte = new Date(toDate);
+      }
     }
 
-    // Payment method filter
+    // Payment method filter - support for multiple payment methods
     if (paidThrough) {
-      query.paidThrough = paidThrough;
+      const paymentMethods = Array.isArray(paidThrough)
+        ? paidThrough
+        : [paidThrough];
+      query.paidThrough = { $in: paymentMethods };
     }
 
-    // Authorizer filter
+    // Authorizer filter - support for multiple authorizers
     if (authorisedBy) {
-      query.authorisedBy = authorisedBy;
+      const authorizers = Array.isArray(authorisedBy)
+        ? authorisedBy
+        : [authorisedBy];
+      query.authorisedBy = { $in: authorizers };
     }
+
+    console.log({ dbQuery: query });
 
     // Execute the query with population
     const expenses = await Expense.find(query)
       .populate("pumpCd")
-      .populate("vehicleId")
-      .populate("tripId")
+      .populate({
+        path: "vehicleId",
+        populate: { path: "transporter", model: "Transporter" },
+      })
+      .populate({
+        path: "tripId",
+        populate: [{ path: "driverId", model: "Driver" }],
+      })
       .populate("subtripId")
-      .sort({ date: -1 }); // Sort by date in descending order
+      .sort({ date: -1 });
 
     if (!expenses.length) {
       return res.status(404).json({
-        message: "No expenses found for the specified criteria.",
+        message: "No expenses found matching the specified criteria.",
       });
     }
 
