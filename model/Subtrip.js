@@ -45,8 +45,9 @@ const subtripSchema = new Schema({
   commissionRate: { type: Number },
   tds: { type: Number },
 
-  // Fuel management
-  initialDiesel: { type: Schema.Types.Mixed },
+  // Fuel management (Fuel Intent)
+  initialAdvanceDiesel: { type: Schema.Types.Mixed },
+  intentFuelPump: { type: Schema.Types.ObjectId, ref: "Pump" },
 
   // Status tracking
   subtripStatus: { type: String },

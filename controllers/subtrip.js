@@ -14,6 +14,7 @@ const populateSubtrip = (query) => {
       path: "expenses",
       populate: [{ path: "pumpCd", model: "Pump" }],
     })
+    .populate("intentFuelPump")
     .populate("routeCd")
     .populate("customerId")
     .populate({
@@ -199,7 +200,8 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     ewayExpiryDate,
     tds,
     driverAdvance,
-    dieselLtr,
+    initialAdvanceDiesel,
+
     pumpCd,
     vehicleId,
     consignee,
@@ -228,7 +230,8 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     quantity,
     grade,
     tds,
-    initialDiesel: dieselLtr,
+    initialAdvanceDiesel, // Diesel LTR added to Intent
+    intentFuelPump: pumpCd,
     consignee,
     subtripStatus: SUBTRIP_STATUS.LOADED,
     routeCd,
@@ -236,23 +239,36 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     unloadingPoint,
   });
 
-  // Create driver advance expense
-  const driverAdvanceExpense = new Expense({
-    tripId: subtrip.tripId,
-    subtripId: id,
-    expenseType: "trip-advance",
-    expenseCategory: "subtrip",
-    amount: driverAdvance,
-    paidThrough: "Pump",
-    authorisedBy: "System",
-    slipNo: "N/A",
-    remarks: "Advance paid to driver",
-    vehicleId,
-    pumpCd,
-  });
+  // Create driver advance expense only if driverAdvance is not 0
+  if (driverAdvance && driverAdvance !== 0) {
+    const driverAdvanceExpense = new Expense({
+      tripId: subtrip.tripId,
+      subtripId: id,
+      expenseType: "trip-advance",
+      expenseCategory: "subtrip",
+      amount: driverAdvance,
+      paidThrough: "Pump",
+      authorisedBy: "System",
+      slipNo: "N/A",
+      remarks: "Advance paid to driver",
+      vehicleId,
+      pumpCd,
+    });
 
-  const savedExpense = await driverAdvanceExpense.save();
-  subtrip.expenses.push(savedExpense._id);
+    const savedExpense = await driverAdvanceExpense.save();
+    subtrip.expenses.push(savedExpense._id);
+
+    // Record expense event for driver advance
+    recordSubtripEvent(
+      subtrip,
+      SUBTRIP_EVENT_TYPES.EXPENSE_ADDED,
+      {
+        expenseType: "trip-advance",
+        amount: driverAdvance,
+      },
+      req.user
+    );
+  }
 
   // Record the material addition event
   recordSubtripEvent(
@@ -262,17 +278,6 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
       materialType,
       quantity,
       grade,
-    },
-    req.user
-  );
-
-  // Record expense event
-  recordSubtripEvent(
-    subtrip,
-    SUBTRIP_EVENT_TYPES.EXPENSE_ADDED,
-    {
-      expenseType: "trip-advance",
-      amount: driverAdvance,
     },
     req.user
   );
@@ -290,10 +295,10 @@ const receiveLR = asyncHandler(async (req, res) => {
     unloadingWeight,
     endDate,
     endKm,
-    deductedWeight,
-    detentionTime,
+    shortageWeight,
+    shortageAmount,
     hasError,
-    remarks,
+    errorRemarks,
     commissionRate,
   } = req.body;
 
@@ -307,10 +312,10 @@ const receiveLR = asyncHandler(async (req, res) => {
     unloadingWeight,
     endDate,
     endKm,
-    deductedWeight,
-    detentionTime,
+    shortageWeight,
+    shortageAmount,
     subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,
-    remarks,
+    errorRemarks,
     commissionRate,
   });
 
