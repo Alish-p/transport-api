@@ -18,6 +18,7 @@ const fetchTransporters = asyncHandler(async (req, res) => {
 // Fetch Transporter by ID
 const fetchTransporterById = asyncHandler(async (req, res) => {
   const id = req.params.id;
+  console.log(id);
   const transporter = await Transporter.findById(id);
   res.status(200).json(transporter);
 });

@@ -7,6 +7,7 @@ const { recordSubtripEvent } = require("../helpers/subtrip-event-helper");
 const {
   SUBTRIP_STATUS,
   SUBTRIP_EXPENSE_TYPES,
+  EXPENSE_CATEGORIES,
 } = require("../constants/status");
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
 

@@ -18,11 +18,11 @@ const driverSchema = new Schema({
   aadharImage: { type: String },
   isActive: { type: Boolean, default: true },
   bankDetails: {
-    name: { type: String, required: true },
-    branch: { type: String, required: true },
-    ifsc: { type: String, required: true },
-    place: { type: String, required: true },
-    accNo: { type: String, required: true },
+    name: { type: String },
+    branch: { type: String },
+    ifsc: { type: String },
+    place: { type: String },
+    accNo: { type: String },
   },
 });
 
