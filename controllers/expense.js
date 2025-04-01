@@ -1,14 +1,15 @@
 const asyncHandler = require("express-async-handler");
 const Expense = require("../model/Expense");
 const Subtrip = require("../model/Subtrip");
+const { EXPENSE_CATEGORIES } = require("../constants/status");
 
 // Create Expense
 
 const createExpense = asyncHandler(async (req, res) => {
   const { expenseCategory, subtripId } = req.body;
 
-  if (expenseCategory === "subtrip") {
-    const subtrip = await Subtrip.findById(subtripId);
+  if (expenseCategory === EXPENSE_CATEGORIES.SUBTRIP) {
+    const subtrip = await Subtrip.findById(subtripId).populate("tripId");
 
     if (!subtrip) {
       res.status(404).json({ message: "Subtrip not found" });
@@ -18,12 +19,14 @@ const createExpense = asyncHandler(async (req, res) => {
     const expense = new Expense({
       ...req.body,
       subtripId,
-      tripId: subtrip.tripId,
-      vehicleId: subtrip.tripId.vehicleId,
+      tripId: subtrip?.tripId,
+      vehicleId: subtrip?.tripId?.vehicleId,
     });
+
     const newExpense = await expense.save();
 
     subtrip.expenses.push(newExpense._id);
+
     await subtrip.save();
 
     res.status(201).json(newExpense);

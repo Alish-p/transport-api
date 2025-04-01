@@ -5,7 +5,6 @@ const {
   fetchSubtrip,
   updateSubtrip,
   deleteSubtrip,
-  addExpenseToSubtrip,
   addMaterialInfo,
   receiveLR,
   closeSubtrip,
@@ -21,7 +20,6 @@ router.get("/:id", private, fetchSubtrip);
 
 router.put("/:id", private, updateSubtrip);
 router.delete("/:id", private, deleteSubtrip);
-router.post("/:id/expense", private, addExpenseToSubtrip);
 
 router.put("/:id/material-info", private, addMaterialInfo);
 router.put("/:id/receive", private, receiveLR);

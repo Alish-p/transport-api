@@ -30,6 +30,9 @@ const fetchBankDetails = asyncHandler(async (req, res) => {
 
 // Update Bank
 const updateBank = asyncHandler(async (req, res) => {
+  console.log("bank is updating ");
+  console.log({ req });
+
   const id = req.params.id;
   const bank = await Bank.findByIdAndUpdate(id, req.body, { new: true });
 

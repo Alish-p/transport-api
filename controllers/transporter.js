@@ -15,6 +15,13 @@ const fetchTransporters = asyncHandler(async (req, res) => {
   res.status(200).json(transporters);
 });
 
+// Fetch Transporter by ID
+const fetchTransporterById = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const transporter = await Transporter.findById(id);
+  res.status(200).json(transporter);
+});
+
 // Update Transporter
 const updateTransporter = asyncHandler(async (req, res) => {
   const id = req.params.id;
@@ -36,6 +43,7 @@ const deleteTransporter = asyncHandler(async (req, res) => {
 module.exports = {
   createTransporter,
   fetchTransporters,
+  fetchTransporterById,
   updateTransporter,
   deleteTransporter,
 };

@@ -4,7 +4,10 @@ const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const Vehicle = require("../model/Vehicle");
 const { recordSubtripEvent } = require("../helpers/subtrip-event-helper");
-const { SUBTRIP_STATUS } = require("../constants/status");
+const {
+  SUBTRIP_STATUS,
+  SUBTRIP_EXPENSE_TYPES,
+} = require("../constants/status");
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
 
 // helper function to Poppulate Subtrip
@@ -77,6 +80,10 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       transporterId,
       fromDate,
       toDate,
+      ewayExpiryFromDate,
+      ewayExpiryToDate,
+      subtripEndFromDate,
+      subtripEndToDate,
     } = req.query;
 
     console.log({ req: req.query });
@@ -102,11 +109,25 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       query.subtripStatus = { $in: statusArray };
     }
 
-    // Date range filter
+    // Date range filters
     if (fromDate && toDate) {
       query.startDate = {
         $gte: new Date(fromDate),
         $lte: new Date(toDate),
+      };
+    }
+
+    if (ewayExpiryFromDate && ewayExpiryToDate) {
+      query.ewayExpiryDate = {
+        $gte: new Date(ewayExpiryFromDate),
+        $lte: new Date(ewayExpiryToDate),
+      };
+    }
+
+    if (subtripEndFromDate && subtripEndToDate) {
+      query.endDate = {
+        $gte: new Date(subtripEndFromDate),
+        $lte: new Date(subtripEndToDate),
       };
     }
 
@@ -244,8 +265,8 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     const driverAdvanceExpense = new Expense({
       tripId: subtrip.tripId,
       subtripId: id,
-      expenseType: "trip-advance",
-      expenseCategory: "subtrip",
+      expenseType: SUBTRIP_EXPENSE_TYPES.DRIVER_ADVANCE,
+      expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
       amount: driverAdvance,
       paidThrough: "Pump",
       authorisedBy: "System",
@@ -501,60 +522,12 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
   }
 });
 
-// Add Expense to Subtrip
-const addExpenseToSubtrip = asyncHandler(async (req, res) => {
-  const { id: subtripId } = req.params;
-
-  // Fetch the subtrip with necessary population
-  const subtrip = await populateSubtrip(Subtrip.findById(subtripId));
-
-  if (!subtrip) {
-    return res.status(404).json({ message: "Subtrip not found" });
-  }
-
-  try {
-    // Create the new expense
-    const expenseData = {
-      ...req.body,
-      subtripId,
-      tripId: subtrip.tripId,
-      expenseCategory: "subtrip",
-    };
-
-    const newExpense = await new Expense(expenseData).save();
-
-    // Add the expense to the subtrip
-    subtrip.expenses.push(newExpense._id);
-
-    // Record expense event
-    recordSubtripEvent(
-      subtrip,
-      SUBTRIP_EVENT_TYPES.EXPENSE_ADDED,
-      {
-        expenseType: expenseData.expenseType,
-        amount: expenseData.amount,
-      },
-      req.user
-    );
-
-    await subtrip.save();
-
-    res.status(201).json(newExpense);
-  } catch (error) {
-    res.status(500).json({
-      message: "An error occurred while adding the expense to the subtrip",
-      error: error.message,
-    });
-  }
-});
-
 module.exports = {
   createSubtrip,
   fetchSubtrips,
   fetchSubtrip,
   updateSubtrip,
   deleteSubtrip,
-  addExpenseToSubtrip,
   addMaterialInfo,
   receiveLR,
   resolveLR,
