@@ -85,6 +85,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       ewayExpiryToDate,
       subtripEndFromDate,
       subtripEndToDate,
+      isEmpty,
     } = req.query;
 
     console.log({ req: req.query });
@@ -101,7 +102,10 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     if (customerId) query.customerId = customerId;
     if (invoiceId) query.invoiceId = invoiceId;
     if (driverSalaryId) query.driverSalaryId = driverSalaryId;
-
+    // Handle isEmpty filter
+    if (isEmpty !== undefined) {
+      query.isEmpty = isEmpty === "true";
+    }
     // Handle status filter (single or array)
     if (subtripStatus) {
       const statusArray = Array.isArray(subtripStatus)
@@ -523,6 +527,100 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
   }
 });
 
+// Create Empty Subtrip
+const createEmptySubtrip = asyncHandler(async (req, res) => {
+  const { tripId, routeCd, loadingPoint, unloadingPoint, startDate, startKm } =
+    req.body;
+
+  // Validate required fields
+  if (
+    !tripId ||
+    !routeCd ||
+    !loadingPoint ||
+    !unloadingPoint ||
+    !startDate ||
+    !startKm
+  ) {
+    return res.status(400).json({
+      message:
+        "Please provide all required fields: tripId, routeCd, loadingPoint, unloadingPoint, startDate, startKm",
+    });
+  }
+
+  // Check if trip exists
+  const trip = await Trip.findById(tripId);
+  if (!trip) {
+    return res.status(404).json({ message: "Trip not found" });
+  }
+
+  const subtrip = new Subtrip({
+    tripId,
+    routeCd,
+    loadingPoint,
+    unloadingPoint,
+    startDate,
+    startKm,
+    subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
+    isEmpty: true, // Mark as empty trip
+  });
+
+  // Record creation event
+  recordSubtripEvent(
+    subtrip,
+    SUBTRIP_EVENT_TYPES.CREATED,
+    { note: "Empty subtrip created" },
+    req.user
+  );
+
+  const newSubtrip = await subtrip.save();
+
+  trip.subtrips.push(newSubtrip._id);
+  await trip.save();
+
+  res.status(201).json(newSubtrip);
+});
+
+// Close Empty Subtrip
+const closeEmptySubtrip = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { endDate, endKm } = req.body;
+
+  // Validate required fields
+  if (!endDate || !endKm) {
+    return res.status(400).json({
+      message: "Please provide both endDate and endKm",
+    });
+  }
+
+  const subtrip = await populateSubtrip(Subtrip.findById(id));
+
+  if (!subtrip) {
+    return res.status(404).json({ message: "Subtrip not found" });
+  }
+
+  // Verify it's an empty trip
+  if (!subtrip.isEmpty) {
+    return res.status(400).json({ message: "This is not an empty subtrip" });
+  }
+
+  // Update subtrip status and end details
+  subtrip.endDate = endDate;
+  subtrip.endKm = endKm;
+  subtrip.subtripStatus = SUBTRIP_STATUS.BILLED_PAID;
+
+  // Record closing event
+  recordSubtripEvent(
+    subtrip,
+    SUBTRIP_EVENT_TYPES.BILLED_PAID,
+    { note: "Empty subtrip Completed" },
+    req.user
+  );
+
+  await subtrip.save();
+
+  res.status(200).json(subtrip);
+});
+
 module.exports = {
   createSubtrip,
   fetchSubtrips,
@@ -533,4 +631,6 @@ module.exports = {
   receiveLR,
   resolveLR,
   closeSubtrip,
+  createEmptySubtrip,
+  closeEmptySubtrip,
 };

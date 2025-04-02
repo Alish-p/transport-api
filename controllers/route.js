@@ -16,19 +16,30 @@ const createRoute = asyncHandler(async (req, res) => {
 
 // Fetch Routes
 const fetchRoutes = asyncHandler(async (req, res) => {
-  const { customerId } = req.query;
-  let routes;
-  if (customerId) {
-    // Fetch both customer-specific routes for the given ID and generic routes
-    routes = await Route.find({
+  const { customerId, genericRoutes } = req.query;
+  let query = {};
+
+  if (customerId && genericRoutes === "true") {
+    // Fetch both customer-specific routes and generic routes
+    query = {
       $or: [
         { isCustomerSpecific: false },
         { isCustomerSpecific: true, customer: customerId },
       ],
-    }).populate("customer");
-  } else {
-    routes = await Route.find().populate("customer");
+    };
+  } else if (customerId) {
+    // Fetch only customer-specific routes
+    query = { isCustomerSpecific: true, customer: customerId };
+  } else if (genericRoutes === "true") {
+    // Fetch only generic routes
+    query = { isCustomerSpecific: false };
   }
+
+  const routes = await Route.find(query).populate({
+    path: "customer",
+    select: "-__v", // Exclude version field
+    options: { lean: true },
+  });
 
   res.status(200).json(routes);
 });

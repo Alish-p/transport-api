@@ -6,10 +6,13 @@ const subtripSchema = new Schema({
   // Unique id for the subtrip
   _id: { type: String, immutable: true, unique: true },
 
+  // Flag to identify empty trips
+  isEmpty: { type: Boolean, default: false },
+
   // References to related entities
   tripId: { type: String, ref: "Trip", required: true },
   routeCd: { type: Schema.Types.ObjectId, ref: "Route" },
-  customerId: { type: String, required: true, ref: "Customer" },
+  customerId: { type: String, ref: "Customer" },
   expenses: [{ type: String, ref: "Expense" }],
 
   // Route and logistics details

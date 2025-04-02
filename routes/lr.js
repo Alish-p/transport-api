@@ -9,6 +9,8 @@ const {
   receiveLR,
   closeSubtrip,
   resolveLR,
+  createEmptySubtrip,
+  closeEmptySubtrip,
 } = require("../controllers/subtrip");
 
 const { private } = require("../middlewares/Auth");
@@ -25,5 +27,8 @@ router.put("/:id/material-info", private, addMaterialInfo);
 router.put("/:id/receive", private, receiveLR);
 router.put("/:id/resolve", private, resolveLR);
 router.put("/:id/close", private, closeSubtrip);
+
+router.post("/empty", private, createEmptySubtrip);
+router.put("/:id/close-empty", private, closeEmptySubtrip);
 
 module.exports = router;
