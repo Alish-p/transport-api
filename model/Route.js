@@ -17,7 +17,7 @@ const routeSchema = new Schema({
       performanceMilage: { type: Number },
       diesel: { type: Number },
       adBlue: { type: Number },
-      advanceAmt: { type: Number, required: true },
+      advanceAmt: { type: Number },
     },
   ],
   distance: { type: Number, required: true },
