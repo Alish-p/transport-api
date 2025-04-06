@@ -7,6 +7,7 @@ const port = process.env.PORT || 5001;
 const app = express();
 
 const cors = require("cors");
+const helmet = require("helmet");
 
 // Add CORS options
 const corsOptions = {
@@ -17,6 +18,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(helmet());
+// app.use(compression());
 
 const dashboardRouter = require("./routes/dashboard");
 const vehicleRouter = require("./routes/vehicle");

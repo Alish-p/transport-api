@@ -86,6 +86,9 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       subtripEndFromDate,
       subtripEndToDate,
       isEmpty,
+      hasInvoice,
+      hasDriverSalary,
+      hasTransporterPayment,
     } = req.query;
 
     console.log({ req: req.query });
@@ -102,6 +105,29 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     if (customerId) query.customerId = customerId;
     if (invoiceId) query.invoiceId = invoiceId;
     if (driverSalaryId) query.driverSalaryId = driverSalaryId;
+
+    // Handle existence filters
+    if (hasInvoice !== undefined) {
+      query.invoiceId =
+        hasInvoice === "true"
+          ? { $exists: true, $ne: null }
+          : { $exists: false };
+    }
+
+    if (hasDriverSalary !== undefined) {
+      query.driverSalaryId =
+        hasDriverSalary === "true"
+          ? { $exists: true, $ne: null }
+          : { $exists: false };
+    }
+
+    if (hasTransporterPayment !== undefined) {
+      query.transporterPaymentReceiptId =
+        hasTransporterPayment === "true"
+          ? { $exists: true, $ne: null }
+          : { $exists: false };
+    }
+
     // Handle isEmpty filter
     if (isEmpty !== undefined) {
       query.isEmpty = isEmpty === "true";

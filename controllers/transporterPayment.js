@@ -125,6 +125,18 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     return;
   }
 
+  // remove the receipt id from the associated subtrips
+  await Subtrip.updateMany(
+    { transporterPaymentReceiptId: receipt._id },
+    { $unset: { transporterPaymentReceiptId: "" } }
+  );
+
+  // remove from installmentsPaid from loans of id in selectedLoans
+  await Loan.updateMany(
+    { _id: { $in: receipt.selectedLoans } },
+    { $pull: { installmentsPaid: { receiptId: receipt._id } } }
+  );
+
   await TransporterPaymentReceipt.findByIdAndDelete(req.params.id);
   res
     .status(200)
