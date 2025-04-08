@@ -253,7 +253,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     tds,
     driverAdvance,
     initialAdvanceDiesel,
-
+    driverAdvanceGivenBy,
     pumpCd,
     vehicleId,
     consignee,
@@ -269,7 +269,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
   }
 
   // Update fields
-  Object.assign(subtrip, {
+  const updateData = {
     loadingWeight,
     startKm,
     rate,
@@ -282,14 +282,21 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     quantity,
     grade,
     tds,
+    driverAdvanceGivenBy,
     initialAdvanceDiesel, // Diesel LTR added to Intent
-    intentFuelPump: pumpCd,
     consignee,
     subtripStatus: SUBTRIP_STATUS.LOADED,
     routeCd,
     loadingPoint,
     unloadingPoint,
-  });
+  };
+
+  // Only set intentFuelPump if pumpCd is provided
+  if (pumpCd) {
+    updateData.intentFuelPump = pumpCd;
+  }
+
+  Object.assign(subtrip, updateData);
 
   // Create driver advance expense only if driverAdvance is not 0
   if (driverAdvance && driverAdvance !== 0) {
@@ -304,7 +311,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
       slipNo: "N/A",
       remarks: "Advance paid to driver",
       vehicleId,
-      pumpCd,
+      pumpCd: driverAdvanceGivenBy === "self" ? null : pumpCd,
     });
 
     const savedExpense = await driverAdvanceExpense.save();

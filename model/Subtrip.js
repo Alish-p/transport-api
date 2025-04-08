@@ -51,6 +51,7 @@ const subtripSchema = new Schema({
   // Fuel management (Fuel Intent)
   initialAdvanceDiesel: { type: Schema.Types.Mixed },
   intentFuelPump: { type: Schema.Types.ObjectId, ref: "Pump" },
+  driverAdvanceGivenBy: { type: String },
 
   // Status tracking
   subtripStatus: { type: String },
