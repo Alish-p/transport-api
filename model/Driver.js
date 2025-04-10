@@ -11,7 +11,7 @@ const driverSchema = new Schema({
   guarantorName: { type: String },
   guarantorCellNo: { type: String },
   experience: { type: Number, required: true },
-  dob: { type: Date, required: true },
+  dob: { type: Date },
   permanentAddress: { type: String, required: true },
   dlImage: { type: String },
   photoImage: { type: String },
