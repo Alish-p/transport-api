@@ -13,6 +13,7 @@ const vehicleSchema = new Schema({
   loadingCapacity: { type: Number, required: true },
   engineType: { type: String, required: true },
   fuelTankCapacity: { type: Number, required: true },
+  trackingLink: { type: String },
   isActive: { type: Boolean, default: true },
   isOwn: { type: Boolean, default: true },
   transporter: {
