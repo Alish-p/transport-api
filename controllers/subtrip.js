@@ -351,6 +351,8 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
 const receiveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
+    invoiceNo,
+    rate,
     unloadingWeight,
     endDate,
     endKm,
