@@ -206,7 +206,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     console.log({ query, tripQuery, vehicleQuery });
 
     // Execute the query with population
-    const subtrips = await populateSubtrip(Subtrip.find(query));
+    const subtrips = await populateSubtrip(Subtrip.find(query)).lean();
 
     if (!subtrips.length) {
       return res.status(404).json({
@@ -236,7 +236,8 @@ const fetchLoadedSubtrips = asyncHandler(async (req, res) => {
         { path: "vehicleId", select: "vehicleNo" },
         { path: "driverId", select: "driverName" },
       ],
-    });
+    })
+    .lean();
 
   res.status(200).json(subtrips);
 });
@@ -256,7 +257,8 @@ const fetchLoadedAndInQueueSubtrips = asyncHandler(async (req, res) => {
         { path: "vehicleId", select: "vehicleNo" },
         { path: "driverId", select: "driverName" },
       ],
-    });
+    })
+    .lean();
 
   res.status(200).json(subtrips);
 });
