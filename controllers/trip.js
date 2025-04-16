@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
+const { TRIP_STATUS } = require("../constants/trip-constants");
 
 const createTrip = asyncHandler(async (req, res) => {
   try {
@@ -47,6 +48,22 @@ const fetchTrips = asyncHandler(async (req, res) => {
   res.status(200).json(trips);
 });
 
+const fetchOpenTrips = asyncHandler(async (req, res) => {
+  console.log("Open Trips asked");
+
+  const openTrips = await Trip.find({ tripStatus: TRIP_STATUS.PENDING })
+    .select("_id tripStatus fromDate")
+    .populate({
+      path: "driverId",
+      select: "driverName",
+    })
+    .populate({
+      path: "vehicleId",
+      select: "vehicleNo",
+    });
+  res.status(200).json(openTrips);
+});
+
 // fetch All details of trip
 const fetchTripWithTotals = asyncHandler(async (req, res) => {
   const trip = await Trip.findById(req.params.id)
@@ -69,37 +86,7 @@ const fetchTripWithTotals = asyncHandler(async (req, res) => {
     return;
   }
 
-  const totalKm = trip.subtrips.reduce(
-    (sum, subtrip) => sum + (subtrip.endKm - subtrip.startKm),
-    0
-  );
-  const totalDieselAmt = trip.subtrips.reduce(
-    (sum, subtrip) => sum + subtrip.dieselAmt,
-    0
-  );
-  const totalAdblueAmt = trip.subtrips.reduce(
-    (sum, subtrip) => sum + subtrip.adblueAmt,
-    0
-  );
-  const totalExpenses = trip.subtrips.reduce(
-    (sum, subtrip) =>
-      sum +
-      subtrip.expenses.reduce((subSum, expense) => subSum + expense.amount, 0),
-    0
-  );
-  const totalIncome = trip.subtrips.reduce(
-    (sum, subtrip) => sum + subtrip.rate,
-    0
-  );
-
-  res.status(200).json({
-    ...trip.toObject(),
-    // totalKm,
-    // totalDieselAmt,
-    // totalAdblueAmt,
-    // totalExpenses,
-    // totalIncome,
-  });
+  res.status(200).json(trip);
 });
 
 // Update Trip and Close it
@@ -213,6 +200,7 @@ const changeTripStatusToBilled = asyncHandler(async (req, res) => {
 module.exports = {
   createTrip,
   fetchTrips,
+  fetchOpenTrips,
   fetchTripWithTotals,
   closeTrip,
   updateTrip,
