@@ -223,6 +223,44 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
   }
 });
 
+// Fetch Loaded Subtrips
+const fetchLoadedSubtrips = asyncHandler(async (req, res) => {
+  const subtrips = await Subtrip.find({
+    subtripStatus: SUBTRIP_STATUS.LOADED,
+  })
+    .select("_id loadingPoint unloadingPoint startDate subtripStatus tripId")
+    .populate({
+      path: "tripId",
+      select: "vehicleId driverId",
+      populate: [
+        { path: "vehicleId", select: "vehicleNo" },
+        { path: "driverId", select: "driverName" },
+      ],
+    });
+
+  res.status(200).json(subtrips);
+});
+
+const fetchLoadedAndInQueueSubtrips = asyncHandler(async (req, res) => {
+  const subtrips = await Subtrip.find({
+    $or: [
+      { subtripStatus: SUBTRIP_STATUS.LOADED },
+      { subtripStatus: SUBTRIP_STATUS.IN_QUEUE },
+    ],
+  })
+    .select("_id loadingPoint unloadingPoint startDate subtripStatus tripId")
+    .populate({
+      path: "tripId",
+      select: "vehicleId driverId",
+      populate: [
+        { path: "vehicleId", select: "vehicleNo" },
+        { path: "driverId", select: "driverName" },
+      ],
+    });
+
+  res.status(200).json(subtrips);
+});
+
 // Fetch a single Subtrip by ID
 const fetchSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -351,16 +389,23 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
 const receiveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
-    invoiceNo,
-    rate,
     unloadingWeight,
-    endDate,
     endKm,
+    commissionRate,
+    hasError,
+    remarks,
     shortageWeight,
     shortageAmount,
-    hasError,
-    errorRemarks,
-    commissionRate,
+    invoiceNo,
+    rate,
+    shipmentNo,
+    consignee,
+    orderNo,
+    materialType,
+    quantity,
+    grade,
+    diNumber,
+    endDate,
   } = req.body;
 
   const subtrip = await populateSubtrip(Subtrip.findById(id));
@@ -376,8 +421,17 @@ const receiveLR = asyncHandler(async (req, res) => {
     shortageWeight,
     shortageAmount,
     subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,
-    errorRemarks,
+    remarks,
     commissionRate,
+    invoiceNo,
+    rate,
+    shipmentNo,
+    consignee,
+    orderNo,
+    materialType,
+    quantity,
+    grade,
+    diNumber,
   });
 
   // Record appropriate event
@@ -668,4 +722,6 @@ module.exports = {
   closeSubtrip,
   createEmptySubtrip,
   closeEmptySubtrip,
+  fetchLoadedSubtrips,
+  fetchLoadedAndInQueueSubtrips,
 };

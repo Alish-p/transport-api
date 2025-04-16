@@ -180,6 +180,12 @@ const fetchExpense = asyncHandler(async (req, res) => {
   res.status(200).json(expense);
 });
 
+//fetch all expenses of a subtrip
+const fetchSubtripExpenses = asyncHandler(async (req, res) => {
+  const expenses = await Expense.find({ subtripId: req.params.id });
+  res.status(200).json(expenses);
+});
+
 // Update Expense
 const updateExpense = asyncHandler(async (req, res) => {
   const expense = await Expense.findByIdAndUpdate(req.params.id, req.body, {
@@ -200,4 +206,5 @@ module.exports = {
   fetchExpense,
   updateExpense,
   deleteExpense,
+  fetchSubtripExpenses,
 };
