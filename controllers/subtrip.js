@@ -233,7 +233,7 @@ const fetchLoadedSubtrips = asyncHandler(async (req, res) => {
       path: "tripId",
       select: "vehicleId driverId",
       populate: [
-        { path: "vehicleId", select: "vehicleNo" },
+        { path: "vehicleId", select: "vehicleNo isOwn" },
         { path: "driverId", select: "driverName" },
       ],
     })
@@ -254,7 +254,7 @@ const fetchLoadedAndInQueueSubtrips = asyncHandler(async (req, res) => {
       path: "tripId",
       select: "vehicleId driverId",
       populate: [
-        { path: "vehicleId", select: "vehicleNo" },
+        { path: "vehicleId", select: "vehicleNo isOwn" },
         { path: "driverId", select: "driverName" },
       ],
     })
@@ -343,7 +343,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     const driverAdvanceExpense = new Expense({
       tripId: subtrip.tripId,
       subtripId: id,
-      expenseType: SUBTRIP_EXPENSE_TYPES.DRIVER_ADVANCE,
+      expenseType: SUBTRIP_EXPENSE_TYPES.TRIP_ADVANCE,
       expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
       amount: driverAdvance,
       paidThrough: "Pump",
