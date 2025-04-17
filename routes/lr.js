@@ -13,6 +13,7 @@ const {
   createEmptySubtrip,
   closeEmptySubtrip,
   fetchLoadedAndInQueueSubtrips,
+  fetchInQueueSubtrips,
 } = require("../controllers/subtrip");
 
 const { private } = require("../middlewares/Auth");
@@ -21,7 +22,10 @@ const router = Router();
 router.post("/", private, createSubtrip);
 router.get("/", private, fetchSubtrips);
 router.get("/loaded", private, fetchLoadedSubtrips);
+router.get("/inqueue", private, fetchInQueueSubtrips);
+
 router.get("/loaded-in-queue", private, fetchLoadedAndInQueueSubtrips);
+
 router.get("/:id", private, fetchSubtrip);
 
 router.put("/:id", private, updateSubtrip);
