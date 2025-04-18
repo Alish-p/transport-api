@@ -415,6 +415,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
 const receiveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
+    loadingWeight,
     unloadingWeight,
     endKm,
     commissionRate,
@@ -441,6 +442,7 @@ const receiveLR = asyncHandler(async (req, res) => {
   }
 
   Object.assign(subtrip, {
+    loadingWeight,
     unloadingWeight,
     endDate,
     endKm,
