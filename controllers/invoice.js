@@ -23,7 +23,7 @@ const createInvoice = asyncHandler(async (req, res) => {
   // Update the status of the subtrips to "billed" and record events
   const subtrips = await Subtrip.find({
     _id: { $in: invoicedSubTrips },
-    subtripStatus: SUBTRIP_STATUS.CLOSED,
+    subtripStatus: SUBTRIP_STATUS.RECEIVED,
     invoiceId: { $exists: false },
   });
 
