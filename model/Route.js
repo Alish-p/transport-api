@@ -28,4 +28,53 @@ const routeSchema = new Schema({
   },
 });
 
+// Custom validator to check for unique vehicle configurations
+routeSchema.pre("save", function (next) {
+  const vehicleConfigs = this.vehicleConfiguration;
+  const uniqueConfigs = new Set();
+
+  for (const config of vehicleConfigs) {
+    // Create a unique key based on vehicleType and noOfTyres
+    const configKey = `${config.vehicleType}-${config.noOfTyres}`;
+
+    if (uniqueConfigs.has(configKey)) {
+      next(
+        new Error(
+          "Duplicate vehicle configuration found. Each vehicle type and number of tyres combination must be unique."
+        )
+      );
+      return;
+    }
+
+    uniqueConfigs.add(configKey);
+  }
+
+  next();
+});
+
+// Add the same validation for findOneAndUpdate operations
+routeSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+  if (update.vehicleConfiguration) {
+    const vehicleConfigs = update.vehicleConfiguration;
+    const uniqueConfigs = new Set();
+
+    for (const config of vehicleConfigs) {
+      const configKey = `${config.vehicleType}-${config.noOfTyres}`;
+
+      if (uniqueConfigs.has(configKey)) {
+        next(
+          new Error(
+            "Duplicate vehicle configuration found. Each vehicle type and number of tyres combination must be unique."
+          )
+        );
+        return;
+      }
+
+      uniqueConfigs.add(configKey);
+    }
+  }
+  next();
+});
+
 module.exports = model("Route", routeSchema);

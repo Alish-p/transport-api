@@ -3,15 +3,24 @@ const Route = require("../model/Route");
 
 // Create Route
 const createRoute = asyncHandler(async (req, res) => {
-  // Ensure transporter is null if the vehicle is owned
-  if (!req.body.isCustomerSpecific) {
-    req.body.customer = null;
+  try {
+    // Ensure transporter is null if the vehicle is owned
+    if (!req.body.isCustomerSpecific) {
+      req.body.customer = null;
+    }
+    const route = new Route({ ...req.body });
+
+    const newRoute = await route.save();
+    res.status(201).json(newRoute);
+  } catch (error) {
+    if (error.message.includes("Duplicate vehicle configuration")) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res
+        .status(500)
+        .json({ message: "Error creating route", error: error.message });
+    }
   }
-  const route = new Route({ ...req.body });
-
-  const newRoute = await route.save();
-
-  res.status(201).json(newRoute);
 });
 
 // Fetch Routes
@@ -59,15 +68,39 @@ const fetchSingleRoute = asyncHandler(async (req, res) => {
 
 // Update Route
 const updateRoute = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  try {
+    const id = req.params.id;
 
-  // Ensure customer is null if the route is generic
-  if (!req.body.isCustomerSpecific) {
-    req.body.customer = null;
+    // Ensure customer is null if the route is generic
+    if (!req.body.isCustomerSpecific) {
+      req.body.customer = null;
+    }
+
+    const route = await Route.findByIdAndUpdate(id, req.body, {
+      new: true,
+      populate: {
+        path: "customer",
+        select: "-__v", // Exclude version field
+        options: { lean: true },
+      },
+      runValidators: true, // This ensures our custom validators run on update
+    });
+
+    if (!route) {
+      res.status(404).json({ message: "Route not found" });
+      return;
+    }
+
+    res.status(200).json(route);
+  } catch (error) {
+    if (error.message.includes("Duplicate vehicle configuration")) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res
+        .status(500)
+        .json({ message: "Error updating route", error: error.message });
+    }
   }
-  const route = await Route.findByIdAndUpdate(id, req.body, { new: true });
-
-  res.status(200).json(route);
 });
 
 // Delete Route
