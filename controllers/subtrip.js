@@ -496,7 +496,6 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
 const receiveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
-    loadingWeight,
     unloadingWeight,
     endKm,
     commissionRate,
@@ -504,15 +503,6 @@ const receiveLR = asyncHandler(async (req, res) => {
     remarks,
     shortageWeight,
     shortageAmount,
-    invoiceNo,
-    rate,
-    shipmentNo,
-    consignee,
-    orderNo,
-    materialType,
-    quantity,
-    grade,
-    diNumber,
     endDate,
   } = req.body;
 
@@ -523,7 +513,6 @@ const receiveLR = asyncHandler(async (req, res) => {
   }
 
   Object.assign(subtrip, {
-    loadingWeight,
     unloadingWeight,
     endDate,
     endKm,
@@ -532,15 +521,6 @@ const receiveLR = asyncHandler(async (req, res) => {
     subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,
     remarks,
     commissionRate,
-    invoiceNo,
-    rate,
-    shipmentNo,
-    consignee,
-    orderNo,
-    materialType,
-    quantity,
-    grade,
-    diNumber,
   });
 
   // Record appropriate event
