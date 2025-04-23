@@ -196,7 +196,26 @@ const updateExpense = asyncHandler(async (req, res) => {
 
 // Delete Expense
 const deleteExpense = asyncHandler(async (req, res) => {
-  await Expense.findByIdAndDelete(req.params.id);
+  const { id } = req.params;
+
+  // Step 1: Check if expense exists
+  const expense = await Expense.findById(id);
+  if (!expense) {
+    return res.status(404).json({ message: "Expense not found" });
+  }
+
+  // Step 2: If it's linked to a subtrip, remove reference
+  if (expense.subtripId) {
+    await Subtrip.findOneAndUpdate(
+      { _id: expense.subtripId },
+      { $pull: { expenses: expense._id } }
+    );
+  }
+
+  // Step 3: Delete the expense
+  await Expense.findByIdAndDelete(id);
+
+  // Step 4: Respond
   res.status(200).json({ message: "Expense deleted successfully" });
 });
 

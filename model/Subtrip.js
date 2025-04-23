@@ -12,8 +12,8 @@ const subtripSchema = new Schema({
   // References to related entities
   tripId: { type: String, ref: "Trip", required: true },
   routeCd: { type: Schema.Types.ObjectId, ref: "Route" },
-  customerId: { type: String, ref: "Customer" },
-  expenses: [{ type: String, ref: "Expense" }],
+  customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
+  expenses: [{ type: Schema.Types.ObjectId, ref: "Expense" }],
 
   // Route and logistics details
   loadingPoint: { type: String },
@@ -50,6 +50,7 @@ const subtripSchema = new Schema({
 
   // Fuel management (Fuel Intent)
   initialAdvanceDiesel: { type: Schema.Types.Mixed },
+  initialTripAdvance: { type: Schema.Types.Mixed }, // initial trip advance
   intentFuelPump: { type: Schema.Types.ObjectId, ref: "Pump" },
   driverAdvanceGivenBy: { type: String },
 

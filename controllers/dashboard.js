@@ -60,7 +60,6 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
       loadedSubtrips,
       recievedSubtrips,
       errorSubtrips,
-      closedSubtrips,
       billedSubtrips,
 
       totalExpenses,
@@ -122,7 +121,6 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
       Subtrip.countDocuments({ subtripStatus: "loaded" }),
       Subtrip.countDocuments({ subtripStatus: "received" }),
       Subtrip.countDocuments({ subtripStatus: "error" }),
-      Subtrip.countDocuments({ subtripStatus: "closed" }),
       Subtrip.countDocuments({ subtripStatus: "billed" }),
 
       // Expense Statistics
@@ -192,7 +190,6 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
         loaded: loadedSubtrips,
         received: recievedSubtrips,
         error: errorSubtrips,
-        closed: closedSubtrips,
         billed: billedSubtrips,
       },
 

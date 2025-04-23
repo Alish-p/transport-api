@@ -10,6 +10,8 @@ const {
   EXPENSE_CATEGORIES,
 } = require("../constants/status");
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
+const Route = require("../model/Route");
+const { default: mongoose } = require("mongoose");
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) => {
@@ -301,114 +303,193 @@ const fetchSubtrip = asyncHandler(async (req, res) => {
 
 // Add Material Info to Subtrip
 const addMaterialInfo = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const {
-    materialType,
-    quantity,
-    grade,
-    loadingWeight,
-    rate,
-    startKm,
-    invoiceNo,
-    shipmentNo,
-    orderNo,
-    ewayBill,
-    ewayExpiryDate,
-    tds,
-    driverAdvance,
-    initialAdvanceDiesel,
-    driverAdvanceGivenBy,
-    pumpCd,
-    vehicleId,
-    consignee,
-    routeCd,
-    loadingPoint,
-    unloadingPoint,
-  } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const subtrip = await populateSubtrip(Subtrip.findById(id));
-
-  if (!subtrip) {
-    return res.status(404).json({ message: "Subtrip not found" });
-  }
-
-  // Update fields
-  const updateData = {
-    loadingWeight,
-    startKm,
-    rate,
-    invoiceNo,
-    shipmentNo,
-    orderNo,
-    ewayBill,
-    ewayExpiryDate,
-    materialType,
-    quantity,
-    grade,
-    tds,
-    driverAdvanceGivenBy,
-    initialAdvanceDiesel, // Diesel LTR added to Intent
-    consignee,
-    subtripStatus: SUBTRIP_STATUS.LOADED,
-    routeCd,
-    loadingPoint,
-    unloadingPoint,
-  };
-
-  // Only set intentFuelPump if pumpCd is provided
-  if (pumpCd) {
-    updateData.intentFuelPump = pumpCd;
-  }
-
-  Object.assign(subtrip, updateData);
-
-  // Create driver advance expense only if driverAdvance is not 0
-  if (driverAdvance && driverAdvance !== 0) {
-    const driverAdvanceExpense = new Expense({
-      tripId: subtrip.tripId,
-      subtripId: id,
-      expenseType: SUBTRIP_EXPENSE_TYPES.TRIP_ADVANCE,
-      expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-      amount: driverAdvance,
-      paidThrough: "Pump",
-      authorisedBy: "System",
-      slipNo: "N/A",
-      remarks: "Advance paid to driver",
-      vehicleId,
-      pumpCd: driverAdvanceGivenBy === "self" ? null : pumpCd,
-    });
-
-    const savedExpense = await driverAdvanceExpense.save();
-    subtrip.expenses.push(savedExpense._id);
-
-    // Record expense event for driver advance
-    recordSubtripEvent(
-      subtrip,
-      SUBTRIP_EVENT_TYPES.EXPENSE_ADDED,
-      {
-        expenseType: "trip-advance",
-        amount: driverAdvance,
-      },
-      req.user
-    );
-  }
-
-  // Record the material addition event
-  recordSubtripEvent(
-    subtrip,
-    SUBTRIP_EVENT_TYPES.MATERIAL_ADDED,
-    {
+  try {
+    const { id } = req.params;
+    const {
       materialType,
       quantity,
       grade,
-    },
-    req.user
-  );
+      loadingWeight,
+      rate,
+      startKm,
+      invoiceNo,
+      shipmentNo,
+      orderNo,
+      ewayBill,
+      ewayExpiryDate,
+      tds,
+      driverAdvance,
+      initialAdvanceDiesel,
+      driverAdvanceGivenBy,
+      pumpCd,
+      vehicleId,
+      consignee,
+      routeCd,
+      loadingPoint,
+      unloadingPoint,
+    } = req.body;
 
-  await subtrip.save();
+    const subtrip = await Subtrip.findById(id).session(session);
+    if (!subtrip) throw new Error("Subtrip not found");
 
-  const updatedSubtrip = await populateSubtrip(Subtrip.findById(id));
-  res.status(200).json(updatedSubtrip);
+    const route = await Route.findById(routeCd).session(session);
+    if (!route) throw new Error("Route not found");
+
+    const vehicle = await Vehicle.findById(vehicleId).session(session);
+    if (!vehicle) throw new Error("Vehicle not found");
+
+    const config = route.vehicleConfiguration.find(
+      (item) =>
+        item.vehicleType.toLowerCase() === vehicle.vehicleType.toLowerCase() &&
+        item.noOfTyres === vehicle.noOfTyres
+    );
+
+    const updateData = {
+      loadingWeight,
+      startKm,
+      rate,
+      invoiceNo,
+      shipmentNo,
+      orderNo,
+      ewayBill,
+      ewayExpiryDate,
+      materialType,
+      quantity,
+      grade,
+      tds,
+      driverAdvanceGivenBy,
+      initialAdvanceDiesel,
+      consignee,
+      subtripStatus: SUBTRIP_STATUS.LOADED,
+      routeCd,
+      loadingPoint,
+      unloadingPoint,
+    };
+
+    if (pumpCd) updateData.intentFuelPump = pumpCd;
+    Object.assign(subtrip, updateData);
+
+    const expensesToInsert = [];
+
+    // Only add expenses automatically for owned vehicles
+    if (vehicle.isOwn && config) {
+      // 1. Fixed or Percentage Driver Salary
+      if (config.fixedSalary > 0) {
+        expensesToInsert.push({
+          tripId: subtrip.tripId,
+          subtripId: subtrip._id,
+          vehicleId,
+          amount: config.fixedSalary,
+          expenseType: "driver-salary",
+          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+          remarks: "Auto-added fixed driver salary from route config",
+          authorisedBy: "System",
+          slipNo: "N/A",
+          paidThrough: "Cash",
+        });
+      } else if (config.percentageSalary > 0 && rate > 0 && loadingWeight > 0) {
+        const percentAmt =
+          (rate * loadingWeight * config.percentageSalary) / 100;
+        expensesToInsert.push({
+          tripId: subtrip.tripId,
+          subtripId: subtrip._id,
+          vehicleId,
+          amount: percentAmt,
+          expenseType: "driver-salary",
+          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+          remarks:
+            "Auto-calculated percentage-based driver salary from route config",
+          authorisedBy: "System",
+          slipNo: "N/A",
+          paidThrough: "Cash",
+        });
+      }
+
+      // 2. Toll
+      if (config.tollAmt > 0) {
+        expensesToInsert.push({
+          tripId: subtrip.tripId,
+          subtripId: subtrip._id,
+          vehicleId,
+          amount: config.tollAmt,
+          expenseType: "toll",
+          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+          remarks: "Auto-added toll from route config",
+          authorisedBy: "System",
+          slipNo: "N/A",
+          paidThrough: "Cash",
+        });
+      }
+
+      // 3. Route-based Advance
+      if (config.advanceAmt > 0) {
+        expensesToInsert.push({
+          tripId: subtrip.tripId,
+          subtripId: subtrip._id,
+          vehicleId,
+          amount: config.advanceAmt,
+          expenseType: "trip-advance",
+          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+          remarks: "Auto-added driver advance from route config",
+          authorisedBy: "System",
+          slipNo: "N/A",
+          paidThrough: "Pump",
+          pumpCd: driverAdvanceGivenBy === "self" ? null : pumpCd,
+        });
+      }
+    }
+
+    // 4. Manual Advance - Add this regardless of vehicle ownership
+    if (driverAdvance && driverAdvance !== 0) {
+      expensesToInsert.push({
+        tripId: subtrip.tripId,
+        subtripId: subtrip._id,
+        vehicleId,
+        amount: driverAdvance,
+        expenseType: "trip-advance",
+        expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+        remarks: "Manual driver advance entered by user",
+        authorisedBy: "System",
+        slipNo: "N/A",
+        paidThrough: "Pump",
+        pumpCd: driverAdvanceGivenBy === "self" ? null : pumpCd,
+      });
+    }
+
+    // Save all expenses and add references to subtrip
+    if (expensesToInsert.length > 0) {
+      const createdExpenses = await Expense.insertMany(expensesToInsert, {
+        session,
+      });
+
+      // Ensure expenses array exists
+      if (!subtrip.expenses) {
+        subtrip.expenses = [];
+      }
+
+      // Add expense IDs to the subtrip's expenses array
+      const expenseIds = createdExpenses.map((exp) => exp._id);
+      subtrip.expenses.push(...expenseIds);
+    }
+
+    // Save subtrip after adding expenses
+    await subtrip.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Populate updated subtrip
+    const updatedSubtrip = await populateSubtrip(Subtrip.findById(subtrip._id));
+    res.status(200).json(updatedSubtrip);
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Material Info Add Error:", error);
+    res.status(500).json({ message: error.message || "Something went wrong" });
+  }
 });
 
 // received Subtrip (LR)
