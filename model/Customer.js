@@ -28,6 +28,9 @@ const CustomerSchema = new Schema({
 
   // code given by customer to Transport company
   transporterCode: { type: String },
+
+  // days within which invoice should be paid
+  invoiceDueInDays: { type: Number, default: 10 },
 });
 
 module.exports = model("Customer", CustomerSchema);

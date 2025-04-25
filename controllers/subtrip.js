@@ -111,9 +111,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     // Handle existence filters
     if (hasInvoice !== undefined) {
       query.invoiceId =
-        hasInvoice === "true"
-          ? { $exists: true, $ne: null }
-          : { $exists: false };
+        hasInvoice === "true" ? { $exists: true, $ne: null } : null;
     }
 
     if (hasDriverSalary !== undefined) {

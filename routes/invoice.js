@@ -1,4 +1,6 @@
 const { Router } = require("express");
+const validateZod = require("../middlewares/validate");
+const { invoiceSchema } = require("../validators/invoice-validator");
 const {
   createInvoice,
   fetchInvoices,
@@ -9,7 +11,7 @@ const {
 
 const router = Router();
 
-router.post("/", createInvoice);
+router.post("/", validateZod(invoiceSchema), createInvoice);
 router.get("/", fetchInvoices);
 router.get("/:id", fetchInvoice);
 router.put("/:id", updateInvoice);
