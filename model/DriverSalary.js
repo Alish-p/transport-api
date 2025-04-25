@@ -4,7 +4,7 @@ const CounterModel = require("./Counter");
 // driverSalary Schema
 const driverSalarySchema = new Schema({
   _id: { type: String, immutable: true, unique: true },
-  driverId: { type: String, required: true, ref: "Driver" },
+  driverId: { type: Schema.Types.ObjectId, required: true, ref: "Driver" },
   status: {
     type: String,
     required: true,

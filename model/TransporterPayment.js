@@ -3,7 +3,11 @@ const CounterModel = require("./Counter");
 
 const transporterPaymentReceiptSchema = new Schema({
   _id: { type: String, immutable: true, unique: true },
-  transporterId: { type: String, required: true, ref: "Transporter" },
+  transporterId: {
+    type: Schema.Types.ObjectId,
+    required: true,
+    ref: "Transporter",
+  },
   status: {
     type: String,
     required: true,
