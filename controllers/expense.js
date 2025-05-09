@@ -55,10 +55,7 @@ const fetchExpenses = asyncHandler(async (req, res) => {
       fromDate,
       toDate,
       paidThrough,
-      authorisedBy,
     } = req.query;
-
-    console.log({ query: req.query });
 
     // Initialize query object
     let query = {};
@@ -126,16 +123,6 @@ const fetchExpenses = asyncHandler(async (req, res) => {
         : [paidThrough];
       query.paidThrough = { $in: paymentMethods };
     }
-
-    // Authorizer filter - support for multiple authorizers
-    if (authorisedBy) {
-      const authorizers = Array.isArray(authorisedBy)
-        ? authorisedBy
-        : [authorisedBy];
-      query.authorisedBy = { $in: authorizers };
-    }
-
-    console.log({ dbQuery: query });
 
     // Execute the query with population
     const expenses = await Expense.find(query)
