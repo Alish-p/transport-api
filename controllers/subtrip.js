@@ -12,6 +12,7 @@ const {
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
 const Route = require("../model/Route");
 const { default: mongoose } = require("mongoose");
+const Loan = require("../model/Loan");
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) => {
@@ -797,6 +798,95 @@ const closeEmptySubtrip = asyncHandler(async (req, res) => {
   res.status(200).json(subtrip);
 });
 
+// Fetch subtrips grouped by transporter with loans for a given date period
+const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.body;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      message: "Please provide both startDate and endDate",
+    });
+  }
+
+  try {
+    // Find all subtrips within the date range
+    const subtrips = await Subtrip.find({
+      startDate: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      },
+    })
+      .populate({
+        path: "tripId",
+        populate: [
+          {
+            path: "vehicleId",
+            populate: {
+              path: "transporter",
+              select: "_id name phone email address gstin panNo bankDetails",
+            },
+          },
+        ],
+      })
+      .lean();
+
+    // Group subtrips by transporter
+    const groupedByTransporter = subtrips.reduce((acc, subtrip) => {
+      const transporter = subtrip.tripId?.vehicleId?.transporter;
+      if (!transporter) return acc;
+
+      const transporterId = transporter._id.toString();
+      if (!acc[transporterId]) {
+        acc[transporterId] = {
+          transporterId: transporter._id,
+          transporterName: transporter.transportName,
+          transporterPhone: transporter.cellNo,
+          transporterEmail: transporter.emailId,
+          transporterAddress: transporter.address,
+          transporterGstin: transporter.gstNo,
+          transporterPanNo: transporter.panNo,
+          transporterBankDetails: transporter.bankDetails,
+          subtrips: [],
+          loans: [],
+        };
+      }
+      acc[transporterId].subtrips.push(subtrip);
+      return acc;
+    }, {});
+
+    // Fetch loans for each transporter
+    const transporterIds = Object.keys(groupedByTransporter);
+    const loans = await Loan.find({
+      borrowerId: { $in: transporterIds },
+      borrowerType: "Transporter",
+      status: "pending",
+    })
+      .populate(
+        "borrowerId",
+        "name phone email address gstin panNo bankDetails"
+      )
+      .lean();
+
+    // Add loans to their respective transporters
+    loans.forEach((loan) => {
+      const transporterId = loan.borrowerId._id.toString();
+      if (groupedByTransporter[transporterId]) {
+        groupedByTransporter[transporterId].loans.push(loan);
+      }
+    });
+
+    // Convert to array format
+    const result = Object.values(groupedByTransporter);
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching subtrips by transporter",
+      error: error.message,
+    });
+  }
+});
+
 module.exports = {
   createSubtrip,
   fetchSubtrips,
@@ -812,4 +902,5 @@ module.exports = {
   fetchLoadedSubtrips,
   fetchLoadedAndInQueueSubtrips,
   fetchInQueueSubtrips,
+  fetchSubtripsByTransporter,
 };
