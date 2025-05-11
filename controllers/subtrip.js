@@ -815,6 +815,16 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
         $gte: new Date(startDate),
         $lte: new Date(endDate),
       },
+      subtripStatus: {
+        $in: [
+          SUBTRIP_STATUS.RECEIVED,
+          SUBTRIP_STATUS.BILLED_PENDING,
+          SUBTRIP_STATUS.BILLED_OVERDUE,
+          SUBTRIP_STATUS.BILLED_PAID,
+        ],
+      },
+      isEmpty: false,
+      transporterPaymentReceiptId: { $exists: false },
     })
       .populate({
         path: "tripId",
@@ -823,7 +833,8 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
             path: "vehicleId",
             populate: {
               path: "transporter",
-              select: "_id name phone email address gstin panNo bankDetails",
+              select:
+                "_id transportName cellNo emailId address gstNo panNo bankDetails",
             },
           },
         ],
@@ -863,7 +874,7 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
     })
       .populate(
         "borrowerId",
-        "name phone email address gstin panNo bankDetails"
+        "transportName cellNo emailId address gstNo panNo bankDetails"
       )
       .lean();
 
