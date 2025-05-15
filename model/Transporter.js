@@ -5,6 +5,7 @@ const transporterSchema = new Schema({
   transportName: { type: String, required: true },
   address: { type: String, required: true },
   place: { type: String },
+  state: { type: String, required: true },
   pinNo: { type: String, required: true },
   cellNo: { type: String, required: true },
   paymentMode: { type: String, required: true },
@@ -14,6 +15,7 @@ const transporterSchema = new Schema({
   emailId: { type: String, required: true },
   ownerPhoneNo: { type: String, required: true },
   tdsPercentage: { type: Number, required: true },
+  podCharges: { type: Number, required: true },
   bankDetails: {
     name: { type: String, required: true },
     branch: { type: String, required: true },
