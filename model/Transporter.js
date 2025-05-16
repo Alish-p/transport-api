@@ -11,6 +11,7 @@ const transporterSchema = new Schema({
   paymentMode: { type: String, required: true },
   panNo: { type: String },
   ownerName: { type: String, required: true },
+  gstEnabled: { type: Boolean, required: true },
   gstNo: { type: String },
   emailId: { type: String, required: true },
   ownerPhoneNo: { type: String, required: true },

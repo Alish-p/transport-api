@@ -1,16 +1,5 @@
 const mongoose = require("mongoose");
 
-const installmentSchema = new mongoose.Schema({
-  installmentNumber: Number,
-  dueDate: Date,
-  amount: Number,
-  status: String,
-  paymentDate: Date,
-  paymentMode: String,
-  transactionId: String,
-  _id: mongoose.Schema.Types.ObjectId, // Add _id field
-});
-
 const loanSchema = new mongoose.Schema({
   borrowerId: {
     type: mongoose.Schema.Types.ObjectId,

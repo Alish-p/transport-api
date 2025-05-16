@@ -1,90 +1,153 @@
 const asyncHandler = require("express-async-handler");
-const TransporterPaymentReceipt = require("../model/TransporterPayment");
+const TransporterPayment = require("../model/TransporterPayment");
+
+const Transporter = require("../model/Transporter");
 const Loan = require("../model/Loan");
 const Subtrip = require("../model/Subtrip");
+const {
+  calculateTransporterPayment,
+  calculateTransporterPaymentSummary,
+} = require("../Utils/transporter-payment-utils");
 
-// Create a new Transporter Payment Receipt
+// 💰 Create Transporter Payment Receipt
 const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
-  const { selectedLoans, associatedSubtrips } = req.body;
+  const {
+    transporterId,
+    billingPeriod,
+    associatedSubtrips,
+    additionalCharges = [],
+    meta,
+  } = req.body;
 
-  // Deduct installment amounts from loans
-  for (const loan of selectedLoans) {
-    const existingLoan = await Loan.findById(loan._id);
-    if (existingLoan) {
-      existingLoan.remainingBalance -= loan.installmentAmount;
-      existingLoan.installmentsPaid.push({
-        amount: loan.installmentAmount,
-        paidDate: new Date(),
-      });
-
-      // Check if remaining balance is 0, then mark loan as paid
-      if (existingLoan.remainingBalance <= 0) {
-        existingLoan.remainingBalance = 0;
-        existingLoan.status = "paid";
-      }
-
-      await existingLoan.save();
-    }
+  if (!Array.isArray(associatedSubtrips) || associatedSubtrips.length === 0) {
+    return res.status(400).json({ message: "No subtrips provided." });
   }
 
-  // Create a new receipt
-  const newReceipt = new TransporterPaymentReceipt({
-    ...req.body,
-    status: "pending",
-    createdDate: new Date(),
-  });
+  const session = await TransporterPayment.startSession();
+  session.startTransaction();
 
-  // Save the new receipt
-  const savedReceipt = await newReceipt.save();
+  try {
+    // 1. Fetch transporter info
+    const transporter = await Transporter.findById(transporterId);
+    if (!transporter) {
+      await session.abortTransaction();
+      return res.status(404).json({ message: "Transporter not found." });
+    }
 
-  await Subtrip.updateMany(
-    {
+    // 2. Fetch and filter subtrips (must not be linked and vehicle should be market)
+    const subtripsRaw = await Subtrip.find({
       _id: { $in: associatedSubtrips },
-      transporterPaymentReceiptId: { $exists: false },
-    },
-    { $set: { transporterPaymentReceiptId: savedReceipt._id } }
-  );
+      transporterPaymentReceiptId: null,
+    })
+      .populate({
+        path: "tripId",
+        populate: { path: "vehicleId" },
+      })
+      .populate("customerId")
+      .populate("expenses")
+      .session(session);
 
-  res.status(201).json(savedReceipt);
+    const subtrips = subtripsRaw.filter(
+      (st) => st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn
+    );
+
+    if (subtrips.length !== associatedSubtrips.length) {
+      const failed = associatedSubtrips.filter(
+        (id) => !subtrips.some((s) => s._id.toString() === id.toString())
+      );
+      await session.abortTransaction();
+      return res.status(400).json({
+        message: "Some subtrips are invalid or already linked.",
+        failedSubtrips: failed,
+      });
+    }
+
+    // 3. Create snapshot from each subtrip using utility
+    const subtripSnapshot = subtrips.map((st) => {
+      const {
+        effectiveFreightRate,
+        totalFreightAmount,
+        totalExpense,
+        totalTransporterPayment,
+      } = calculateTransporterPayment(st);
+
+      return {
+        subtripId: st._id,
+        loadingPoint: st.loadingPoint,
+        unloadingPoint: st.unloadingPoint,
+        vehicleNo: st.tripId?.vehicleId?.vehicleNo,
+        startDate: st.startDate,
+        invoiceNo: st.invoiceNo,
+        customerName: st.customerId?.customerName,
+        rate: st.rate,
+        commissionRate: st.commissionRate,
+        effectiveFreightRate,
+        loadingWeight: st.loadingWeight,
+        freightAmount: totalFreightAmount,
+        shortageWeight: st.shortageWeight,
+        shortageAmount: st.shortageAmount,
+        expenses: st.expenses.map((ex) => ({
+          expenseType: ex.expenseType,
+          amount: ex.amount,
+          remarks: ex.remarks,
+        })),
+        totalExpense,
+        totalTransporterPayment,
+      };
+    });
+
+    // 4. Calculate final summary and tax
+    const summary = calculateTransporterPaymentSummary(
+      { associatedSubtrips: subtrips },
+      transporter,
+      additionalCharges
+    );
+
+    // 5. Create and save receipt
+    const receipt = new TransporterPayment({
+      transporterId,
+      billingPeriod,
+      associatedSubtrips,
+      subtripSnapshot,
+      additionalCharges,
+      taxBreakup: summary.taxBreakup,
+      summary,
+      meta,
+    });
+
+    const saved = await receipt.save({ session });
+
+    // 6. Link subtrips
+    await Subtrip.updateMany(
+      { _id: { $in: associatedSubtrips } },
+      { $set: { transporterPaymentReceiptId: saved._id } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(201).json(saved);
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Transporter payment creation failed:", err);
+    res.status(500).json({ message: "Creation failed", error: err.message });
+  }
 });
 
 // Fetch All Transporter Payment Receipts
 const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
-  const receipts = await TransporterPaymentReceipt.find()
-    .populate("transporterId")
-    .populate({
-      path: "associatedSubtrips",
-      populate: [
-        {
-          path: "tripId",
-          populate: {
-            path: "vehicleId",
-          },
-        },
-        { path: "expenses" },
-        { path: "routeCd" },
-      ],
-    });
+  const receipts = await TransporterPayment.find().populate("transporterId");
+
   res.status(200).json(receipts);
 });
 
 // Fetch Single Transporter Payment Receipt
 const fetchTransporterPaymentReceipt = asyncHandler(async (req, res) => {
-  const receipt = await TransporterPaymentReceipt.findById(req.params.id)
-    .populate("transporterId")
-    .populate({
-      path: "associatedSubtrips",
-      populate: [
-        {
-          path: "tripId",
-          populate: {
-            path: "vehicleId",
-          },
-        },
-        { path: "expenses" },
-        { path: "routeCd" },
-      ],
-    });
+  const receipt = await TransporterPayment.findById(req.params.id).populate(
+    "transporterId"
+  );
 
   if (!receipt) {
     res.status(404).json({ message: "Transporter Payment Receipt not found" });
@@ -96,7 +159,7 @@ const fetchTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
 // Update Transporter Payment Receipt
 const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
-  const updatedReceipt = await TransporterPaymentReceipt.findByIdAndUpdate(
+  const updatedReceipt = await TransporterPayment.findByIdAndUpdate(
     req.params.id,
     req.body,
     {
@@ -118,29 +181,25 @@ const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
 // Delete Transporter Payment Receipt
 const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
-  const receipt = await TransporterPaymentReceipt.findById(req.params.id);
+  const receipt = await TransporterPayment.findById(req.params.id);
 
   if (!receipt) {
-    res.status(404).json({ message: "Transporter Payment Receipt not found" });
-    return;
+    return res
+      .status(404)
+      .json({ message: "Transporter Payment Receipt not found" });
   }
 
-  // remove the receipt id from the associated subtrips
+  // ✅ Use $in with associatedSubtrips to remove links
   await Subtrip.updateMany(
-    { transporterPaymentReceiptId: receipt._id },
+    { _id: { $in: receipt.associatedSubtrips } },
     { $unset: { transporterPaymentReceiptId: "" } }
   );
 
-  // remove from installmentsPaid from loans of id in selectedLoans
-  await Loan.updateMany(
-    { _id: { $in: receipt.selectedLoans } },
-    { $pull: { installmentsPaid: { receiptId: receipt._id } } }
-  );
+  await TransporterPayment.findByIdAndDelete(req.params.id);
 
-  await TransporterPaymentReceipt.findByIdAndDelete(req.params.id);
-  res
-    .status(200)
-    .json({ message: "Transporter Payment Receipt deleted successfully" });
+  res.status(200).json({
+    message: "Transporter Payment Receipt deleted successfully",
+  });
 });
 
 module.exports = {

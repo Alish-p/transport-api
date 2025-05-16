@@ -1,48 +1,165 @@
 const { Schema, model } = require("mongoose");
 const CounterModel = require("./Counter");
 
-const transporterPaymentReceiptSchema = new Schema({
-  _id: { type: String, immutable: true, unique: true },
-  transporterId: {
-    type: Schema.Types.ObjectId,
-    required: true,
-    ref: "Transporter",
-  },
-  status: {
-    type: String,
-    required: true,
-    enum: ["pending", "paid", "overdue"],
-  },
-  createdDate: { type: Date, default: Date.now },
-  dueDate: { type: Date },
-  associatedSubtrips: [{ type: String, ref: "Subtrip" }],
-  selectedLoans: [
-    {
-      _id: { type: Schema.Types.ObjectId },
-      installmentAmount: { type: Number },
+//
+// 📦 Tax Breakup Schema — Captures GST details for audit compliance
+//
+const taxBreakupSchema = new Schema(
+  {
+    cgst: {
+      rate: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
     },
-  ],
-  periodStartDate: { type: Date },
-  periodEndDate: { type: Date },
-});
+    sgst: {
+      rate: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+    },
+    igst: {
+      rate: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+    },
+    tds: {
+      rate: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+    },
 
-// for creating incremental id
-transporterPaymentReceiptSchema.pre("save", async function (next) {
-  if (!this.isNew) {
-    return next();
+    totalTax: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
+//
+// 🧾 Subtrip Snapshot Schema — Freezes subtrip details at time of payment
+//
+const subtripPaymentSnapshotSchema = new Schema(
+  {
+    subtripId: { type: String, ref: "Subtrip", required: true },
+
+    // Route info
+    loadingPoint: String,
+    unloadingPoint: String,
+    vehicleNo: String,
+    startDate: Date,
+
+    // Party info
+    customerName: String,
+    invoiceNo: String,
+
+    // Financial info
+    rate: Number,
+    commissionRate: Number,
+    effectiveFreightRate: Number,
+    loadingWeight: Number,
+    freightAmount: Number,
+    shortageWeight: Number,
+    shortageAmount: Number,
+
+    // Expenses and final payment
+    expenses: [
+      {
+        expenseType: String,
+        amount: Number,
+        remarks: String,
+      },
+    ],
+    totalExpense: Number,
+    totalTransporterPayment: Number,
+  },
+  { _id: false }
+);
+
+//
+// 💰 Transporter Payment Receipt Schema — Main document for transporter settlements
+//
+const transporterPaymentReceiptSchema = new Schema(
+  {
+    // Unique identifier
+    paymentId: { type: String, immutable: true, unique: true },
+
+    // Transporter reference
+    transporterId: {
+      type: Schema.Types.ObjectId,
+      ref: "Transporter",
+      required: true,
+    },
+
+    // Status of the payment
+    status: {
+      type: String,
+      enum: ["generated", "paid"],
+      default: "generated",
+    },
+
+    // Timestamp fields
+    issueDate: { type: Date, default: Date.now },
+
+    // Billing period covered in this receipt
+    billingPeriod: {
+      start: { type: Date },
+      end: { type: Date },
+    },
+
+    // Subtrip linkage and snapshot
+    associatedSubtrips: [{ type: String, ref: "Subtrip" }],
+    subtripSnapshot: [subtripPaymentSnapshotSchema],
+
+    // Charges beyond calculated freight
+    additionalCharges: [
+      {
+        label: String,
+        amount: Number,
+      },
+    ],
+
+    // Tax details for audit
+    taxBreakup: taxBreakupSchema,
+
+    // Summary of computed values
+    summary: {
+      totalTripWiseIncome: Number,
+      totalFreightAmount: Number,
+      totalExpense: Number,
+      totalShortageAmount: Number,
+      totalTax: Number,
+      totalAdditionalCharges: Number,
+      netIncome: Number, // totaltotalTripWiseIncome-totalExpense-totalShortageAmount-totalTax-additionalCharges
+    },
+
+    // Creator and last modifier info
+    meta: {
+      createdBy: {
+        _id: { type: Schema.Types.ObjectId, ref: "User" },
+        name: String,
+      },
+      lastModified: Date,
+    },
+  },
+  {
+    timestamps: true,
   }
+);
+
+//
+// 🔁 Auto-generate paymentId before saving
+//
+transporterPaymentReceiptSchema.pre("save", async function (next) {
+  if (!this.isNew) return next();
+
   try {
     const counter = await CounterModel.findByIdAndUpdate(
       { _id: "TransporterPaymentReceiptId" },
       { $inc: { seq: 1 } },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, new: true }
     );
 
-    const receiptId = counter ? `TPR-${counter.seq}` : "TPR-1";
-    this._id = receiptId;
-  } catch (error) {
-    return next(error);
+    this.paymentId = `TPR-${counter.seq}`;
+  } catch (err) {
+    return next(err);
   }
+
+  this.meta = this.meta || {};
+  this.meta.lastModified = new Date();
+  next();
 });
 
 module.exports = model("TransporterPayment", transporterPaymentReceiptSchema);
