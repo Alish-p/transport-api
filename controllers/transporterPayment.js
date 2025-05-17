@@ -84,8 +84,8 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
         effectiveFreightRate,
         loadingWeight: st.loadingWeight,
         freightAmount: totalFreightAmount,
-        shortageWeight: st.shortageWeight,
-        shortageAmount: st.shortageAmount,
+        shortageWeight: st.shortageWeight || 0,
+        shortageAmount: st.shortageAmount || 0,
         expenses: st.expenses.map((ex) => ({
           expenseType: ex.expenseType,
           amount: ex.amount,
