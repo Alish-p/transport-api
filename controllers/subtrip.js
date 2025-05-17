@@ -833,8 +833,6 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
             path: "vehicleId",
             populate: {
               path: "transporter",
-              select:
-                "_id transportName cellNo emailId address gstNo panNo bankDetails",
             },
           },
         ],
@@ -849,42 +847,31 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
       const transporterId = transporter._id.toString();
       if (!acc[transporterId]) {
         acc[transporterId] = {
-          transporterId: transporter._id,
-          transporterName: transporter.transportName,
-          transporterPhone: transporter.cellNo,
-          transporterEmail: transporter.emailId,
-          transporterAddress: transporter.address,
-          transporterGstin: transporter.gstNo,
-          transporterPanNo: transporter.panNo,
-          transporterBankDetails: transporter.bankDetails,
+          transporter: {
+            _id: transporter._id,
+            transportName: transporter.transportName,
+            address: transporter.address,
+            place: transporter.place,
+            state: transporter.state,
+            pinNo: transporter.pinNo,
+            cellNo: transporter.cellNo,
+            paymentMode: transporter.paymentMode,
+            panNo: transporter.panNo,
+            ownerName: transporter.ownerName,
+            gstEnabled: transporter.gstEnabled,
+            gstNo: transporter.gstNo,
+            emailId: transporter.emailId,
+            ownerPhoneNo: transporter.ownerPhoneNo,
+            tdsPercentage: transporter.tdsPercentage,
+            podCharges: transporter.podCharges,
+            bankDetails: transporter.bankDetails,
+          },
           subtrips: [],
-          loans: [],
         };
       }
       acc[transporterId].subtrips.push(subtrip);
       return acc;
     }, {});
-
-    // Fetch loans for each transporter
-    const transporterIds = Object.keys(groupedByTransporter);
-    const loans = await Loan.find({
-      borrowerId: { $in: transporterIds },
-      borrowerType: "Transporter",
-      status: "pending",
-    })
-      .populate(
-        "borrowerId",
-        "transportName cellNo emailId address gstNo panNo bankDetails"
-      )
-      .lean();
-
-    // Add loans to their respective transporters
-    loans.forEach((loan) => {
-      const transporterId = loan.borrowerId._id.toString();
-      if (groupedByTransporter[transporterId]) {
-        groupedByTransporter[transporterId].loans.push(loan);
-      }
-    });
 
     // Convert to array format
     const result = Object.values(groupedByTransporter);
