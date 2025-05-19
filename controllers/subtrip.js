@@ -94,8 +94,6 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       hasTransporterPayment,
     } = req.query;
 
-    console.log({ req: req.query });
-
     // Initialize base query
     let query = {};
     let tripQuery = {};
@@ -167,7 +165,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     if (driverId || vehicleId || transporterId) {
       // Build vehicle query if transporterId is provided
       if (transporterId) {
-        vehicleQuery = { isOwn: false, transporter: transporterId };
+        vehicleQuery = { transporter: transporterId };
       }
 
       // If vehicleId is provided, add it to vehicle query
@@ -175,10 +173,13 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
         vehicleQuery._id = vehicleId;
       }
 
+      console.log({ vehicleQuery });
+
       // Fetch vehicles based on vehicle query
       let vehicles = [];
       if (Object.keys(vehicleQuery).length > 0) {
-        vehicles = await Vehicle.find(vehicleQuery).select("_id");
+        vehicles = await Vehicle.find(vehicleQuery).select("_id vehicleNo");
+        console.log(vehicles);
         if (!vehicles.length) {
           return res.status(404).json({
             message: "No vehicles found matching the specified criteria.",
@@ -186,6 +187,8 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
         }
         tripQuery.vehicleId = { $in: vehicles.map((v) => v._id) };
       }
+
+      debugger;
 
       // Add driverId to trip query if provided
       if (driverId) {
@@ -203,8 +206,6 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
         query.tripId = { $in: trips.map((trip) => trip._id) };
       }
     }
-
-    console.log({ query, tripQuery, vehicleQuery });
 
     // Execute the query with population
     const subtrips = await populateSubtrip(Subtrip.find(query)).lean();

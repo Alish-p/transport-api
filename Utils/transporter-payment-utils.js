@@ -39,10 +39,6 @@ const calculateTaxBreakup = (transporter, totalAmountBeforeTax) => {
   const tdsRate = transporter?.tdsPercentage || 0;
   const tdsAmount = (totalAmountBeforeTax * tdsRate) / 100;
 
-  if (!transporter?.state) {
-    throw new Error("Transporter state is required to calculate tax breakup.");
-  }
-
   // 🚫 GST not applicable — return only TDS
   if (!transporter?.gstEnabled) {
     return {
@@ -52,6 +48,10 @@ const calculateTaxBreakup = (transporter, totalAmountBeforeTax) => {
       tds: { rate: tdsRate, amount: tdsAmount },
       totalTax: tdsAmount,
     };
+  }
+
+  if (!transporter?.state) {
+    throw new Error("Transporter state is required to calculate tax breakup.");
   }
 
   const isIntraState = transporter.state.toLowerCase() === "karnataka";

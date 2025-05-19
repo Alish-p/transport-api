@@ -16,6 +16,17 @@ const calculateInvoicePerSubtrip = (subtrip) => {
 // 🛠 Calculate tax breakup based on customer state
 const calculateTaxBreakup = (customer, totalAmountBeforeTax) => {
   const taxRate = CONFIG.customerInvoiceTax || 6; // default to 6%
+
+  // 🚫 GST not applicable — return only TDS
+  if (!customer?.gstEnabled) {
+    return {
+      cgst: { rate: 0, amount: 0 },
+      sgst: { rate: 0, amount: 0 },
+      igst: { rate: 0, amount: 0 },
+      totalTax: 0,
+    };
+  }
+
   if (!customer?.state) {
     throw new Error("Customer state is required to calculate tax breakup.");
   }

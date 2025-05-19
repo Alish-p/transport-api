@@ -3,7 +3,8 @@ const { Schema, model } = require("mongoose");
 // Define the customer schema
 const CustomerSchema = new Schema({
   customerName: { type: String, required: true },
-  GSTNo: { type: String, required: true },
+  GSTNo: { type: String },
+  gstEnabled: { type: Boolean, required: true },
   PANNo: { type: String, required: true },
   address: { type: String },
   place: { type: String },
