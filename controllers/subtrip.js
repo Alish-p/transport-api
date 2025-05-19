@@ -11,7 +11,7 @@ const {
 } = require("../constants/status");
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
 const Route = require("../model/Route");
-const { default: mongoose } = require("mongoose");
+const mongoose = require("mongoose");
 const Loan = require("../model/Loan");
 
 // helper function to Poppulate Subtrip
@@ -837,6 +837,7 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
           },
         ],
       })
+      .populate("expenses")
       .lean();
 
     // Group subtrips by transporter

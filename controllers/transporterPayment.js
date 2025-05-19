@@ -3,6 +3,7 @@ const TransporterPayment = require("../model/TransporterPayment");
 
 const Transporter = require("../model/Transporter");
 const Loan = require("../model/Loan");
+const mongoose = require("mongoose");
 const Subtrip = require("../model/Subtrip");
 const {
   calculateTransporterPayment,
@@ -136,6 +137,165 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   }
 });
 
+// 💰 Create Bulk Transporter Payment Receipts
+const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
+  const { payments } = req.body;
+
+  if (!Array.isArray(payments) || payments.length === 0) {
+    return res.status(400).json({ message: "No payment payloads provided." });
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const savedReceipts = [];
+
+    for (const [idx, item] of payments.entries()) {
+      const {
+        transporterId,
+        billingPeriod,
+        associatedSubtrips,
+        additionalCharges = [],
+        meta,
+      } = item;
+
+      // 1. Validate subtrips array
+      if (
+        !Array.isArray(associatedSubtrips) ||
+        associatedSubtrips.length === 0
+      ) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          message: `Payload #${idx + 1}: No subtrips provided.`,
+          index: idx,
+        });
+      }
+
+      // 2. Fetch transporter
+      const transporter = await Transporter.findById(transporterId).session(
+        session
+      );
+      if (!transporter) {
+        await session.abortTransaction();
+        return res.status(404).json({
+          message: `Payload #${
+            idx + 1
+          }: Transporter not found (${transporterId}).`,
+          index: idx,
+        });
+      }
+
+      // 3. Fetch & filter subtrips
+      const rawSubtrips = await Subtrip.find({
+        _id: { $in: associatedSubtrips },
+        transporterPaymentReceiptId: null,
+      })
+        .populate({
+          path: "tripId",
+          populate: { path: "vehicleId" },
+        })
+        .populate("customerId")
+        .populate("expenses")
+        .session(session);
+
+      const subtrips = rawSubtrips.filter(
+        (st) => st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn
+      );
+
+      if (subtrips.length !== associatedSubtrips.length) {
+        const failed = associatedSubtrips.filter(
+          (id) => !subtrips.some((s) => s._id.toString() === id.toString())
+        );
+        await session.abortTransaction();
+        return res.status(400).json({
+          message: `Payload #${
+            idx + 1
+          }: Some subtrips invalid or already linked.`,
+          failedSubtrips: failed,
+          index: idx,
+        });
+      }
+
+      // 4. Build subtrip snapshots
+      const subtripSnapshot = subtrips.map((st) => {
+        const {
+          effectiveFreightRate,
+          totalFreightAmount,
+          totalExpense,
+          totalTransporterPayment,
+        } = calculateTransporterPayment(st);
+
+        return {
+          subtripId: st._id,
+          loadingPoint: st.loadingPoint,
+          unloadingPoint: st.unloadingPoint,
+          vehicleNo: st.tripId.vehicleId.vehicleNo,
+          startDate: st.startDate,
+          invoiceNo: st.invoiceNo,
+          customerName: st.customerId?.customerName,
+          rate: st.rate,
+          commissionRate: st.commissionRate,
+          effectiveFreightRate,
+          loadingWeight: st.loadingWeight,
+          freightAmount: totalFreightAmount,
+          shortageWeight: st.shortageWeight || 0,
+          shortageAmount: st.shortageAmount || 0,
+          expenses: st.expenses.map((ex) => ({
+            expenseType: ex.expenseType,
+            amount: ex.amount,
+            remarks: ex.remarks,
+          })),
+          totalExpense,
+          totalTransporterPayment,
+        };
+      });
+
+      // 5. Calculate summary & tax
+      const summary = calculateTransporterPaymentSummary(
+        { associatedSubtrips: subtrips },
+        transporter,
+        additionalCharges
+      );
+
+      // 6. Create & save receipt
+      const receipt = new TransporterPayment({
+        transporterId,
+        billingPeriod,
+        associatedSubtrips,
+        subtripSnapshot,
+        additionalCharges,
+        taxBreakup: summary.taxBreakup,
+        summary,
+        meta,
+      });
+
+      const saved = await receipt.save({ session });
+      savedReceipts.push(saved);
+
+      // 7. Link subtrips to this receipt
+      await Subtrip.updateMany(
+        { _id: { $in: associatedSubtrips } },
+        { $set: { transporterPaymentReceiptId: saved._id } },
+        { session }
+      );
+    }
+
+    // 8. Commit all
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(201).json(savedReceipts);
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Bulk transporter payment creation failed:", err);
+    res
+      .status(500)
+      .json({ message: "Bulk creation failed.", error: err.message });
+  }
+});
+
 // Fetch All Transporter Payment Receipts
 const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
   const receipts = await TransporterPayment.find().populate("transporterId");
@@ -204,6 +364,7 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
 module.exports = {
   createTransporterPaymentReceipt,
+  createBulkTransporterPaymentReceipts,
   fetchTransporterPaymentReceipts,
   fetchTransporterPaymentReceipt,
   updateTransporterPaymentReceipt,
