@@ -44,7 +44,6 @@ const createLoan = asyncHandler(async (req, res) => {
     !borrowerId ||
     !borrowerType ||
     !principalAmount ||
-    !interestRate ||
     !tenureMonths ||
     !disbursementDate
   ) {
