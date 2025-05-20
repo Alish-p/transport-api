@@ -89,46 +89,64 @@ const loanSchema = new Schema(
 
 // Auto-generate installment schedule upon creation
 loanSchema.pre("validate", function (next) {
-  if (this.isNew) {
-    const monthlyRate = this.interestRate / 12 / 100;
-    const P = this.principalAmount;
-    const n = this.tenureMonths;
-    // standard annuity formula
-    const EMI =
+  if (!this.isNew) return next();
+
+  const P = this.principalAmount;
+  const n = this.tenureMonths;
+
+  let EMI;
+  let monthlyRate = this.interestRate / 12 / 100;
+
+  if (this.interestRate === 0) {
+    // Zero‐interest: equally split principal
+    EMI = Math.round((P / n) * 100) / 100;
+  } else {
+    // Standard annuity formula
+    EMI =
       (P * monthlyRate * Math.pow(1 + monthlyRate, n)) /
       (Math.pow(1 + monthlyRate, n) - 1);
+    EMI = Math.round(EMI * 100) / 100;
+  }
 
-    this.emi.amount = Math.round(EMI * 100) / 100;
+  this.emi.amount = EMI;
 
-    let balance = P;
-    let totalPayment = 0;
+  // build installments
+  let balance = P;
+  let totalPayment = 0;
+  this.installments = [];
 
-    // clear any accidental prefill
-    this.installments = [];
+  for (let i = 1; i <= n; i++) {
+    let interest, principalComp;
 
-    for (let i = 1; i <= n; i++) {
-      const interest = Math.round(balance * monthlyRate * 100) / 100;
-      const principalComp = Math.round((EMI - interest) * 100) / 100;
-      balance = Math.round((balance - principalComp) * 100) / 100;
-      const dueAmount = principalComp + interest;
-      totalPayment += dueAmount;
-
-      this.installments.push({
-        installmentNumber: i,
-        dueDate: new Date(
-          this.disbursementDate.getTime() + i * 30 * 24 * 60 * 60 * 1000 // you can refine month calc
-        ),
-        principalDue: principalComp,
-        interestDue: interest,
-        totalDue: dueAmount,
-      });
+    if (this.interestRate === 0) {
+      interest = 0;
+      principalComp = EMI;
+      // on the last installment, absorb any rounding difference
+      if (i === n) principalComp = Math.round(balance * 100) / 100;
+    } else {
+      interest = Math.round(balance * monthlyRate * 100) / 100;
+      principalComp = Math.round((EMI - interest) * 100) / 100;
     }
 
-    // now set the fields that were “required”
-    this.totalAmount = Math.round(totalPayment * 100) / 100;
-    this.outstandingBalance = this.totalAmount;
-    this.emi.nextDueDate = this.installments[0].dueDate;
+    balance = Math.round((balance - principalComp) * 100) / 100;
+    const dueAmt = principalComp + interest;
+    totalPayment += dueAmt;
+
+    this.installments.push({
+      installmentNumber: i,
+      dueDate: new Date(
+        this.disbursementDate.getTime() + i * 30 * 24 * 60 * 60 * 1000
+      ),
+      principalDue: principalComp,
+      interestDue: interest,
+      totalDue: dueAmt,
+    });
   }
+
+  this.totalAmount = Math.round(totalPayment * 100) / 100;
+  this.outstandingBalance = this.totalAmount;
+  this.emi.nextDueDate = this.installments[0].dueDate;
+
   next();
 });
 
