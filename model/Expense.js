@@ -1,5 +1,4 @@
 const { Schema, model } = require("mongoose");
-const CounterModel = require("./Counter");
 
 // Expense Schema
 const expenseSchema = new Schema({

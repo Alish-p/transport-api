@@ -34,6 +34,7 @@ const calculateTransporterPayment = (subtrip) => {
 };
 
 // 🛠 Calculate tax breakup based on transporter state
+// IN GST reverse mechanism we just show tax breakdown only not take consideration into netTotal
 const calculateTaxBreakup = (transporter, totalAmountBeforeTax) => {
   const taxRate = CONFIG.transporterInvoiceTax || 6; // default GST rate
   const tdsRate = transporter?.tdsPercentage || 0;
@@ -63,7 +64,7 @@ const calculateTaxBreakup = (transporter, totalAmountBeforeTax) => {
       sgst: { rate: taxRate, amount: taxAmount },
       igst: { rate: 0, amount: 0 },
       tds: { rate: tdsRate, amount: tdsAmount },
-      totalTax: 2 * taxAmount + tdsAmount,
+      totalTax: tdsAmount,
     };
   } else {
     const igstRate = 2 * taxRate;
@@ -73,7 +74,7 @@ const calculateTaxBreakup = (transporter, totalAmountBeforeTax) => {
       sgst: { rate: 0, amount: 0 },
       igst: { rate: igstRate, amount: igstAmount },
       tds: { rate: tdsRate, amount: tdsAmount },
-      totalTax: igstAmount + tdsAmount,
+      totalTax: tdsAmount,
     };
   }
 };
