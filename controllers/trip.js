@@ -113,31 +113,47 @@ const closeTrip = asyncHandler(async (req, res) => {
 
 // Update Trip
 const updateTrip = asyncHandler(async (req, res) => {
-  try {
-    const trip = await Trip.findById(req.params.id);
+  const { id } = req.params;
 
-    if (!trip) {
-      res.status(404);
-      throw new Error("Trip not found");
-    }
+  // 1. Fetch the trip
+  const trip = await Trip.findById(id);
+  if (!trip) {
+    res.status(404);
+    throw new Error("Trip not found");
+  }
 
-    // Check if trip is billed
-    if (trip.tripStatus === "billed") {
-      res.status(400);
-      throw new Error("Cannot update a billed trip");
-    }
+  // 2. Can't update a billed trip at all
+  if (trip.tripStatus === "billed") {
+    res.status(400);
+    throw new Error("Cannot update a billed trip");
+  }
 
-    const updatedTrip = await Trip.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
+  // 3. If the client is trying to change the driver...
+  if (
+    req.body.driverId &&
+    String(req.body.driverId) !== String(trip.driverId)
+  ) {
+    // 3a. Check for any subtrip with a salary already assigned
+    const lockedCount = await Subtrip.countDocuments({
+      tripId: trip._id,
+      driverSalaryId: { $exists: true, $ne: null },
     });
 
-    res.status(200).json(updatedTrip);
-  } catch (error) {
-    console.error(error);
-    res.status(500);
-    throw new Error("Error updating trip");
+    if (lockedCount > 0) {
+      res.status(400);
+      throw new Error(
+        "Cannot change driver: one or more subtrips already have salary created."
+      );
+    }
   }
+
+  // 4. Perform the update
+  const updatedTrip = await Trip.findByIdAndUpdate(id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+
+  res.status(200).json(updatedTrip);
 });
 
 // Delete Trip and Associated Subtrips and Expenses
