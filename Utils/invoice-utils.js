@@ -4,7 +4,7 @@ const { CONFIG } = require("../constants/CONFIG");
 const calculateInvoicePerSubtrip = (subtrip) => {
   const freightAmount = (subtrip.rate || 0) * (subtrip.loadingWeight || 0);
   const shortageAmount = subtrip.shortageAmount || 0;
-  const totalAmount = freightAmount - shortageAmount;
+  const totalAmount = freightAmount; // shortage we are not deduting just showing it separately
 
   return {
     freightAmount,
