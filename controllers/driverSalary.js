@@ -1,178 +1,318 @@
+// controllers/driverSalaryController.js
+
 const asyncHandler = require("express-async-handler");
-const DriverSalaryReceipt = require("../model/DriverSalary");
+const mongoose = require("mongoose");
+
+const DriverSalary = require("../model/DriverSalary");
+const Driver = require("../model/Driver");
 const Subtrip = require("../model/Subtrip");
-const Loan = require("../model/Loan");
 
-// Helper function to populate DriverSalary
-const populateDriverSalary = (query) => {
-  return query.populate("driverId").populate({
-    path: "subtripComponents.subtripId",
-    populate: [
-      {
-        path: "tripId",
-        populate: [
-          {
-            path: "vehicleId",
-            populate: { path: "transporter" },
-          },
-        ],
-      },
-      { path: "routeCd" },
-      { path: "expenses" },
-      { path: "customerId" },
-    ],
-  });
-};
+// stubbed utils—implement these in ../utils/driver-salary-utils.js
+const {
+  calculateDriverSalary,
+  calculateDriverSalarySummary,
+} = require("../utils/driver-salary-utils");
 
-// Create Driver Salary Receipt with User-Selected Subtrips and Loan Payments
+// 💰 Create Driver Salary Receipt
 const createDriverSalary = asyncHandler(async (req, res) => {
   const {
     driverId,
-    periodStartDate,
-    periodEndDate,
-    otherSalaryComponent,
-    subtripComponents,
-    totalSalary,
-    status,
-    selectedLoans,
+    billingPeriod,
+    associatedSubtrips,
+    additionalPayments = [],
+    additionalDeductions = [],
+    meta,
   } = req.body;
 
-  // Deduct installment amounts from loans
-  for (const loan of selectedLoans) {
-    const existingLoan = await Loan.findById(loan._id);
-    if (existingLoan) {
-      existingLoan.remainingBalance -= loan.installmentAmount;
-      existingLoan.installmentsPaid.push({
-        amount: loan.installmentAmount,
-        paidDate: new Date(),
-      });
+  if (!Array.isArray(associatedSubtrips) || associatedSubtrips.length === 0) {
+    return res.status(400).json({ message: "No subtrips provided." });
+  }
 
-      // Check if remaining balance is 0, then mark loan as paid
-      if (existingLoan.remainingBalance <= 0) {
-        existingLoan.remainingBalance = 0;
-        existingLoan.status = "paid";
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // 1. Fetch driver
+    const driver = await Driver.findById(driverId).session(session);
+    if (!driver) {
+      await session.abortTransaction();
+      return res.status(404).json({ message: "Driver not found." });
+    }
+
+    // 2. Fetch & filter subtrips (ensure not already linked)
+    const rawSubtrips = await Subtrip.find({
+      _id: { $in: associatedSubtrips },
+      driverSalaryReceiptId: null, // requires this field on Subtrip
+    })
+      .populate("tripId")
+      .populate("expenses")
+      .session(session);
+
+    if (rawSubtrips.length !== associatedSubtrips.length) {
+      const failed = associatedSubtrips.filter(
+        (id) => !rawSubtrips.some((st) => st._id.equals(id))
+      );
+      await session.abortTransaction();
+      return res.status(400).json({
+        message: "Some subtrips invalid or already linked.",
+        failedSubtrips: failed,
+      });
+    }
+
+    // 3. Build subtripSnapshot
+    const subtripSnapshot = rawSubtrips.map((st) => {
+      const totalDriverSalary = calculateDriverSalary(st);
+
+      return {
+        subtripId: st._id,
+        loadingPoint: st.loadingPoint,
+        unloadingPoint: st.unloadingPoint,
+        vehicleNo: st.tripId?.vehicleId?.vehicleNo,
+        startDate: st.startDate,
+        customerName: st.customerId?.customerName,
+        invoiceNo: st.invoiceNo,
+        rate: st.rate,
+        loadingWeight: st.loadingWeight,
+        freightAmount: st.rate,
+        shortageWeight: st.shortageWeight,
+        shortageAmount: st.shortageAmount,
+
+        expenses: st.expenses.map((ex) => ({
+          expenseType: ex.expenseType,
+          amount: ex.amount,
+          remarks: ex.remarks,
+        })),
+
+        totalDriverSalary,
+      };
+    });
+
+    // 4. Calculate overall summary
+    const summary = calculateDriverSalarySummary(
+      { associatedSubtrips: rawSubtrips },
+      driver,
+      additionalPayments,
+      additionalDeductions
+    );
+
+    // 5. Create & save
+    const salaryDoc = new DriverSalary({
+      driverId,
+      billingPeriod,
+      associatedSubtrips,
+      subtripSnapshot,
+      additionalPayments,
+      additionalDeductions,
+      summary,
+      meta,
+    });
+
+    const saved = await salaryDoc.save({ session });
+
+    // 6. Link subtrips back to this salary receipt
+    await Subtrip.updateMany(
+      { _id: { $in: associatedSubtrips } },
+      { $set: { driverSalaryReceiptId: saved._id } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+    res.status(201).json(saved);
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Driver salary creation failed:", err);
+    res.status(500).json({ message: "Creation failed", error: err.message });
+  }
+});
+
+// 💰 Create Bulk Driver Salary Receipts
+const createBulkDriverSalaries = asyncHandler(async (req, res) => {
+  const { payments } = req.body;
+  if (!Array.isArray(payments) || payments.length === 0) {
+    return res.status(400).json({ message: "No payment payloads provided." });
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const savedDocs = [];
+
+    for (const [idx, item] of payments.entries()) {
+      const {
+        driverId,
+        billingPeriod,
+        associatedSubtrips,
+        additionalPayments = [],
+        additionalDeductions = [],
+        meta,
+      } = item;
+
+      // Validate subtrips
+      if (
+        !Array.isArray(associatedSubtrips) ||
+        associatedSubtrips.length === 0
+      ) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          message: `Payload #${idx + 1}: No subtrips provided.`,
+          index: idx,
+        });
       }
 
-      await existingLoan.save();
+      // Fetch driver
+      const driver = await Driver.findById(driverId).session(session);
+      if (!driver) {
+        await session.abortTransaction();
+        return res.status(404).json({
+          message: `Payload #${idx + 1}: Driver not found (${driverId}).`,
+          index: idx,
+        });
+      }
+
+      // Fetch & filter subtrips
+      const rawSubtrips = await Subtrip.find({
+        _id: { $in: associatedSubtrips },
+        driverSalaryReceiptId: null,
+      })
+        .populate("tripId")
+        .populate("expenses")
+        .session(session);
+
+      if (rawSubtrips.length !== associatedSubtrips.length) {
+        const failed = associatedSubtrips.filter(
+          (id) => !rawSubtrips.some((st) => st._id.equals(id))
+        );
+        await session.abortTransaction();
+        return res.status(400).json({
+          message: `Payload #${idx + 1}: Some subtrips invalid or linked.`,
+          failedSubtrips: failed,
+          index: idx,
+        });
+      }
+
+      // Build subtripSnapshot
+      const subtripSnapshot = rawSubtrips.map((st) => {
+        const totalDriverSalary = calculateDriverSalary(st);
+        return {
+          subtripId: st._id,
+          loadingPoint: st.loadingPoint,
+          unloadingPoint: st.unloadingPoint,
+          vehicleNo: st.tripId?.vehicleId?.vehicleNo,
+          startDate: st.startDate,
+          customerName: st.customerId?.customerName,
+          invoiceNo: st.invoiceNo,
+          rate: st.rate,
+          loadingWeight: st.loadingWeight,
+          freightAmount: st.rate,
+          shortageWeight: st.shortageWeight,
+          shortageAmount: st.shortageAmount,
+
+          expenses: st.expenses.map((ex) => ({
+            expenseType: ex.expenseType,
+            amount: ex.amount,
+            remarks: ex.remarks,
+          })),
+
+          totalDriverSalary,
+        };
+      });
+
+      // Summary
+      const summary = calculateDriverSalarySummary(
+        { associatedSubtrips: rawSubtrips },
+        driver,
+        additionalPayments,
+        additionalDeductions
+      );
+
+      // Save each
+      const doc = new DriverSalary({
+        driverId,
+        billingPeriod,
+        associatedSubtrips,
+        subtripSnapshot,
+        additionalPayments,
+        additionalDeductions,
+        summary,
+        meta,
+      });
+      const saved = await doc.save({ session });
+      savedDocs.push(saved);
+
+      // Link subtrips
+      await Subtrip.updateMany(
+        { _id: { $in: associatedSubtrips } },
+        { $set: { driverSalaryReceiptId: saved._id } },
+        { session }
+      );
     }
+
+    await session.commitTransaction();
+    session.endSession();
+    res.status(201).json(savedDocs);
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Bulk driver salary creation failed:", err);
+    res
+      .status(500)
+      .json({ message: "Bulk creation failed.", error: err.message });
+  }
+});
+
+// 📋 Fetch All
+const fetchDriverSalaries = asyncHandler(async (req, res) => {
+  const docs = await DriverSalary.find().populate("driverId").lean();
+  res.status(200).json(docs);
+});
+
+// 📋 Fetch One
+const fetchDriverSalary = asyncHandler(async (req, res) => {
+  const doc = await DriverSalary.findById(req.params.id)
+    .populate("driverId")
+    .lean();
+  if (!doc) {
+    return res.status(404).json({ message: "Driver Salary not found." });
+  }
+  res.status(200).json(doc);
+});
+
+// ✏️ Update
+const updateDriverSalary = asyncHandler(async (req, res) => {
+  const updated = await DriverSalary.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    { new: true }
+  ).populate("driverId");
+  if (!updated) {
+    return res.status(404).json({ message: "Driver Salary not found." });
+  }
+  res.status(200).json(updated);
+});
+
+// 🗑️ Delete
+const deleteDriverSalary = asyncHandler(async (req, res) => {
+  const doc = await DriverSalary.findById(req.params.id);
+  if (!doc) {
+    return res.status(404).json({ message: "Driver Salary not found." });
   }
 
-  // Create a new driver salary receipt
-  const newDriverSalary = new DriverSalaryReceipt({
-    driverId,
-    periodStartDate,
-    periodEndDate,
-    otherSalaryComponent,
-    status,
-    totalSalary,
-    createdDate: new Date(),
-    subtripComponents,
-    selectedLoans,
-  });
-
-  // Save the new driver salary receipt
-  const savedDriverSalary = await newDriverSalary.save();
-
-  Subtrip.updateMany(
-    {
-      _id: { $in: subtripComponents },
-      driverSalaryId: { $exists: false },
-    },
-    { $set: { driverSalaryId: savedDriverSalary._id } }
+  // unlink subtrips
+  await Subtrip.updateMany(
+    { _id: { $in: doc.associatedSubtrips } },
+    { $unset: { driverSalaryReceiptId: "" } }
   );
 
-  res.status(201).json(savedDriverSalary);
-});
-
-// Fetch All Driver Salary Receipts
-const fetchDriverSalaries = asyncHandler(async (req, res) => {
-  const driverSalaries = await populateDriverSalary(DriverSalaryReceipt.find());
-  res.status(200).json(driverSalaries);
-});
-
-// Fetch Single Driver Salary Receipt
-const fetchDriverSalary = asyncHandler(async (req, res) => {
-  const driverSalary = await populateDriverSalary(
-    DriverSalaryReceipt.findById(req.params.id.toUpperCase())
-  )
-    .populate("driverId")
-    .populate({
-      path: "subtripComponents",
-      populate: [
-        {
-          path: "tripId",
-          populate: {
-            path: "vehicleId",
-          },
-        },
-        {
-          path: "routeCd",
-        },
-        {
-          path: "expenses",
-        },
-      ],
-    });
-
-  if (!driverSalary) {
-    res.status(404).json({ message: "Driver salary receipt not found" });
-    return;
-  }
-
-  res.status(200).json(driverSalary);
-});
-
-// Update Driver Salary Receipt
-const updateDriverSalary = asyncHandler(async (req, res) => {
-  const updatedDriverSalary = await populateDriverSalary(
-    DriverSalaryReceipt.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    })
-  )
-    .populate("driverId")
-    .populate({
-      path: "subtripComponents",
-      populate: [
-        {
-          path: "tripId",
-          populate: {
-            path: "vehicleId",
-          },
-        },
-        {
-          path: "routeCd",
-        },
-        {
-          path: "expenses",
-        },
-      ],
-    });
-
-  if (!updatedDriverSalary) {
-    res.status(404).json({ message: "Driver salary receipt not found" });
-    return;
-  }
-
-  res.status(200).json(updatedDriverSalary);
-});
-
-// Delete Driver Salary Receipt
-const deleteDriverSalary = asyncHandler(async (req, res) => {
-  const driverSalary = await DriverSalaryReceipt.findById(req.params.id);
-
-  if (!driverSalary) {
-    res.status(404).json({ message: "Driver salary receipt not found" });
-    return;
-  }
-
-  await DriverSalaryReceipt.findByIdAndDelete(req.params.id);
-  res
-    .status(200)
-    .json({ message: "Driver salary receipt deleted successfully" });
+  await DriverSalary.findByIdAndDelete(req.params.id);
+  res.status(200).json({ message: "Driver Salary deleted successfully." });
 });
 
 module.exports = {
   createDriverSalary,
+  createBulkDriverSalaries,
   fetchDriverSalaries,
   fetchDriverSalary,
   updateDriverSalary,

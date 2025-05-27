@@ -1,34 +1,95 @@
 const { Schema, model } = require("mongoose");
 const CounterModel = require("./Counter");
 
-// driverSalary Schema
+const subtripPaymentSnapshotSchema = new Schema(
+  {
+    subtripId: { type: String, ref: "Subtrip", required: true },
+
+    // Route info
+    loadingPoint: String,
+    unloadingPoint: String,
+    vehicleNo: String,
+    startDate: Date,
+
+    // Party info
+    customerName: String,
+    invoiceNo: String,
+
+    // Financial info
+    rate: Number,
+    loadingWeight: Number,
+    freightAmount: Number,
+    shortageWeight: Number,
+    shortageAmount: Number,
+
+    // Expenses and final payment
+    expenses: [
+      {
+        expenseType: String,
+        amount: Number,
+        remarks: String,
+      },
+    ],
+    totalDriverSalary: Number,
+  },
+  { _id: false }
+);
+
 const driverSalarySchema = new Schema({
-  _id: { type: String, immutable: true, unique: true },
+  // Unique identifier
+  paymentId: { type: String, immutable: true, unique: true },
+  // Reference to the driver
   driverId: { type: Schema.Types.ObjectId, required: true, ref: "Driver" },
+  // Status of the payment
   status: {
     type: String,
-    required: true,
-    enum: ["pending", "paid", "processing"],
+    enum: ["generated", "paid"],
+    default: "generated",
   },
-  createdDate: { type: Date, default: Date.now },
-  periodStartDate: { type: Date },
-  periodEndDate: { type: Date },
-  subtripComponents: [{ type: String, ref: "Subtrip" }],
-  otherSalaryComponent: [
+
+  // Timestamp fields
+  issueDate: { type: Date, default: Date.now },
+
+  // Billing period covered in this receipt
+  billingPeriod: {
+    start: { type: Date },
+    end: { type: Date },
+  },
+
+  // Subtrip linkage and snapshot
+  associatedSubtrips: [{ type: String, ref: "Subtrip" }],
+  subtripSnapshot: [subtripPaymentSnapshotSchema],
+
+  // Additional Paymments beyond trip salary
+  additionalPayments: [
     {
-      paymentType: { type: String },
-      amount: { type: Number, required: true },
-      remarks: { type: String },
+      label: String,
+      amount: Number,
     },
   ],
-  selectedLoans: [
+  additionalDeductions: [
     {
-      _id: { type: Schema.Types.ObjectId },
-      installmentAmount: { type: Number },
+      label: String,
+      amount: Number,
     },
   ],
 
-  totalSalary: { type: Number },
+  // Summary of computed values
+  summary: {
+    totalTripWiseIncome: Number,
+    totalDeductions: Number,
+    totalAdditionalPayments: Number,
+    netIncome: Number, // totalTripWiseIncome+totalAdditionalPayments-totalDeductions
+  },
+
+  // Creator and last modifier info
+  meta: {
+    createdBy: {
+      _id: { type: Schema.Types.ObjectId, ref: "User" },
+      name: String,
+    },
+    lastModified: Date,
+  },
 });
 
 // Pre-save middleware for creating incremental ID
@@ -44,7 +105,7 @@ driverSalarySchema.pre("save", async function (next) {
     );
 
     const Id = counter ? `DSR-${counter.seq}` : "DSR-1";
-    this._id = Id;
+    this.paymentId = Id;
   } catch (error) {
     return next(error);
   }
