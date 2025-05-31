@@ -57,7 +57,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     }
 
     // 5.2 Build invoiceNo from updated customer
-    const invoiceNo = `${updatedCustomer.invoicePrefix}-${updatedCustomer.currentInvoiceSerialNumber}`;
+    const invoiceNo = `${updatedCustomer.invoicePrefix}${updatedCustomer.currentInvoiceSerialNumber}`;
 
     // 5.1 Fetch and validate subtrips
     const subtrips = await Subtrip.find({
