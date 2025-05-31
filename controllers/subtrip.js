@@ -92,6 +92,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       hasInvoice,
       hasDriverSalary,
       hasTransporterPayment,
+      materials,
     } = req.query;
 
     // Initialize base query
@@ -137,6 +138,12 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
         ? subtripStatus
         : [subtripStatus];
       query.subtripStatus = { $in: statusArray };
+    }
+
+    // Handle materials filter (single or array)
+    if (materials) {
+      const materialsArray = Array.isArray(materials) ? materials : [materials];
+      query.materialType = { $in: materialsArray };
     }
 
     // Date range filters
