@@ -5,12 +5,12 @@ const CustomerSchema = new Schema({
   customerName: { type: String, required: true },
   GSTNo: { type: String },
   gstEnabled: { type: Boolean, required: true },
-  PANNo: { type: String, required: true },
-  address: { type: String },
-  place: { type: String },
+  PANNo: { type: String },
+  address: { type: String, required: true },
+
   state: { type: String, required: true },
-  pinCode: { type: String, required: true },
-  cellNo: { type: String, required: true },
+  pinCode: { type: String },
+  cellNo: { type: String },
   consignees: [
     {
       name: { type: String, required: true },
@@ -29,6 +29,9 @@ const CustomerSchema = new Schema({
 
   // code given by customer to Transport company
   transporterCode: { type: String },
+
+  invoicePrefix: { type: String, required: true },
+  currentInvoiceSerialNumber: { type: Number, required: true },
 
   // days within which invoice should be paid
   invoiceDueInDays: { type: Number, default: 10 },

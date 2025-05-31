@@ -42,7 +42,24 @@ const createInvoice = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    // 4. Fetch and validate subtrips
+    // 4.1 Increment currentInvoiceSerialNumber on Customer (in same session)
+    //    This returns the updated customer doc with the new serial.
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      customerId,
+      { $inc: { currentInvoiceSerialNumber: 1 } },
+      { new: true, session }
+    );
+
+    if (!updatedCustomer) {
+      throw new Error(
+        `Failed to bump currentInvoiceSerialNumber for customer ${customerId}`
+      );
+    }
+
+    // 5.2 Build invoiceNo from updated customer
+    const invoiceNo = `${updatedCustomer.invoicePrefix}-${updatedCustomer.currentInvoiceSerialNumber}`;
+
+    // 5.1 Fetch and validate subtrips
     const subtrips = await Subtrip.find({
       _id: { $in: subtripIds },
       subtripStatus: SUBTRIP_STATUS.RECEIVED,
@@ -91,6 +108,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     // 7. Save Invoice
     const invoice = new Invoice({
       customerId,
+      invoiceNo,
       billingPeriod,
       dueDate,
       notes,

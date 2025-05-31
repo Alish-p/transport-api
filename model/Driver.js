@@ -4,7 +4,7 @@ const driverSchema = new Schema({
   driverName: { type: String, required: true },
   driverLicenceNo: { type: String, required: true },
   driverPresentAddress: { type: String, required: true },
-  driverCellNo: { type: String, required: true },
+  driverCellNo: { type: String, required: true, unique: true },
   licenseFrom: { type: Date, required: true },
   licenseTo: { type: Date, required: true },
   aadharNo: { type: String, required: true },

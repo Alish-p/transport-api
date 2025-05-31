@@ -1,5 +1,4 @@
 const { Schema, model } = require("mongoose");
-const CounterModel = require("./Counter");
 
 const taxBreakupSchema = new Schema(
   {
@@ -94,24 +93,5 @@ const invoiceSchema = new Schema(
     timestamps: true, // adds createdAt and updatedAt
   }
 );
-
-// Invoice number generator
-invoiceSchema.pre("save", async function (next) {
-  if (this.isNew && !this.invoiceNo) {
-    try {
-      const counter = await CounterModel.findByIdAndUpdate(
-        { _id: "InvoiceId" },
-        { $inc: { seq: 1 } },
-        { new: true, upsert: true }
-      );
-      this.invoiceNo = `INV-${counter.seq}`;
-    } catch (err) {
-      return next(err);
-    }
-  }
-  this.meta = this.meta || {};
-  this.meta.lastModified = new Date();
-  next();
-});
 
 module.exports = model("Invoice", invoiceSchema);
