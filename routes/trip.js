@@ -2,11 +2,11 @@ const { Router } = require("express");
 const {
   createTrip,
   fetchTrips,
-  fetchTripWithTotals,
+  fetchTrip,
   updateTrip,
   deleteTrip,
-  changeTripStatusToBilled,
   fetchOpenTrips,
+  closeTrip,
 } = require("../controllers/trip");
 
 const { private, admin } = require("../middlewares/Auth");
@@ -16,9 +16,10 @@ router.get("/", fetchTrips);
 router.get("/open", fetchOpenTrips);
 
 router.post("/", createTrip);
-router.get("/:id", fetchTripWithTotals);
+router.get("/:id", fetchTrip);
 router.put("/:id", updateTrip);
 router.delete("/:id", deleteTrip);
-router.put("/:id/billed", changeTripStatusToBilled);
+
+router.put("/:id/close", private, closeTrip);
 
 module.exports = router;

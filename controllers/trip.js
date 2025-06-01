@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const asyncHandler = require("express-async-handler");
 const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
@@ -5,26 +6,46 @@ const Expense = require("../model/Expense");
 const { TRIP_STATUS } = require("../constants/trip-constants");
 
 const createTrip = asyncHandler(async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    // Destructure request body to get all data
-    const { driverId, vehicleId, tripStatus, fromDate, toDate, remarks } =
+    const { driverId, vehicleId, fromDate, remarks, closePreviousTrips } =
       req.body;
 
-    // Create Trip
-    const trip = new Trip({
-      driverId,
-      vehicleId,
-      tripStatus: "pending",
-      fromDate,
-      toDate,
-      remarks,
-      dateOfCreation: new Date(),
-    });
+    // 1) If requested, close all existing OPEN trips for this vehicle (inside txn)
+    if (closePreviousTrips) {
+      await Trip.updateMany(
+        { vehicleId, tripStatus: TRIP_STATUS.OPEN },
+        { tripStatus: TRIP_STATUS.CLOSED, toDate: new Date() },
+        { session }
+      );
+    }
 
-    const newTrip = await trip.save();
+    // 2) Create the new trip (inside txn)
+    const trip = new Trip(
+      {
+        driverId,
+        vehicleId,
+        tripStatus: TRIP_STATUS.OPEN,
+        fromDate,
+        remarks,
+        dateOfCreation: new Date(),
+      },
+      { session }
+    );
+    const newTrip = await trip.save({ session });
+
+    // 3) Commit the transaction
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(201).json(newTrip);
   } catch (error) {
+    // If anything goes wrong, abort the transaction
+    await session.abortTransaction();
+    session.endSession();
+
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
@@ -49,9 +70,7 @@ const fetchTrips = asyncHandler(async (req, res) => {
 });
 
 const fetchOpenTrips = asyncHandler(async (req, res) => {
-  console.log("Open Trips asked");
-
-  const openTrips = await Trip.find({ tripStatus: TRIP_STATUS.PENDING })
+  const openTrips = await Trip.find({ tripStatus: TRIP_STATUS.OPEN })
     .select("_id tripStatus fromDate")
     .populate({
       path: "driverId",
@@ -65,7 +84,7 @@ const fetchOpenTrips = asyncHandler(async (req, res) => {
 });
 
 // fetch All details of trip
-const fetchTripWithTotals = asyncHandler(async (req, res) => {
+const fetchTrip = asyncHandler(async (req, res) => {
   const trip = await Trip.findById(req.params.id)
     .populate({
       path: "subtrips",
@@ -97,7 +116,7 @@ const closeTrip = asyncHandler(async (req, res) => {
   const trip = await Trip.findByIdAndUpdate(
     tripId,
     {
-      tripStatus: "closed",
+      tripStatus: TRIP_STATUS.CLOSED,
       toDate: new Date(),
     },
     { new: true } // Return the updated document
@@ -123,9 +142,9 @@ const updateTrip = asyncHandler(async (req, res) => {
   }
 
   // 2. Can't update a billed trip at all
-  if (trip.tripStatus === "billed") {
+  if (trip.tripStatus === TRIP_STATUS.CLOSED) {
     res.status(400);
-    throw new Error("Cannot update a billed trip");
+    throw new Error("Cannot update a closed trip");
   }
 
   // 3. If the client is trying to change the driver...
@@ -175,51 +194,12 @@ const deleteTrip = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Trip deleted successfully" });
 });
 
-const changeTripStatusToBilled = asyncHandler(async (req, res) => {
-  const tripId = req.params.id;
-
-  // Find the trip and populate its subtrips
-  const trip = await Trip.findById(tripId).populate("subtrips");
-
-  if (!trip) {
-    res.status(404);
-    throw new Error("Trip not found");
-  }
-
-  // Check if trip is already billed
-  if (trip.tripStatus === "billed") {
-    res.status(400);
-    throw new Error("Trip is already billed");
-  }
-
-  // Check if all subtrips exist and are billed
-  if (trip.subtrips.length === 0) {
-    res.status(400);
-    throw new Error("Cannot bill a trip with no subtrips");
-  }
-
-  const allSubtripsBilled = trip.subtrips.every(
-    (subtrip) => subtrip.subtripStatus === "billed"
-  );
-  if (!allSubtripsBilled) {
-    res.status(400);
-    throw new Error("All subtrips must be billed before billing the trip");
-  }
-
-  // Update trip status to billed
-  trip.tripStatus = "billed";
-  const updatedTrip = await trip.save();
-
-  res.status(200).json(updatedTrip);
-});
-
 module.exports = {
   createTrip,
   fetchTrips,
   fetchOpenTrips,
-  fetchTripWithTotals,
+  fetchTrip,
   closeTrip,
   updateTrip,
   deleteTrip,
-  changeTripStatusToBilled,
 };
