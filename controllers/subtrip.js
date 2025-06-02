@@ -140,10 +140,12 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       query.subtripStatus = { $in: statusArray };
     }
 
-    // Handle materials filter (single or array)
+    // Handle materials filter (kept case insensitive for now)
     if (materials) {
       const materialsArray = Array.isArray(materials) ? materials : [materials];
-      query.materialType = { $in: materialsArray };
+      query.materialType = {
+        $in: materialsArray.map((mat) => new RegExp(`^${mat}$`, "i")),
+      };
     }
 
     // Date range filters
@@ -180,8 +182,6 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
         vehicleQuery._id = vehicleId;
       }
 
-      console.log({ vehicleQuery });
-
       // Fetch vehicles based on vehicle query
       let vehicles = [];
       if (Object.keys(vehicleQuery).length > 0) {
@@ -194,8 +194,6 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
         }
         tripQuery.vehicleId = { $in: vehicles.map((v) => v._id) };
       }
-
-      debugger;
 
       // Add driverId to trip query if provided
       if (driverId) {
@@ -213,6 +211,8 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
         query.tripId = { $in: trips.map((trip) => trip._id) };
       }
     }
+
+    console.log({ query, tripQuery, vehicleQuery });
 
     // Execute the query with population
     const subtrips = await populateSubtrip(Subtrip.find(query)).lean();
