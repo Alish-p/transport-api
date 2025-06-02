@@ -3,6 +3,7 @@
  * @param {Object} subtrip - Subtrip document containing an 'expenses' array.
  * @returns {number} Total driver salary amount from the subtrip.
  */
+
 function calculateDriverSalary(subtrip) {
   if (!subtrip?.expenses || !Array.isArray(subtrip.expenses)) {
     return 0;
