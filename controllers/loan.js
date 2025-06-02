@@ -1,6 +1,6 @@
 // controllers/loanController.js
 const asyncHandler = require("express-async-handler");
-const Loan = require("../model/loan");
+const Loan = require("../model/Loan");
 
 /**
  * @route   GET /api/loans
