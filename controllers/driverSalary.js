@@ -11,7 +11,7 @@ const Subtrip = require("../model/Subtrip");
 const {
   calculateDriverSalary,
   calculateDriverSalarySummary,
-} = require("../utils/driver-salary-utils");
+} = require("../Utils/driver-salary-utils");
 
 // 💰 Create Driver Salary Receipt
 const createDriverSalary = asyncHandler(async (req, res) => {
