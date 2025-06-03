@@ -23,6 +23,14 @@ const fetchVehicles = asyncHandler(async (req, res) => {
   res.status(200).json(vehicles);
 });
 
+// fetch vehicles
+const fetchVehiclesSummary = asyncHandler(async (req, res) => {
+  const drivers = await Vehicle.find()
+    .select("vehicleNo vehicleType modelType vehicleCompany noOfTyres isOwn")
+    .populate("transporter", "transportName");
+  res.status(200).json(drivers);
+});
+
 // fetch single vehicle by id
 const fetchVehicleById = asyncHandler(async (req, res) => {
   const id = req.params.id;
@@ -61,6 +69,7 @@ const deleteVehicle = asyncHandler(async (req, res) => {
 module.exports = {
   createVehicle,
   fetchVehicles,
+  fetchVehiclesSummary,
   fetchVehicleById,
   updateVehicle,
   deleteVehicle,

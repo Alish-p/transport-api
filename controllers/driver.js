@@ -15,6 +15,12 @@ const fetchDrivers = asyncHandler(async (req, res) => {
   res.status(200).json(drivers);
 });
 
+// Fetch Light Drivers (only name, cellNo)
+const fetchDriversSummary = asyncHandler(async (req, res) => {
+  const drivers = await Driver.find().select("driverName driverCellNo");
+  res.status(200).json(drivers);
+});
+
 // Fetch Driver by ID
 const fetchDriverById = asyncHandler(async (req, res) => {
   const id = req.params.id;
@@ -47,6 +53,7 @@ const deleteDriver = asyncHandler(async (req, res) => {
 module.exports = {
   createDriver,
   fetchDrivers,
+  fetchDriversSummary,
   fetchDriverById,
   updateDriver,
   deleteDriver,

@@ -16,6 +16,14 @@ const fetchCustomers = asyncHandler(async (req, res) => {
   res.status(200).json(customers);
 });
 
+// Fetch Light Customers (only name, state, cellNo)
+const fetchCustomersSummary = asyncHandler(async (req, res) => {
+  const customers = await Customer.find().select(
+    "customerName state cellNo address"
+  );
+  res.status(200).json(customers);
+});
+
 // Fetch Single Customer
 const fetchCustomer = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.params.id);
@@ -56,6 +64,7 @@ const deleteCustomer = asyncHandler(async (req, res) => {
 module.exports = {
   createCustomer,
   fetchCustomers,
+  fetchCustomersSummary,
   fetchCustomer,
   updateCustomer,
   deleteCustomer,
