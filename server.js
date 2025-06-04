@@ -19,6 +19,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(helmet());
+app.set("query parser", "extended");
+
 // app.use(compression());
 
 const dashboardRouter = require("./routes/dashboard");
