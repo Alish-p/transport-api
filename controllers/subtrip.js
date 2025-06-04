@@ -1,22 +1,17 @@
 const asyncHandler = require("express-async-handler");
+const mongoose = require("mongoose");
 const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const Vehicle = require("../model/Vehicle");
 const { recordSubtripEvent } = require("../helpers/subtrip-event-helper");
-const {
-  SUBTRIP_STATUS,
-  SUBTRIP_EXPENSE_TYPES,
-  EXPENSE_CATEGORIES,
-} = require("../constants/status");
+const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
 const Route = require("../model/Route");
-const mongoose = require("mongoose");
-const Loan = require("../model/Loan");
 
 // helper function to Poppulate Subtrip
-const populateSubtrip = (query) => {
-  return query
+const populateSubtrip = (query) =>
+  query
     .populate({
       path: "expenses",
       populate: [{ path: "pumpCd", model: "Pump" }],
@@ -35,7 +30,6 @@ const populateSubtrip = (query) => {
         },
       ],
     });
-};
 
 // Create Subtrip
 const createSubtrip = asyncHandler(async (req, res) => {
@@ -96,8 +90,8 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     } = req.query;
 
     // Initialize base query
-    let query = {};
-    let tripQuery = {};
+    const query = {};
+    const tripQuery = {};
     let vehicleQuery = {};
 
     // Direct field filters

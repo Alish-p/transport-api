@@ -19,5 +19,7 @@ module.exports = {
       'warn',
       { order: 'asc', type: 'line-length', 'newlines-between': 'always' },
     ],
+    'consistent-return':0,
+    'no-underscore-dangle':0,
   },
 };

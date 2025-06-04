@@ -168,8 +168,8 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
 
       routes: {
         total: totalRoutes,
-        customerSpecificRoutes: customerSpecificRoutes,
-        genericRoutes: genericRoutes,
+        customerSpecificRoutes,
+        genericRoutes,
       },
 
       driverSalaries: {
@@ -201,7 +201,7 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ error: error });
+    res.status(500).json({ error });
   }
 });
 

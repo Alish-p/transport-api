@@ -76,7 +76,7 @@ const fetchDieselPriceOnDate = asyncHandler(async (req, res) => {
 });
 
 const fetchDieselPrice = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
 
   const dieselPrice = await DieselPrice.findById(id).populate("pump");
 
@@ -88,7 +88,7 @@ const fetchDieselPrice = asyncHandler(async (req, res) => {
 });
 
 const updateDieselPrice = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const { pump, price, startDate, endDate } = req.body;
 
   // Check for overlapping diesel price entries (excluding the current one)
@@ -119,7 +119,7 @@ const updateDieselPrice = asyncHandler(async (req, res) => {
 });
 
 const deleteDieselPrice = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const deletedDieselPrice = await DieselPrice.findByIdAndDelete(id);
 
   if (!deletedDieselPrice) {

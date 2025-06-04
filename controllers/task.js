@@ -1,5 +1,5 @@
-const Task = require("../model/Task");
 const asyncHandler = require("express-async-handler");
+const Task = require("../model/Task");
 
 // @desc    Create a new task
 // @route   POST /api/tasks
@@ -28,7 +28,7 @@ exports.createTask = asyncHandler(async (req, res) => {
 exports.updateTask = asyncHandler(async (req, res) => {
   const { status, assignees } = req.body;
 
-  let task = await Task.findById(req.params.taskId);
+  const task = await Task.findById(req.params.taskId);
 
   if (!task) {
     res.status(404);

@@ -11,7 +11,7 @@ const createPump = asyncHandler(async (req, res) => {
 
 // fetch Pump by ID
 const fetchPumpById = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const pump = await Pump.findById(id);
 
   if (!pump) {
@@ -30,7 +30,7 @@ const fetchPumps = asyncHandler(async (req, res) => {
 
 // Update Pump
 const updatePump = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const pump = await Pump.findByIdAndUpdate(id, req.body, { new: true });
 
   res.status(200).json(pump);
@@ -38,7 +38,7 @@ const updatePump = asyncHandler(async (req, res) => {
 
 // Delete Pump
 const deletePump = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const pump = await Pump.findByIdAndDelete(id);
 
   res.status(200).json(pump);

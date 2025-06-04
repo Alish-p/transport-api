@@ -33,7 +33,7 @@ const fetchVehiclesSummary = asyncHandler(async (req, res) => {
 
 // fetch single vehicle by id
 const fetchVehicleById = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const vehicle = await Vehicle.findById(id).populate(
     "transporter",
     "transportName"
@@ -47,7 +47,7 @@ const fetchVehicleById = asyncHandler(async (req, res) => {
 
 // Update Vehicle
 const updateVehicle = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
 
   // Ensure transporter is null if the vehicle is owned
   if (req.body.isOwn) {
@@ -60,7 +60,7 @@ const updateVehicle = asyncHandler(async (req, res) => {
 
 // Delete Vehicle
 const deleteVehicle = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const vehicle = await Vehicle.findByIdAndDelete(id);
 
   res.status(200).json(vehicle);

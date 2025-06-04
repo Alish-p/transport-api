@@ -55,7 +55,7 @@ const fetchRoutes = asyncHandler(async (req, res) => {
 
 // Fetch Single Route by ID
 const fetchSingleRoute = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const route = await Route.findById(id).populate("customer");
 
   if (!route) {
@@ -69,7 +69,7 @@ const fetchSingleRoute = asyncHandler(async (req, res) => {
 // Update Route
 const updateRoute = asyncHandler(async (req, res) => {
   try {
-    const id = req.params.id;
+    const { id } = req.params;
 
     // Ensure customer is null if the route is generic
     if (!req.body.isCustomerSpecific) {
@@ -105,7 +105,7 @@ const updateRoute = asyncHandler(async (req, res) => {
 
 // Delete Route
 const deleteRoute = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const route = await Route.findByIdAndDelete(id);
 
   res.status(200).json(route);

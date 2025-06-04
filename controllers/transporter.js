@@ -17,7 +17,7 @@ const fetchTransporters = asyncHandler(async (req, res) => {
 
 // Fetch Transporter by ID
 const fetchTransporterById = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   console.log(id);
   const transporter = await Transporter.findById(id);
   res.status(200).json(transporter);
@@ -25,7 +25,7 @@ const fetchTransporterById = asyncHandler(async (req, res) => {
 
 // Update Transporter
 const updateTransporter = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const transporter = await Transporter.findByIdAndUpdate(id, req.body, {
     new: true,
   });
@@ -35,7 +35,7 @@ const updateTransporter = asyncHandler(async (req, res) => {
 
 // Delete Transporter
 const deleteTransporter = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const transporter = await Transporter.findByIdAndDelete(id);
 
   res.status(200).json(transporter);

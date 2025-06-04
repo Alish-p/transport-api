@@ -23,7 +23,7 @@ const fetchDriversSummary = asyncHandler(async (req, res) => {
 
 // Fetch Driver by ID
 const fetchDriverById = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const driver = await Driver.findById(id);
   if (!driver) {
     res.status(404).json({ message: "Driver not found" });
@@ -34,7 +34,7 @@ const fetchDriverById = asyncHandler(async (req, res) => {
 
 // Update Driver
 const updateDriver = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   console.log({ id, body: req.body });
 
   const driver = await Driver.findByIdAndUpdate(id, req.body, { new: true });
@@ -44,7 +44,7 @@ const updateDriver = asyncHandler(async (req, res) => {
 
 // Delete Driver
 const deleteDriver = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const driver = await Driver.findByIdAndDelete(id);
 
   res.status(200).json(driver);
