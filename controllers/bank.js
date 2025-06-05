@@ -17,7 +17,7 @@ const fetchBanks = asyncHandler(async (req, res) => {
 
 // Fetch Bank Details by ID
 const fetchBankDetails = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const bank = await Bank.findById(id);
 
   if (!bank) {
@@ -33,7 +33,7 @@ const updateBank = asyncHandler(async (req, res) => {
   console.log("bank is updating ");
   console.log({ req });
 
-  const id = req.params.id;
+  const { id } = req.params;
   const bank = await Bank.findByIdAndUpdate(id, req.body, { new: true });
 
   res.status(200).json(bank);
@@ -41,7 +41,7 @@ const updateBank = asyncHandler(async (req, res) => {
 
 // Delete Bank
 const deleteBank = asyncHandler(async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const bank = await Bank.findByIdAndDelete(id);
 
   res.status(200).json(bank);

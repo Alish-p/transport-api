@@ -1,8 +1,10 @@
 const { Router } = require("express");
-const { getDashboardSummary } = require("../controllers/dashboard");
+const { getDashboardSummary, getDashboardHighlights } = require("../controllers/dashboard");
 
 const router = Router();
 
 router.get("/summary", getDashboardSummary);
+router.get("/highlights", getDashboardHighlights);
+
 
 module.exports = router;

@@ -31,6 +31,7 @@ const CustomerSchema = new Schema({
   transporterCode: { type: String },
 
   invoicePrefix: { type: String, required: true },
+  invoiceSuffix: { type: String },
   currentInvoiceSerialNumber: { type: Number, required: true },
 
   // days within which invoice should be paid

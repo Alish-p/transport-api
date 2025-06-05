@@ -8,7 +8,7 @@ const recordSubtripEvent = (subtrip, eventType, details = {}, user = null) => {
   const eventData = {
     eventType,
     timestamp: new Date(),
-    details: details,
+    details,
     user: user
       ? {
           _id: user._id,

@@ -1,9 +1,9 @@
 const asyncHandler = require("express-async-handler");
+const mongoose = require("mongoose");
 const TransporterPayment = require("../model/TransporterPayment");
 
 const Transporter = require("../model/Transporter");
 const Loan = require("../model/Loan");
-const mongoose = require("mongoose");
 const Subtrip = require("../model/Subtrip");
 const {
   calculateTransporterPayment,
@@ -173,9 +173,8 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       }
 
       // 2. Fetch transporter
-      const transporter = await Transporter.findById(transporterId).session(
-        session
-      );
+      const transporter =
+        await Transporter.findById(transporterId).session(session);
       if (!transporter) {
         await session.abortTransaction();
         return res.status(404).json({

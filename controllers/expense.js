@@ -58,7 +58,7 @@ const fetchExpenses = asyncHandler(async (req, res) => {
     } = req.query;
 
     // Initialize query object
-    let query = {};
+    const query = {};
 
     // Direct field filters with support for arrays
     if (_id) query._id = _id;
@@ -167,7 +167,7 @@ const fetchExpense = asyncHandler(async (req, res) => {
   res.status(200).json(expense);
 });
 
-//fetch all expenses of a subtrip
+// fetch all expenses of a subtrip
 const fetchSubtripExpenses = asyncHandler(async (req, res) => {
   const expenses = await Expense.find({ subtripId: req.params.id });
   res.status(200).json(expenses);
