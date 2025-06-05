@@ -10,6 +10,9 @@ const DriverSalary = require("../model/DriverSalary");
 const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
+const Loan = require("../model/Loan");
+
+const { SUBTRIP_STATUS, INVOICE_STATUS } = require("../constants/status");
 
 // Get Dashboard Summary
 const getDashboardSummary = asyncHandler(async (req, res) => {
@@ -205,6 +208,150 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Get Dashboard Highlights
+const getDashboardHighlights = asyncHandler(async (req, res) => {
+  try {
+    const weightByCustomerPromise = Subtrip.aggregate([
+      { $match: { customerId: { $ne: null } } },
+      { $group: { _id: "$customerId", totalWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } } } },
+      { $lookup: { from: "customers", localField: "_id", foreignField: "_id", as: "customer" } },
+      { $unwind: "$customer" },
+      {
+        $project: {
+          _id: 0,
+          customerId: "$_id",
+          customerName: "$customer.customerName",
+          totalWeight: 1,
+        },
+      },
+    ]);
+
+    const paymentsByCustomerPromise = Invoice.aggregate([
+      {
+        $group: {
+          _id: "$customerId",
+          totalAmount: { $sum: { $ifNull: ["$totalAfterTax", 0] } },
+        },
+      },
+      { $lookup: { from: "customers", localField: "_id", foreignField: "_id", as: "customer" } },
+      { $unwind: "$customer" },
+      {
+        $project: {
+          _id: 0,
+          customerId: "$_id",
+          customerName: "$customer.customerName",
+          totalAmount: 1,
+        },
+      },
+    ]);
+
+    const vehicleTonnagePromise = Subtrip.aggregate([
+      { $lookup: { from: "trips", localField: "tripId", foreignField: "_id", as: "trip" } },
+      { $unwind: "$trip" },
+      { $lookup: { from: "vehicles", localField: "trip.vehicleId", foreignField: "_id", as: "vehicle" } },
+      { $unwind: "$vehicle" },
+      {
+        $group: {
+          _id: "$vehicle.isOwn",
+          totalWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
+        },
+      },
+    ]);
+
+    const loanAggPromise = Loan.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalGiven: { $sum: { $ifNull: ["$principalAmount", 0] } },
+          outstanding: { $sum: { $ifNull: ["$outstandingBalance", 0] } },
+        },
+      },
+    ]);
+
+    const [
+      inQueueCount,
+      loadedCount,
+      errorCount,
+      receivedCount,
+      billedPendingCount,
+      billedOverdueCount,
+      billedPaidCount,
+      totalVehicles,
+      totalDrivers,
+      totalCustomers,
+      pendingInvoices,
+      overdueInvoices,
+      paidInvoices,
+      weightByCustomer,
+      paymentsByCustomer,
+      vehicleTonnageAgg,
+      loanAgg,
+    ] = await Promise.all([
+      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.IN_QUEUE }),
+      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.LOADED }),
+      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.ERROR }),
+      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.RECEIVED }),
+      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.BILLED_PENDING }),
+      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.BILLED_OVERDUE }),
+      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.BILLED_PAID }),
+      Vehicle.countDocuments(),
+      Driver.countDocuments(),
+      Customer.countDocuments(),
+      Invoice.countDocuments({ invoiceStatus: INVOICE_STATUS.PENDING }),
+      Invoice.countDocuments({ invoiceStatus: INVOICE_STATUS.OVERDUE }),
+      Invoice.countDocuments({ invoiceStatus: INVOICE_STATUS.PAID }),
+      weightByCustomerPromise,
+      paymentsByCustomerPromise,
+      vehicleTonnagePromise,
+      loanAggPromise,
+    ]);
+
+    const vehicleTonnage = vehicleTonnageAgg.reduce(
+      (acc, cur) => {
+        if (cur._id) acc.own = cur.totalWeight;
+        else acc.market = cur.totalWeight;
+        return acc;
+      },
+      { own: 0, market: 0 }
+    );
+
+    const loans = loanAgg[0] || { totalGiven: 0, outstanding: 0 };
+
+    res.status(200).json({
+      subtripStatus: {
+        inQueue: inQueueCount,
+        loaded: loadedCount,
+        error: errorCount,
+        received: receivedCount,
+        billed: {
+          pending: billedPendingCount,
+          overdue: billedOverdueCount,
+          paid: billedPaidCount,
+        },
+      },
+      customerTonnage: weightByCustomer,
+      customerPayments: paymentsByCustomer,
+      vehicleTonnage,
+      loans,
+      totals: {
+        vehicles: totalVehicles,
+        drivers: totalDrivers,
+        customers: totalCustomers,
+        invoices: {
+          pending: pendingInvoices,
+          overdue: overdueInvoices,
+          paid: paidInvoices,
+        },
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
+
 module.exports = {
   getDashboardSummary,
+  getDashboardHighlights
 };
