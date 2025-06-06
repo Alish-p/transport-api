@@ -350,8 +350,102 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
   }
 });
 
+// Get customer-wise total weight and freight for a month
+const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
+  const { month } = req.query;
+
+  if (!month) {
+    return res
+      .status(400)
+      .json({ message: 'Month query parameter required in YYYY-MM format' });
+  }
+
+  const [yearStr, monthStr] = month.split('-');
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNum) ||
+    monthNum < 1 ||
+    monthNum > 12
+  ) {
+    return res
+      .status(400)
+      .json({ message: 'Invalid month format. Use YYYY-MM' });
+  }
+
+  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
+  const endDate = new Date(Date.UTC(year, monthNum, 1));
+
+  try {
+    const results = await Subtrip.aggregate([
+      {
+        $match: {
+          customerId: { $ne: null },
+          subtripStatus: { $ne: SUBTRIP_STATUS.IN_QUEUE },
+          startDate: { $gte: startDate, $lt: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: '$customerId',
+          totalLoadingWeight: { $sum: { $ifNull: ['$loadingWeight', 0] } },
+          totalFreightAmount: {
+            $sum: {
+              $multiply: [
+                { $ifNull: ['$loadingWeight', 0] },
+                { $ifNull: ['$rate', 0] },
+              ],
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          $or: [
+            { totalLoadingWeight: { $gt: 0 } },
+            { totalFreightAmount: { $gt: 0 } },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'customers',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'customer',
+        },
+      },
+      { $unwind: '$customer' },
+      {
+        $project: {
+          _id: 0,
+          customerId: '$_id',
+          customerName: '$customer.customerName',
+          totalLoadingWeight: 1,
+          totalFreightAmount: 1,
+        },
+      },
+      {
+        $sort: {
+          totalLoadingWeight: -1,
+          totalFreightAmount: -1,
+        },
+      },
+    ]);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
+
 
 module.exports = {
   getDashboardSummary,
-  getDashboardHighlights
+  getDashboardHighlights,
+  getCustomerMonthlyFreight
 };
