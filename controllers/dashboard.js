@@ -442,9 +442,48 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
   }
 });
 
+// Get subtrips whose eway bill is expired or about to expire
+const getExpiringSubtrips = asyncHandler(async (req, res) => {
+  const daysParam = parseInt(req.query.days, 10);
+  const days = Number.isNaN(daysParam) ? 3 : daysParam;
+
+  const now = new Date();
+  const threshold = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+  const subtrips = await Subtrip.find({
+    subtripStatus: SUBTRIP_STATUS.LOADED,
+    ewayExpiryDate: { $ne: null, $lte: threshold },
+  })
+    .select(
+      "_id startDate unloadingPoint ewayExpiryDate tripId customerId"
+    )
+    .populate({
+      path: "tripId",
+      select: "vehicleId",
+      populate: { path: "vehicleId", select: "vehicleNo" },
+    })
+    .populate({ path: "customerId", select: "customerName" })
+    .sort({ ewayExpiryDate: 1 })
+    .lean();
+
+  const formatted = subtrips.map((st) => ({
+    subtripId: st._id,
+    vehicle: st.tripId?.vehicleId?.vehicleNo || null,
+    customer: st.customerId?.customerName || null,
+    startDate: st.startDate,
+    unloadingPoint: st.unloadingPoint,
+    expired: st.ewayExpiryDate < now,
+    ewayExpiryDate: st.ewayExpiryDate
+  }));
+
+  res.status(200).json(formatted);
+});
+
+
 
 
 module.exports = {
+  getExpiringSubtrips,
   getDashboardSummary,
   getDashboardHighlights,
   getCustomerMonthlyFreight
