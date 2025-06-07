@@ -11,6 +11,8 @@ const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const Loan = require("../model/Loan");
+const { EXPENSE_CATEGORIES } = require("../constants/status");
+
 
 const { SUBTRIP_STATUS, INVOICE_STATUS } = require("../constants/status");
 
@@ -350,6 +352,29 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
   }
 });
 
+
+// Get basic entity counts
+const getTotalCounts = asyncHandler(async (req, res) => {
+  const [vehicleCount, driverCount, transporterCount, customerCount, invoiceCount, subtripCount] = await Promise.all([
+    Vehicle.countDocuments(),
+    Driver.countDocuments(),
+    Transporter.countDocuments(),
+    Customer.countDocuments(),
+    Invoice.countDocuments(),
+    Subtrip.countDocuments(),
+  ]);
+
+  res.status(200).json({
+    vehicles: vehicleCount,
+    drivers: driverCount,
+    transporters: transporterCount,
+    customers: customerCount,
+    invoices: invoiceCount,
+    subtrips: subtripCount,
+  });
+});
+
+
 // Get customer-wise total weight and freight for a month
 const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
   const { month } = req.query;
@@ -479,12 +504,114 @@ const getExpiringSubtrips = asyncHandler(async (req, res) => {
   res.status(200).json(formatted);
 });
 
+const getSubtripMonthlyData = asyncHandler(async (req, res) => {
+  const yearParam = parseInt(req.query.year, 10);
+  const year = Number.isNaN(yearParam) ? new Date().getUTCFullYear() : yearParam;
 
+  const startOfYear = new Date(Date.UTC(year, 0, 1));
+  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+
+  try {
+    const results = await Subtrip.aggregate([
+      { $match: { startDate: { $gte: startOfYear, $lt: endOfYear }, isEmpty: false } },
+      { $lookup: { from: 'trips', localField: 'tripId', foreignField: '_id', as: 'trip' } },
+      { $unwind: '$trip' },
+      { $lookup: { from: 'vehicles', localField: 'trip.vehicleId', foreignField: '_id', as: 'vehicle' } },
+      { $unwind: '$vehicle' },
+      {
+        $group: {
+          _id: { month: { $month: '$startDate' }, isOwn: '$vehicle.isOwn' },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const own = Array(12).fill(0);
+    const market = Array(12).fill(0);
+
+    results.forEach((r) => {
+      const monthIndex = r._id.month - 1; // $month is 1-indexed
+      if (r._id.isOwn) own[monthIndex] = r.count;
+      else market[monthIndex] = r.count;
+    });
+
+    res.status(200).json({ year, own, market });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
+// Get monthly expense summary grouped by expenseType for subtrip expenses
+const getMonthlySubtripExpenseSummary = asyncHandler(async (req, res) => {
+  const { month } = req.query;
+
+  if (!month) {
+    return res
+      .status(400)
+      .json({ message: 'Month query parameter required in YYYY-MM format' });
+  }
+
+  const [yearStr, monthStr] = month.split('-');
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNum) ||
+    monthNum < 1 ||
+    monthNum > 12
+  ) {
+    return res
+      .status(400)
+      .json({ message: 'Invalid month format. Use YYYY-MM' });
+  }
+
+  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
+  const endDate = new Date(Date.UTC(year, monthNum, 1));
+
+  try {
+    const results = await Expense.aggregate([
+      {
+        $match: {
+          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+          date: { $gte: startDate, $lt: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: '$expenseType',
+          totalAmount: { $sum: { $ifNull: ['$amount', 0] } },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          expenseType: '$_id',
+          totalAmount: 1,
+          count: 1,
+        },
+      },
+      { $sort: { expenseType: 1 } },
+    ]);
+
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({
+      message: 'An error occurred while fetching expense summary',
+      error: error.message,
+    });
+  }
+});
 
 
 module.exports = {
+  getTotalCounts,
   getExpiringSubtrips,
   getDashboardSummary,
+  getSubtripMonthlyData,
   getDashboardHighlights,
-  getCustomerMonthlyFreight
+  getCustomerMonthlyFreight,
+  getMonthlySubtripExpenseSummary,
 };
