@@ -470,7 +470,7 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
 // Get subtrips whose eway bill is expired or about to expire
 const getExpiringSubtrips = asyncHandler(async (req, res) => {
   const daysParam = parseInt(req.query.days, 10);
-  const days = Number.isNaN(daysParam) ? 3 : daysParam;
+  const days = Number.isNaN(daysParam) ? 1 : daysParam;
 
   const now = new Date();
   const threshold = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
