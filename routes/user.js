@@ -7,12 +7,12 @@ const {
   fetchUser,
 } = require("../controllers/user");
 
-const { private } = require("../middlewares/Auth");
+const { private, checkPermission } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", createUser);
-router.get("/", fetchUsers);
-router.delete("/:id", deleteUser);
-router.put("/:id", updateUser);
-router.get("/:id", fetchUser);
+router.post("/", private, checkPermission("user", "create"), createUser);
+router.get("/", private, fetchUsers);
+router.delete("/:id", private, checkPermission("user", "delete"), deleteUser);
+router.put("/:id", private, checkPermission("user", "update"), updateUser);
+router.get("/:id", private, fetchUser);
 module.exports = router;

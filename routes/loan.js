@@ -11,18 +11,18 @@ const {
   deferNextInstallment,
 } = require("../controllers/loan");
 
-const { admin } = require("../middlewares/Auth");
+const { private, checkPermission } = require("../middlewares/Auth");
 const router = express.Router();
 
-router.post("/", createLoan);
-router.post("/:id/repay", repayLoan);
-router.get("/", fetchAllLoans);
-router.get("/pending/:borrowerType/:id", fetchPendingLoans);
-router.get("/:id", fetchLoanById);
-router.put("/:id", updateLoan);
-router.delete("/:id", deleteLoan);
+router.post("/", private, checkPermission("loan", "create"), createLoan);
+router.post("/:id/repay", private, repayLoan);
+router.get("/", private, fetchAllLoans);
+router.get("/pending/:borrowerType/:id", private, fetchPendingLoans);
+router.get("/:id", private, fetchLoanById);
+router.put("/:id", private, checkPermission("loan", "update"), updateLoan);
+router.delete("/:id", private, checkPermission("loan", "delete"), deleteLoan);
 
-router.post("/:id/defer-next", deferNextInstallment);
-router.post("/:id/defer-all", deferAllInstallments);
+router.post("/:id/defer-next", private, deferNextInstallment);
+router.post("/:id/defer-all", private, deferAllInstallments);
 
 module.exports = router;

@@ -7,13 +7,13 @@ const {
   fetchSingleRoute,
 } = require("../controllers/route");
 
-const { private, admin } = require("../middlewares/Auth");
+const { private, admin, checkPermission } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", createRoute);
-router.get("/", fetchRoutes);
-router.get("/:id", fetchSingleRoute);
-router.delete("/:id", deleteRoute);
-router.put("/:id", updateRoute);
+router.post("/", private, checkPermission("route", "create"), createRoute);
+router.get("/", private, fetchRoutes);
+router.get("/:id", private, fetchSingleRoute);
+router.delete("/:id", private, checkPermission("route", "delete"), deleteRoute);
+router.put("/:id", private, checkPermission("route", "update"), updateRoute);
 
 module.exports = router;

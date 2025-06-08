@@ -7,13 +7,13 @@ const {
   fetchTransporterById,
 } = require("../controllers/transporter");
 
-const { private, admin } = require("../middlewares/Auth");
+const { private, admin, checkPermission } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", createTransporter);
-router.get("/", fetchTransporters);
-router.get("/:id", fetchTransporterById);
-router.delete("/:id", deleteTransporter);
-router.put("/:id", updateTransporter);
+router.post("/", private, checkPermission("transporter", "create"), createTransporter);
+router.get("/", private, fetchTransporters);
+router.get("/:id", private, fetchTransporterById);
+router.delete("/:id", private, checkPermission("transporter", "delete"), deleteTransporter);
+router.put("/:id", private, checkPermission("transporter", "update"), updateTransporter);
 
 module.exports = router;
