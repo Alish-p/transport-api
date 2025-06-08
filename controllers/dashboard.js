@@ -605,6 +605,50 @@ const getMonthlySubtripExpenseSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Get number of subtrips grouped by status for loaded and empty trips
+const getSubtripStatusSummary = asyncHandler(async (req, res) => {
+  try {
+    const loadedStatuses = Object.values(SUBTRIP_STATUS);
+    const emptyStatuses = [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.BILLED_PAID];
+
+    const [loadedAgg, emptyAgg] = await Promise.all([
+      Subtrip.aggregate([
+        { $match: { isEmpty: false } },
+        { $group: { _id: "$subtripStatus", count: { $sum: 1 } } },
+      ]),
+      Subtrip.aggregate([
+        { $match: { isEmpty: true, subtripStatus: { $in: emptyStatuses } } },
+        { $group: { _id: "$subtripStatus", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const initMap = (statuses) =>
+      statuses.reduce((acc, st) => {
+        acc[st] = 0;
+        return acc;
+      }, {});
+
+    const loaded = initMap(loadedStatuses);
+    const empty = initMap(emptyStatuses);
+
+    loadedAgg.forEach((r) => {
+      loaded[r._id] = r.count;
+    });
+
+    emptyAgg.forEach((r) => {
+      empty[r._id] = r.count;
+    });
+
+    res.status(200).json({ loaded, empty });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
+
+
+
 
 module.exports = {
   getTotalCounts,
@@ -612,6 +656,7 @@ module.exports = {
   getDashboardSummary,
   getSubtripMonthlyData,
   getDashboardHighlights,
+  getSubtripStatusSummary,
   getCustomerMonthlyFreight,
   getMonthlySubtripExpenseSummary,
 };

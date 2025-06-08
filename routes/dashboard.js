@@ -6,7 +6,8 @@ const {
     getExpiringSubtrips,
     getTotalCounts,
     getSubtripMonthlyData,
-    getMonthlySubtripExpenseSummary
+    getMonthlySubtripExpenseSummary,
+    getSubtripStatusSummary
 } = require("../controllers/dashboard");
 
 const router = Router();
@@ -16,6 +17,7 @@ router.get("/summary", getDashboardSummary);
 router.get("/highlights", getDashboardHighlights);
 router.get("/subtrips-expiry", getExpiringSubtrips);
 router.get("/subtrip-monthly-data", getSubtripMonthlyData);
+router.get("/subtrip-status-summary", getSubtripStatusSummary);
 router.get("/grouped/monthly-expense", getMonthlySubtripExpenseSummary);
 router.get("/customer-monthly-freight", getCustomerMonthlyFreight);
 

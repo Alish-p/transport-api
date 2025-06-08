@@ -27,6 +27,7 @@ const subtripSnapshotSchema = new Schema(
     vehicleNo: String,
     rate: Number,
     loadingWeight: Number,
+    materialType: String,
     shortageWeight: Number,
     shortageAmount: Number,
     freightAmount: Number,

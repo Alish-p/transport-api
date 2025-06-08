@@ -89,6 +89,7 @@ const createInvoice = asyncHandler(async (req, res) => {
       unloadingPoint: st.unloadingPoint,
       vehicleNo: st.tripId?.vehicleId?.vehicleNo,
       rate: st.rate,
+      materialType: st.materialType,
       loadingWeight: st.loadingWeight,
       shortageWeight: st.shortageWeight,
       shortageAmount: st.shortageAmount,

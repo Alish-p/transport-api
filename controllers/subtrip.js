@@ -248,6 +248,7 @@ const fetchLoadedSubtrips = asyncHandler(async (req, res) => {
 const fetchInQueueSubtrips = asyncHandler(async (req, res) => {
   const subtrips = await Subtrip.find({
     subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
+    isEmpty: false,
   })
     .select(
       "_id loadingPoint unloadingPoint startDate subtripStatus tripId customerId"
