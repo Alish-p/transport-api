@@ -8,14 +8,14 @@ const {
   fetchVehiclesSummary,
 } = require("../controllers/vehicle");
 
-const { private, admin } = require("../middlewares/Auth");
+const { private, admin, checkPermission } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", createVehicle);
-router.get("/", fetchVehicles);
-router.get("/summary", fetchVehiclesSummary);
-router.get("/:id", fetchVehicleById);
-router.delete("/:id", deleteVehicle);
-router.put("/:id", updateVehicle);
+router.post("/", private, checkPermission("vehicle", "create"), createVehicle);
+router.get("/", private, fetchVehicles);
+router.get("/summary", private, fetchVehiclesSummary);
+router.get("/:id", private, fetchVehicleById);
+router.delete("/:id", private, checkPermission("vehicle", "delete"), deleteVehicle);
+router.put("/:id", private, checkPermission("vehicle", "update"), updateVehicle);
 
 module.exports = router;

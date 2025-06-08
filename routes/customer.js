@@ -8,14 +8,15 @@ const {
   fetchCustomersSummary,
 } = require("../controllers/customer");
 
+const { private, checkPermission } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", createCustomer);
-router.get("/", fetchCustomers);
-router.get("/summary", fetchCustomersSummary);
+router.post("/", private, checkPermission("customer", "create"), createCustomer);
+router.get("/", private, fetchCustomers);
+router.get("/summary", private, fetchCustomersSummary);
 
-router.get("/:id", fetchCustomer);
-router.put("/:id", updateCustomer);
-router.delete("/:id", deleteCustomer);
+router.get("/:id", private, fetchCustomer);
+router.put("/:id", private, checkPermission("customer", "update"), updateCustomer);
+router.delete("/:id", private, checkPermission("customer", "delete"), deleteCustomer);
 
 module.exports = router;

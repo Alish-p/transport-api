@@ -7,13 +7,13 @@ const {
   updatePump,
 } = require("../controllers/pump");
 
-const { private, admin } = require("../middlewares/Auth");
+const { private, admin, checkPermission } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", createPump);
-router.get("/", fetchPumps);
-router.get("/:id", fetchPumpById);
-router.delete("/:id", deletePump);
-router.put("/:id", updatePump);
+router.post("/", private, checkPermission("pump", "create"), createPump);
+router.get("/", private, fetchPumps);
+router.get("/:id", private, fetchPumpById);
+router.delete("/:id", private, checkPermission("pump", "delete"), deletePump);
+router.put("/:id", private, checkPermission("pump", "update"), updatePump);
 
 module.exports = router;

@@ -9,12 +9,13 @@ const {
   deleteInvoice,
 } = require("../controllers/invoice");
 
+const { private, checkPermission } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", validateZod(invoiceSchema), createInvoice);
-router.get("/", fetchInvoices);
-router.get("/:id", fetchInvoice);
-router.put("/:id", updateInvoice);
-router.delete("/:id", deleteInvoice);
+router.post("/", private, checkPermission("invoice", "create"), validateZod(invoiceSchema), createInvoice);
+router.get("/", private, fetchInvoices);
+router.get("/:id", private, fetchInvoice);
+router.put("/:id", private, checkPermission("invoice", "update"), updateInvoice);
+router.delete("/:id", private, checkPermission("invoice", "delete"), deleteInvoice);
 
 module.exports = router;

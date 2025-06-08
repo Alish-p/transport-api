@@ -7,13 +7,13 @@ const {
   fetchBankDetails,
 } = require("../controllers/bank");
 
-const { private, admin } = require("../middlewares/Auth");
+const { private, admin, checkPermission } = require("../middlewares/Auth");
 const router = Router();
 
-router.post("/", createBank);
-router.get("/", fetchBanks);
-router.get("/:id", fetchBankDetails);
-router.delete("/:id", deleteBank);
-router.put("/:id", updateBank);
+router.post("/", private, checkPermission("bank", "create"), createBank);
+router.get("/", private, fetchBanks);
+router.get("/:id", private, fetchBankDetails);
+router.delete("/:id", private, checkPermission("bank", "delete"), deleteBank);
+router.put("/:id", private, checkPermission("bank", "update"), updateBank);
 
 module.exports = router;

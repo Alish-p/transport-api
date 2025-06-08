@@ -8,16 +8,16 @@ const {
   fetchSubtripExpenses,
 } = require("../controllers/expense");
 
-const { private, admin } = require("../middlewares/Auth");
+const { private, admin, checkPermission } = require("../middlewares/Auth");
 const router = Router();
 
 //fetch all expenses of a subtrip
-router.get("/subtrip/:id", fetchSubtripExpenses);
+router.get("/subtrip/:id", private, fetchSubtripExpenses);
 
-router.post("/", createExpense);
-router.get("/", fetchExpenses);
-router.get("/:id", fetchExpense);
-router.put("/:id", updateExpense);
-router.delete("/:id", deleteExpense);
+router.post("/", private, checkPermission("expense", "create"), createExpense);
+router.get("/", private, fetchExpenses);
+router.get("/:id", private, fetchExpense);
+router.put("/:id", private, checkPermission("expense", "update"), updateExpense);
+router.delete("/:id", private, checkPermission("expense", "delete"), deleteExpense);
 
 module.exports = router;
