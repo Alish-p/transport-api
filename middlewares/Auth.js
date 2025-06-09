@@ -1,6 +1,6 @@
-const UserModel = require("../model/User");
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
+const UserModel = require("../model/User");
 
 // check if token exists
 const private = asyncHandler(async (req, res, next) => {
