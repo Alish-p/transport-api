@@ -40,6 +40,9 @@ const generateEventMessage = (event) => {
     case SUBTRIP_EVENT_TYPES.EXPENSE_ADDED:
       return `Expense added: ${details.expenseType} - ₹${details.amount} ${userInfo}`;
 
+    case SUBTRIP_EVENT_TYPES.EXPENSE_DELETED:
+      return `Expense deleted: ${details.expenseType} - ₹${details.amount} ${userInfo}`;
+
     case SUBTRIP_EVENT_TYPES.RECEIVED:
       return `LR received with weight ${details.unloadingWeight}kg ${userInfo}`;
 
