@@ -2,6 +2,10 @@ const asyncHandler = require("express-async-handler");
 const Expense = require("../model/Expense");
 const Subtrip = require("../model/Subtrip");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
+const {
+  recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES,
+} = require("../helpers/subtrip-event-helper");
 
 // Create Expense
 
@@ -27,7 +31,16 @@ const createExpense = asyncHandler(async (req, res) => {
 
     subtrip.expenses.push(newExpense._id);
 
+
     await subtrip.save();
+
+    // Record subtrip event for expense creation
+    await recordSubtripEvent(
+      subtrip._id,
+      SUBTRIP_EVENT_TYPES.EXPENSE_ADDED,
+      { expenseType: newExpense.expenseType, amount: newExpense.amount },
+      req.user
+    );
 
     res.status(201).json(newExpense);
   } else {
@@ -196,6 +209,13 @@ const deleteExpense = asyncHandler(async (req, res) => {
     await Subtrip.findOneAndUpdate(
       { _id: expense.subtripId },
       { $pull: { expenses: expense._id } }
+    );
+    // Record subtrip event for expense deletion
+    await recordSubtripEvent(
+      expense.subtripId,
+      SUBTRIP_EVENT_TYPES.EXPENSE_DELETED,
+      { expenseType: expense.expenseType, amount: expense.amount },
+      req.user
     );
   }
 
