@@ -66,18 +66,6 @@ const subtripSchema = new Schema({
   driverSalaryId: { type: String, ref: "DriverSalary" },
   transporterPaymentReceiptId: { type: String, ref: "TransporterPayment" },
 
-  // Event history (timeline for tracking changes)
-  events: [
-    {
-      eventType: String,
-      timestamp: Date,
-      details: Schema.Types.Mixed,
-      user: {
-        _id: { type: String, ref: "User" },
-        name: String,
-      },
-    },
-  ],
 });
 
 // for creating incremental id

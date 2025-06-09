@@ -1,11 +1,16 @@
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
+const SubtripEvent = require("../model/SubtripEvent");
 
-const recordSubtripEvent = (subtrip, eventType, details = {}, user = null) => {
-  if (!subtrip.events) {
-    subtrip.events = [];
-  }
+const recordSubtripEvent = async (
+  subtrip,
+  eventType,
+  details = {},
+  user = null
+) => {
+  const subtripId = typeof subtrip === "string" ? subtrip : subtrip._id;
 
   const eventData = {
+    subtripId,
     eventType,
     timestamp: new Date(),
     details,
@@ -17,7 +22,7 @@ const recordSubtripEvent = (subtrip, eventType, details = {}, user = null) => {
       : null,
   };
 
-  subtrip.events.push(eventData);
+  await SubtripEvent.create(eventData);
 };
 
 // Helper function to generate event message based on event type and details

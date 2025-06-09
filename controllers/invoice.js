@@ -129,8 +129,8 @@ const createInvoice = asyncHandler(async (req, res) => {
       subtrip.invoiceId = savedInvoice._id;
       subtrip.subtripStatus = SUBTRIP_STATUS.BILLED_PENDING;
 
-      recordSubtripEvent(
-        subtrip,
+      await recordSubtripEvent(
+        subtrip._id,
         SUBTRIP_EVENT_TYPES.INVOICE_GENERATED,
         { invoiceNo: savedInvoice.invoiceNo, amount: summary.totalAfterTax },
         req.user
@@ -211,8 +211,8 @@ const deleteInvoice = asyncHandler(async (req, res) => {
       subtrip.invoiceId = null;
       subtrip.subtripStatus = SUBTRIP_STATUS.RECEIVED; // or logic-based status if needed
 
-      recordSubtripEvent(
-        subtrip,
+      await recordSubtripEvent(
+        subtrip._id,
         SUBTRIP_EVENT_TYPES.INVOICE_DELETED,
         {
           deletedInvoiceId: id,
@@ -289,8 +289,8 @@ const updateInvoice = asyncHandler(async (req, res) => {
       subtrip.subtripStatus = newSubtripStatus;
 
       if (invoiceStatus === INVOICE_STATUS.PAID) {
-        recordSubtripEvent(
-          subtrip,
+        await recordSubtripEvent(
+          subtrip._id,
           SUBTRIP_EVENT_TYPES.INVOICE_PAID,
           {
             invoiceNo: updatedInvoice.invoiceNo,

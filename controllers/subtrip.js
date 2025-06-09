@@ -47,8 +47,8 @@ const createSubtrip = asyncHandler(async (req, res) => {
   });
 
   // Record creation event
-  recordSubtripEvent(
-    subtrip,
+  await recordSubtripEvent(
+    subtrip._id,
     SUBTRIP_EVENT_TYPES.CREATED,
     { note: "Subtrip created" },
     req.user
@@ -527,15 +527,15 @@ const receiveLR = asyncHandler(async (req, res) => {
 
   // Record appropriate event
   if (hasError) {
-    recordSubtripEvent(
-      subtrip,
+    await recordSubtripEvent(
+      subtrip._id,
       SUBTRIP_EVENT_TYPES.ERROR_REPORTED,
       { remarks },
       req.user
     );
   } else {
-    recordSubtripEvent(
-      subtrip,
+    await recordSubtripEvent(
+      subtrip._id,
       SUBTRIP_EVENT_TYPES.RECEIVED,
       { unloadingWeight },
       req.user
@@ -565,8 +565,8 @@ const resolveLR = asyncHandler(async (req, res) => {
   });
 
   // Record error resolution event
-  recordSubtripEvent(
-    subtrip,
+  await recordSubtripEvent(
+    subtrip._id,
     SUBTRIP_EVENT_TYPES.ERROR_RESOLVED,
     { remarks },
     req.user
@@ -589,7 +589,7 @@ const closeSubtrip = asyncHandler(async (req, res) => {
   subtrip.subtripStatus = SUBTRIP_STATUS.CLOSED;
 
   // Record closing event
-  recordSubtripEvent(subtrip, SUBTRIP_EVENT_TYPES.CLOSED, {}, req.user);
+  await recordSubtripEvent(subtrip._id, SUBTRIP_EVENT_TYPES.CLOSED, {}, req.user);
 
   await subtrip.save();
 
@@ -629,8 +629,8 @@ const updateSubtrip = asyncHandler(async (req, res) => {
     req.body.subtripStatus &&
     existingSubtrip.subtripStatus !== req.body.subtripStatus
   ) {
-    recordSubtripEvent(
-      updatedSubtrip,
+    await recordSubtripEvent(
+      updatedSubtrip._id,
       SUBTRIP_EVENT_TYPES.STATUS_CHANGED,
       {
         oldStatus: existingSubtrip.subtripStatus,
@@ -641,8 +641,8 @@ const updateSubtrip = asyncHandler(async (req, res) => {
   }
 
   // Record general update event
-  recordSubtripEvent(
-    updatedSubtrip,
+  await recordSubtripEvent(
+    updatedSubtrip._id,
     SUBTRIP_EVENT_TYPES.UPDATED,
     {
       changedFields,
@@ -745,8 +745,8 @@ const createEmptySubtrip = asyncHandler(async (req, res) => {
   });
 
   // Record creation event
-  recordSubtripEvent(
-    subtrip,
+  await recordSubtripEvent(
+    subtrip._id,
     SUBTRIP_EVENT_TYPES.CREATED,
     { note: "Empty subtrip created" },
     req.user
@@ -789,8 +789,8 @@ const closeEmptySubtrip = asyncHandler(async (req, res) => {
   subtrip.subtripStatus = SUBTRIP_STATUS.BILLED_PAID;
 
   // Record closing event
-  recordSubtripEvent(
-    subtrip,
+  await recordSubtripEvent(
+    subtrip._id,
     SUBTRIP_EVENT_TYPES.BILLED_PAID,
     { note: "Empty subtrip Completed" },
     req.user
