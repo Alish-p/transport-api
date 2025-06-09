@@ -7,6 +7,7 @@ const Invoice = require("../model/Invoice");
 const Pump = require("../model/Pump");
 const Route = require("../model/Route");
 const DriverSalary = require("../model/DriverSalary");
+const TransporterPayment = require("../model/TransporterPayment");
 const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
@@ -647,6 +648,204 @@ const getSubtripStatusSummary = asyncHandler(async (req, res) => {
 });
 
 
+// Get total EMI amounts due by month and overall loan totals
+const getLoanSchedule = asyncHandler(async (req, res) => {
+  const yearParam = parseInt(req.query.year, 10);
+  const year = Number.isNaN(yearParam) ? new Date().getUTCFullYear() : yearParam;
+
+  const startOfYear = new Date(Date.UTC(year, 0, 1));
+  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+
+  try {
+    const monthlyAgg = await Loan.aggregate([
+      { $unwind: '$installments' },
+      {
+        $match: {
+          'installments.status': 'pending',
+          'installments.dueDate': { $gte: startOfYear, $lt: endOfYear },
+        },
+      },
+      {
+        $group: {
+          _id: { month: { $month: '$installments.dueDate' } },
+          totalEmi: { $sum: '$installments.totalDue' },
+        },
+      },
+      { $sort: { '_id.month': 1 } },
+    ]);
+
+    const schedule = Array(12).fill(0);
+    monthlyAgg.forEach((r) => {
+      schedule[r._id.month - 1] = r.totalEmi;
+    });
+
+    const loanTotalsAgg = await Loan.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalGiven: { $sum: { $ifNull: ['$principalAmount', 0] } },
+          outstanding: { $sum: { $ifNull: ['$outstandingBalance', 0] } },
+        },
+      },
+    ]);
+
+    const totals = loanTotalsAgg[0] || { totalGiven: 0, outstanding: 0 };
+
+    res.status(200).json({ year, schedule, totals });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
+// Get overall vehicle utilization and empty trip distance for a year
+const getVehicleUtilization = asyncHandler(async (req, res) => {
+  const yearParam = parseInt(req.query.year, 10);
+  const year = Number.isNaN(yearParam) ? new Date().getUTCFullYear() : yearParam;
+
+  const startOfYear = new Date(Date.UTC(year, 0, 1));
+  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+  const daysInYear = (endOfYear - startOfYear) / (1000 * 60 * 60 * 24);
+
+  try {
+    const [vehicleCount, trips, distanceAgg] = await Promise.all([
+      Vehicle.countDocuments(),
+      Trip.find({
+        fromDate: { $lt: endOfYear },
+        $or: [{ toDate: { $gte: startOfYear } }, { toDate: null }],
+      }).lean(),
+      Subtrip.aggregate([
+        {
+          $match: {
+            startDate: { $gte: startOfYear, $lt: endOfYear },
+            startKm: { $ne: null },
+            endKm: { $ne: null },
+          },
+        },
+        {
+          $group: {
+            _id: '$isEmpty',
+            distance: { $sum: { $abs: { $subtract: ['$endKm', '$startKm'] } } },
+          },
+        },
+      ]),
+    ]);
+
+    let totalTripDays = 0;
+    trips.forEach((t) => {
+      const start = t.fromDate > startOfYear ? t.fromDate : startOfYear;
+      const end = t.toDate && t.toDate < endOfYear ? t.toDate : endOfYear;
+      const diff = (end - start) / (1000 * 60 * 60 * 24);
+      if (diff > 0) totalTripDays += diff;
+    });
+
+    const utilization =
+      vehicleCount && daysInYear
+        ? (totalTripDays / (vehicleCount * daysInYear)) * 100
+        : 0;
+
+    let totalKm = 0;
+    let emptyKm = 0;
+    distanceAgg.forEach((d) => {
+      totalKm += d.distance || 0;
+      if (d._id) emptyKm += d.distance || 0;
+    });
+
+    const emptyPercent = totalKm ? (emptyKm / totalKm) * 100 : 0;
+
+    res.status(200).json({
+      year,
+      utilization: Math.round(utilization * 100) / 100,
+      distance: {
+        total: totalKm,
+        empty: emptyKm,
+        emptyPercent: Math.round(emptyPercent * 100) / 100,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
+const getFinancialMonthlyData = asyncHandler(async (req, res) => {
+  const yearParam = parseInt(req.query.year, 10);
+  const year = Number.isNaN(yearParam) ? new Date().getUTCFullYear() : yearParam;
+
+  const startOfYear = new Date(Date.UTC(year, 0, 1));
+  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+
+  try {
+    const [invoiceAgg, transporterAgg, driverAgg, loanAgg] = await Promise.all([
+      Invoice.aggregate([
+        { $match: { issueDate: { $gte: startOfYear, $lt: endOfYear } } },
+        {
+          $group: {
+            _id: { month: { $month: '$issueDate' } },
+            amount: { $sum: { $ifNull: ['$totalAfterTax', 0] } },
+          },
+        },
+      ]),
+      TransporterPayment.aggregate([
+        { $match: { issueDate: { $gte: startOfYear, $lt: endOfYear } } },
+        {
+          $group: {
+            _id: { month: { $month: '$issueDate' } },
+            amount: { $sum: { $ifNull: ['$summary.netIncome', 0] } },
+          },
+        },
+      ]),
+      DriverSalary.aggregate([
+        { $match: { issueDate: { $gte: startOfYear, $lt: endOfYear } } },
+        {
+          $group: {
+            _id: { month: { $month: '$issueDate' } },
+            amount: { $sum: { $ifNull: ['$summary.netIncome', 0] } },
+          },
+        },
+      ]),
+      Loan.aggregate([
+        { $match: { disbursementDate: { $gte: startOfYear, $lt: endOfYear } } },
+        {
+          $group: {
+            _id: { month: { $month: '$disbursementDate' } },
+            amount: { $sum: { $ifNull: ['$principalAmount', 0] } },
+          },
+        },
+      ]),
+    ]);
+
+    const invoiceAmount = Array(12).fill(0);
+    const transporterPayment = Array(12).fill(0);
+    const driverSalary = Array(12).fill(0);
+    const loanDisbursed = Array(12).fill(0);
+
+    invoiceAgg.forEach((r) => {
+      invoiceAmount[r._id.month - 1] = r.amount;
+    });
+    transporterAgg.forEach((r) => {
+      transporterPayment[r._id.month - 1] = r.amount;
+    });
+    driverAgg.forEach((r) => {
+      driverSalary[r._id.month - 1] = r.amount;
+    });
+    loanAgg.forEach((r) => {
+      loanDisbursed[r._id.month - 1] = r.amount;
+    });
+
+    res.status(200).json({
+      year,
+      invoiceAmount,
+      transporterPayment,
+      driverSalary,
+      loanDisbursed,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
 
 
 
@@ -656,7 +855,10 @@ module.exports = {
   getDashboardSummary,
   getSubtripMonthlyData,
   getDashboardHighlights,
+  getFinancialMonthlyData,
   getSubtripStatusSummary,
   getCustomerMonthlyFreight,
   getMonthlySubtripExpenseSummary,
+
+  getLoanSchedule, getVehicleUtilization
 };
