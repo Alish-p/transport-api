@@ -6,6 +6,10 @@ const Transporter = require("../model/Transporter");
 const Loan = require("../model/Loan");
 const Subtrip = require("../model/Subtrip");
 const {
+  recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES,
+} = require("../helpers/subtrip-event-helper");
+const {
   calculateTransporterPayment,
   calculateTransporterPaymentSummary,
 } = require("../Utils/transporter-payment-utils");
@@ -127,6 +131,18 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
+
+    // Record events for each linked subtrip
+    await Promise.all(
+      associatedSubtrips.map((stId) =>
+        recordSubtripEvent(
+          stId,
+          SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_GENERATED,
+          { transporterId },
+          req.user
+        )
+      )
+    );
 
     res.status(201).json(saved);
   } catch (err) {
@@ -277,6 +293,18 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         { _id: { $in: associatedSubtrips } },
         { $set: { transporterPaymentReceiptId: saved._id } },
         { session }
+      );
+
+      // Record events for each linked subtrip
+      await Promise.all(
+        associatedSubtrips.map((stId) =>
+          recordSubtripEvent(
+            stId,
+            SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_GENERATED,
+            { transporterId },
+            req.user
+          )
+        )
       );
     }
 

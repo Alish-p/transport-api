@@ -484,6 +484,14 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    // Record material loading event after successful commit
+    await recordSubtripEvent(
+      subtrip._id,
+      SUBTRIP_EVENT_TYPES.MATERIAL_ADDED,
+      { materialType, quantity, loadingWeight, rate },
+      req.user
+    );
+
     // Populate updated subtrip
     const updatedSubtrip = await populateSubtrip(Subtrip.findById(subtrip._id));
     res.status(200).json(updatedSubtrip);
