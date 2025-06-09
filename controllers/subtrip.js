@@ -8,6 +8,7 @@ const { recordSubtripEvent } = require("../helpers/subtrip-event-helper");
 const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
 const Route = require("../model/Route");
+const { TRIP_STATUS } = require("../constants/trip-constants");
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>
@@ -543,6 +544,20 @@ const receiveLR = asyncHandler(async (req, res) => {
   }
 
   await subtrip.save();
+
+
+  // Close the parent trip for market vehicles
+  if (
+    subtrip.tripId &&
+    subtrip.tripId.vehicleId &&
+    !subtrip.tripId.vehicleId.isOwn
+  ) {
+    await Trip.findByIdAndUpdate(subtrip.tripId._id || subtrip.tripId, {
+      tripStatus: TRIP_STATUS.CLOSED,
+      toDate: new Date(),
+    });
+  }
+
   res.status(200).json(subtrip);
 });
 

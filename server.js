@@ -3,6 +3,7 @@ const connectDB = require("./config/db");
 const { errorHandler } = require("./middlewares/ErrorHandler");
 const rateLimit = require("express-rate-limit");
 const dotenv = require("dotenv").config();
+
 const port = process.env.PORT || 5001;
 const app = express();
 
@@ -42,6 +43,7 @@ const lrRouter = require("./routes/lr");
 const userRouter = require("./routes/user");
 const authRouter = require("./routes/auth");
 const taskRouter = require("./routes/task");
+const gpsRouter = require("./routes/gps");
 
 connectDB();
 
@@ -77,6 +79,7 @@ app.use("/api/loans", loanRouter);
 app.use("/api/transporter-payments", transporterPaymentRouter);
 app.use("/api/users", userRouter);
 app.use("/api/tasks", taskRouter);
+app.use("/api/gps", gpsRouter);
 
 // authentication
 app.use("/api/account", authRouter);

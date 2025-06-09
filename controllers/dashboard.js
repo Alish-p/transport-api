@@ -16,6 +16,8 @@ const { EXPENSE_CATEGORIES } = require("../constants/status");
 
 
 const { SUBTRIP_STATUS, INVOICE_STATUS } = require("../constants/status");
+const { calculateTransporterPayment } = require("../Utils/transporter-payment-utils");
+const { calculateDriverSalary } = require("../Utils/driver-salary-utils");
 
 // Get Dashboard Summary
 const getDashboardSummary = asyncHandler(async (req, res) => {
@@ -356,14 +358,58 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
 
 // Get basic entity counts
 const getTotalCounts = asyncHandler(async (req, res) => {
-  const [vehicleCount, driverCount, transporterCount, customerCount, invoiceCount, subtripCount] = await Promise.all([
+  const [
+    vehicleCount,
+    driverCount,
+    transporterCount,
+    customerCount,
+    invoiceCount,
+    subtripCount,
+    transporterSubtrips,
+    salarySubtrips,
+  ] = await Promise.all([
     Vehicle.countDocuments(),
     Driver.countDocuments(),
     Transporter.countDocuments(),
     Customer.countDocuments(),
     Invoice.countDocuments(),
     Subtrip.countDocuments(),
+    Subtrip.find({
+      subtripStatus: SUBTRIP_STATUS.RECEIVED,
+      transporterPaymentReceiptId: { $exists: false },
+    })
+      .populate({
+        path: 'tripId',
+        populate: { path: 'vehicleId', select: 'isOwn' },
+      })
+      .populate('expenses')
+      .lean(),
+    Subtrip.find({
+      subtripStatus: SUBTRIP_STATUS.RECEIVED,
+      driverSalaryReceiptId: { $exists: false },
+    })
+      .populate({
+        path: 'tripId',
+        populate: { path: 'vehicleId', select: 'isOwn' },
+      })
+      .populate('expenses')
+      .lean(),
   ]);
+
+  let totalPendingTransporterPayment = 0;
+  transporterSubtrips.forEach((st) => {
+    if (st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn) {
+      const { totalTransporterPayment } = calculateTransporterPayment(st);
+      totalPendingTransporterPayment += totalTransporterPayment;
+    }
+  });
+
+  let totalPendingSalary = 0;
+  salarySubtrips.forEach((st) => {
+    if (st.tripId?.vehicleId && st.tripId.vehicleId.isOwn) {
+      totalPendingSalary += calculateDriverSalary(st);
+    }
+  });
 
   res.status(200).json({
     vehicles: vehicleCount,
@@ -372,6 +418,8 @@ const getTotalCounts = asyncHandler(async (req, res) => {
     customers: customerCount,
     invoices: invoiceCount,
     subtrips: subtripCount,
+    totalPendingTransporterPayment,
+    totalPendingSalary,
   });
 });
 
