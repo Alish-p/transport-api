@@ -16,9 +16,9 @@ const recordSubtripEvent = async (
     details,
     user: user
       ? {
-          _id: user._id,
-          name: user.name,
-        }
+        _id: user._id,
+        name: user.name,
+      }
       : null,
   };
 

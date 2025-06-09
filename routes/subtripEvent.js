@@ -4,6 +4,6 @@ const { private } = require("../middlewares/Auth");
 
 const router = Router();
 
-router.get("/:subtripId", private, fetchSubtripEvents);
+router.get("/:subtripId", fetchSubtripEvents);
 
 module.exports = router;

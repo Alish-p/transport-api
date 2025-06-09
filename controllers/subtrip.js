@@ -46,6 +46,12 @@ const createSubtrip = asyncHandler(async (req, res) => {
     subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
   });
 
+
+  const newSubtrip = await subtrip.save();
+
+  trip.subtrips.push(newSubtrip._id);
+  await trip.save();
+
   // Record creation event
   await recordSubtripEvent(
     subtrip._id,
@@ -53,11 +59,6 @@ const createSubtrip = asyncHandler(async (req, res) => {
     { note: "Subtrip created" },
     req.user
   );
-
-  const newSubtrip = await subtrip.save();
-
-  trip.subtrips.push(newSubtrip._id);
-  await trip.save();
 
   res.status(201).json(newSubtrip);
 });
