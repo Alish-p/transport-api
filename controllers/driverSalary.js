@@ -7,6 +7,11 @@ const DriverSalary = require("../model/DriverSalary");
 const Driver = require("../model/Driver");
 const Subtrip = require("../model/Subtrip");
 
+const {
+  recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES,
+} = require("../helpers/subtrip-event-helper");
+
 // stubbed utils—implement these in ../utils/driver-salary-utils.js
 const {
   calculateDriverSalary,
@@ -114,6 +119,18 @@ const createDriverSalary = asyncHandler(async (req, res) => {
       { _id: { $in: associatedSubtrips } },
       { $set: { driverSalaryReceiptId: saved._id } },
       { session }
+    );
+
+    // Record events for each linked subtrip
+    await Promise.all(
+      associatedSubtrips.map((stId) =>
+        recordSubtripEvent(
+          stId,
+          SUBTRIP_EVENT_TYPES.DRIVER_SALARY_GENERATED,
+          { driverId },
+          req.user
+        )
+      )
     );
 
     await session.commitTransaction();
@@ -247,6 +264,18 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
         { _id: { $in: associatedSubtrips } },
         { $set: { driverSalaryReceiptId: saved._id } },
         { session }
+      );
+
+      // Record events for each linked subtrip
+      await Promise.all(
+        associatedSubtrips.map((stId) =>
+          recordSubtripEvent(
+            stId,
+            SUBTRIP_EVENT_TYPES.DRIVER_SALARY_GENERATED,
+            { driverId },
+            req.user
+          )
+        )
       );
     }
 

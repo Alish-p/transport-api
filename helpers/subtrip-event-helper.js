@@ -1,23 +1,28 @@
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
+const SubtripEvent = require("../model/SubtripEvent");
 
-const recordSubtripEvent = (subtrip, eventType, details = {}, user = null) => {
-  if (!subtrip.events) {
-    subtrip.events = [];
-  }
+const recordSubtripEvent = async (
+  subtrip,
+  eventType,
+  details = {},
+  user = null
+) => {
+  const subtripId = typeof subtrip === "string" ? subtrip : subtrip._id;
 
   const eventData = {
+    subtripId,
     eventType,
     timestamp: new Date(),
     details,
     user: user
       ? {
-          _id: user._id,
-          name: user.name,
-        }
+        _id: user._id,
+        name: user.name,
+      }
       : null,
   };
 
-  subtrip.events.push(eventData);
+  await SubtripEvent.create(eventData);
 };
 
 // Helper function to generate event message based on event type and details
@@ -35,6 +40,9 @@ const generateEventMessage = (event) => {
     case SUBTRIP_EVENT_TYPES.EXPENSE_ADDED:
       return `Expense added: ${details.expenseType} - ₹${details.amount} ${userInfo}`;
 
+    case SUBTRIP_EVENT_TYPES.EXPENSE_DELETED:
+      return `Expense deleted: ${details.expenseType} - ₹${details.amount} ${userInfo}`;
+
     case SUBTRIP_EVENT_TYPES.RECEIVED:
       return `LR received with weight ${details.unloadingWeight}kg ${userInfo}`;
 
@@ -49,6 +57,9 @@ const generateEventMessage = (event) => {
 
     case SUBTRIP_EVENT_TYPES.INVOICE_GENERATED:
       return `Invoice generated: ${details.invoiceNo} ${userInfo}`;
+
+    case SUBTRIP_EVENT_TYPES.INVOICE_DELETED:
+      return `Invoice deleted: ${details.invoiceNo} ${userInfo}`;
 
     case SUBTRIP_EVENT_TYPES.INVOICE_PAID:
       return `Invoice marked as paid ${userInfo}`;
