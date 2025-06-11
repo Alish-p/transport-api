@@ -1,9 +1,9 @@
+/* eslint-disable no-await-in-loop */
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 const TransporterPayment = require("../model/TransporterPayment");
 
 const Transporter = require("../model/Transporter");
-const Loan = require("../model/Loan");
 const Subtrip = require("../model/Subtrip");
 const {
   recordSubtripEvent,
@@ -18,7 +18,6 @@ const {
 const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   const {
     transporterId,
-    billingPeriod,
     associatedSubtrips,
     additionalCharges = [],
     meta,
@@ -111,7 +110,6 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     // 5. Create and save receipt
     const receipt = new TransporterPayment({
       transporterId,
-      billingPeriod,
       associatedSubtrips,
       subtripSnapshot,
       additionalCharges,
@@ -167,10 +165,10 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
   try {
     const savedReceipts = [];
 
+    // eslint-disable-next-line no-restricted-syntax
     for (const [idx, item] of payments.entries()) {
       const {
         transporterId,
-        billingPeriod,
         associatedSubtrips,
         additionalCharges = [],
         meta,
@@ -194,9 +192,8 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       if (!transporter) {
         await session.abortTransaction();
         return res.status(404).json({
-          message: `Payload #${
-            idx + 1
-          }: Transporter not found (${transporterId}).`,
+          message: `Payload #${idx + 1
+            }: Transporter not found (${transporterId}).`,
           index: idx,
         });
       }
@@ -222,11 +219,11 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         const failed = associatedSubtrips.filter(
           (id) => !subtrips.some((s) => s._id.toString() === id.toString())
         );
+        // eslint-disable-next-line no-await-in-loop
         await session.abortTransaction();
         return res.status(400).json({
-          message: `Payload #${
-            idx + 1
-          }: Some subtrips invalid or already linked.`,
+          message: `Payload #${idx + 1
+            }: Some subtrips invalid or already linked.`,
           failedSubtrips: failed,
           index: idx,
         });
@@ -276,7 +273,6 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       // 6. Create & save receipt
       const receipt = new TransporterPayment({
         transporterId,
-        billingPeriod,
         associatedSubtrips,
         subtripSnapshot,
         additionalCharges,

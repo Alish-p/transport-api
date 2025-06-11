@@ -93,12 +93,6 @@ const transporterPaymentReceiptSchema = new Schema(
     // Timestamp fields
     issueDate: { type: Date, default: Date.now },
 
-    // Billing period covered in this receipt
-    billingPeriod: {
-      start: { type: Date },
-      end: { type: Date },
-    },
-
     // Subtrip linkage and snapshot
     associatedSubtrips: [{ type: String, ref: "Subtrip" }],
     subtripSnapshot: [subtripPaymentSnapshotSchema],

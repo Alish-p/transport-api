@@ -66,17 +66,17 @@ const calculateTaxBreakup = (transporter, totalAmountBeforeTax) => {
       tds: { rate: tdsRate, amount: tdsAmount },
       totalTax: tdsAmount,
     };
-  } else {
-    const igstRate = 2 * taxRate;
-    const igstAmount = (totalAmountBeforeTax * igstRate) / 100;
-    return {
-      cgst: { rate: 0, amount: 0 },
-      sgst: { rate: 0, amount: 0 },
-      igst: { rate: igstRate, amount: igstAmount },
-      tds: { rate: tdsRate, amount: tdsAmount },
-      totalTax: tdsAmount,
-    };
   }
+  const igstRate = 2 * taxRate;
+  const igstAmount = (totalAmountBeforeTax * igstRate) / 100;
+  return {
+    cgst: { rate: 0, amount: 0 },
+    sgst: { rate: 0, amount: 0 },
+    igst: { rate: igstRate, amount: igstAmount },
+    tds: { rate: tdsRate, amount: tdsAmount },
+    totalTax: tdsAmount,
+  };
+
 };
 
 const calculateTransporterPaymentSummary = (
@@ -129,7 +129,7 @@ const calculateTransporterPaymentSummary = (
     0
   );
 
-  const netIncome = preTaxIncome - totalTax - totalAdditionalCharges;
+  const netIncome = preTaxIncome - totalTax + totalAdditionalCharges;
 
   return {
     totalTripWiseIncome:
