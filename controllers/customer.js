@@ -19,7 +19,7 @@ const fetchCustomers = asyncHandler(async (req, res) => {
 // Fetch Light Customers (only name, state, cellNo)
 const fetchCustomersSummary = asyncHandler(async (req, res) => {
   const customers = await Customer.find().select(
-    "customerName state cellNo address"
+    "customerName state cellNo address gstEnabled"
   );
   res.status(200).json(customers);
 });

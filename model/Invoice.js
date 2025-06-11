@@ -58,10 +58,7 @@ const invoiceSchema = new Schema(
     // Invoice dates
     issueDate: { type: Date, default: Date.now },
     dueDate: { type: Date },
-    billingPeriod: {
-      start: { type: Date },
-      end: { type: Date },
-    },
+
 
     // Financials
     totalAmountBeforeTax: { type: Number, default: 0 },

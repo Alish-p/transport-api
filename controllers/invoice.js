@@ -15,7 +15,6 @@ const { calculateInvoiceSummary } = require("../Utils/invoice-utils");
 const createInvoice = asyncHandler(async (req, res) => {
   const {
     customerId,
-    billingPeriod,
     subtripIds,
     additionalCharges = [],
     notes = "",
@@ -110,7 +109,6 @@ const createInvoice = asyncHandler(async (req, res) => {
     const invoice = new Invoice({
       customerId,
       invoiceNo,
-      billingPeriod,
       dueDate,
       notes,
       additionalCharges,

@@ -3,10 +3,6 @@ const { z } = require("zod");
 const invoiceSchema = z.object({
   body: z.object({
     customerId: z.string().min(1, "Customer is required"),
-    billingPeriod: z.object({
-      start: z.coerce.date(),
-      end: z.coerce.date(),
-    }),
     dueDate: z.coerce.date().optional(),
     subtripIds: z
       .array(z.string())
