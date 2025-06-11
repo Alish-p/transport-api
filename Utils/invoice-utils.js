@@ -82,6 +82,8 @@ const calculateInvoiceSummary = (invoice, customer) => {
         sgst: { rate: 0, amount: 0 },
         igst: { rate: 0, amount: 0 },
       },
+      totalAdditionalCharges: 0,
+      netTotal: 0,
     };
   }
 
@@ -133,6 +135,12 @@ const calculateInvoiceSummary = (invoice, customer) => {
   // 👇 Total amount after tax
   const totalAfterTax = totalAmountBeforeTax + totalTax;
 
+  const totalAdditionalCharges = Array.isArray(invoice.additionalCharges)
+    ? invoice.additionalCharges.reduce((sum, ch) => sum + (ch.amount || 0), 0)
+    : 0;
+
+  const netTotal = totalAfterTax + totalAdditionalCharges;
+
   return {
     totalAmountBeforeTax,
     totalFreightAmount,
@@ -141,6 +149,8 @@ const calculateInvoiceSummary = (invoice, customer) => {
     totalShortageWt,
     totalTax,
     totalAfterTax,
+    totalAdditionalCharges,
+    netTotal,
     taxBreakup,
   };
 };

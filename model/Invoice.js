@@ -66,6 +66,7 @@ const invoiceSchema = new Schema(
     // Financials
     totalAmountBeforeTax: { type: Number, default: 0 },
     totalAfterTax: { type: Number, default: 0 },
+    netTotal: { type: Number, default: 0 },
 
     // Tax & charges
     taxBreakup: taxBreakupSchema,
