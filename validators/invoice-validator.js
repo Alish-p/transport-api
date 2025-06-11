@@ -16,7 +16,7 @@ const invoiceSchema = z.object({
       .array(
         z.object({
           label: z.string(),
-          amount: z.number().nonnegative(),
+          amount: z.number(),
         })
       )
       .optional(),

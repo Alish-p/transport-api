@@ -102,7 +102,7 @@ const createInvoice = asyncHandler(async (req, res) => {
 
     // 6. Summary and tax
     const summary = calculateInvoiceSummary(
-      { invoicedSubTrips: subtrips },
+      { invoicedSubTrips: subtrips, additionalCharges },
       customer
     );
 
@@ -119,6 +119,7 @@ const createInvoice = asyncHandler(async (req, res) => {
       invoicedSubTrips: subtripIds,
       totalAmountBeforeTax: summary.totalAmountBeforeTax,
       totalAfterTax: summary.totalAfterTax,
+      netTotal: summary.netTotal,
       invoiceStatus: INVOICE_STATUS.PENDING,
     });
 
@@ -132,7 +133,7 @@ const createInvoice = asyncHandler(async (req, res) => {
       await recordSubtripEvent(
         subtrip._id,
         SUBTRIP_EVENT_TYPES.INVOICE_GENERATED,
-        { invoiceNo: savedInvoice.invoiceNo, amount: summary.totalAfterTax },
+        { invoiceNo: savedInvoice.invoiceNo, amount: summary.netTotal },
         req.user
       );
 
@@ -294,7 +295,7 @@ const updateInvoice = asyncHandler(async (req, res) => {
           SUBTRIP_EVENT_TYPES.INVOICE_PAID,
           {
             invoiceNo: updatedInvoice.invoiceNo,
-            amount: updatedInvoice.totalAmount,
+            amount: updatedInvoice.netTotal,
           },
           req.user
         );

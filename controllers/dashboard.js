@@ -235,7 +235,7 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
       {
         $group: {
           _id: "$customerId",
-          totalAmount: { $sum: { $ifNull: ["$totalAfterTax", 0] } },
+          totalAmount: { $sum: { $ifNull: ["$netTotal", 0] } },
         },
       },
       { $lookup: { from: "customers", localField: "_id", foreignField: "_id", as: "customer" } },
@@ -830,7 +830,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         {
           $group: {
             _id: { month: { $month: '$issueDate' } },
-            amount: { $sum: { $ifNull: ['$totalAfterTax', 0] } },
+            amount: { $sum: { $ifNull: ['$netTotal', 0] } },
           },
         },
       ]),
