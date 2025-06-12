@@ -1,6 +1,5 @@
 const { Router } = require("express");
 const {
-    getDashboardSummary,
     getDashboardHighlights,
     getCustomerMonthlyFreight,
     getExpiringSubtrips,
@@ -16,7 +15,6 @@ const {
 const router = Router();
 
 router.get("/counts", getTotalCounts);
-router.get("/summary", getDashboardSummary);
 router.get("/highlights", getDashboardHighlights);
 router.get("/subtrips-expiry", getExpiringSubtrips);
 router.get("/subtrip-monthly-data", getSubtripMonthlyData);
