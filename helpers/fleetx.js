@@ -11,7 +11,7 @@ const loginToFleetx = async () => {
 
     const response = await fetch(FLEETX_LOGIN_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", },
+        headers: { "Content-Type": "application/json", "Authorization": "Basic ZmxlZXR4OnNlY3JldA==" },
         body: JSON.stringify({
             username,
             password,
@@ -30,9 +30,10 @@ const loginToFleetx = async () => {
     return data.access_token || data.token || data?.data?.access_token;
 };
 
-const fetchLiveAnalytics = async () => {
+const fetchLiveAnalytics = async (token) => {
     const response = await fetch(FLEETX_LIVE_URL, {
         headers: { Authorization: `bearer 5d6a3fba-6506-4d73-b37f-b5576aed87eb` },
+        // headers: { Authorization: `bearer ${token}` },
     });
 
     if (!response.ok) {
@@ -45,6 +46,9 @@ const fetchLiveAnalytics = async () => {
 const getFleetxVehicleData = async (vehicleNo) => {
     // const token = await loginToFleetx();
     const analytics = await fetchLiveAnalytics();
+
+    console.log(analytics)
+
     const vehicle = analytics.vehicles?.find((v) => v.vehicleNumber === vehicleNo);
     if (!vehicle) {
         return null;
