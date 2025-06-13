@@ -1,5 +1,8 @@
 const asyncHandler = require("express-async-handler");
 const Customer = require("../model/Customer");
+const Invoice = require("../model/Invoice");
+const Subtrip = require("../model/Subtrip");
+const mongoose = require("mongoose");
 
 // Create Customer
 const createCustomer = asyncHandler(async (req, res) => {
@@ -33,7 +36,51 @@ const fetchCustomer = asyncHandler(async (req, res) => {
     return;
   }
 
-  res.status(200).json(customer);
+  const invoices = await Invoice.find({ customerId: req.params.id }).select(
+    "_id invoiceNo issueDate dueDate netTotal"
+  );
+
+  const currentYear = new Date().getUTCFullYear();
+  const marchStart = new Date(Date.UTC(currentYear, 2, 1));
+  const aprilStart = new Date(Date.UTC(currentYear, 3, 1));
+
+  const analytics = await Subtrip.aggregate([
+    {
+      $match: {
+        customerId: new mongoose.Types.ObjectId(req.params.id),
+        startDate: { $gte: marchStart, $lt: aprilStart },
+        isEmpty: false,
+      },
+    },
+    {
+      $group: {
+        _id: "$materialType",
+        loadingWeightMoved: { $sum: { $ifNull: ["$loadingWeight", 0] } },
+        freightAmount: {
+          $sum: {
+            $multiply: [
+              { $ifNull: ["$loadingWeight", 0] },
+              { $ifNull: ["$rate", 0] },
+            ],
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        materialType: "$_id",
+        loadingWeightMoved: 1,
+        freightAmount: 1,
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    ...customer.toObject(),
+    invoices,
+    analytics,
+  });
 });
 
 // Update Customer
