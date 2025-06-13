@@ -12,20 +12,31 @@ const Expense = require("../model/Expense");
 const Loan = require("../model/Loan");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
 
-
 const { SUBTRIP_STATUS, INVOICE_STATUS } = require("../constants/status");
-const { calculateTransporterPayment } = require("../Utils/transporter-payment-utils");
+const {
+  calculateTransporterPayment,
+} = require("../Utils/transporter-payment-utils");
 const { calculateDriverSalary } = require("../Utils/driver-salary-utils");
-
-
 
 // Get Dashboard Highlights
 const getDashboardHighlights = asyncHandler(async (req, res) => {
   try {
     const weightByCustomerPromise = Subtrip.aggregate([
       { $match: { customerId: { $ne: null } } },
-      { $group: { _id: "$customerId", totalWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } } } },
-      { $lookup: { from: "customers", localField: "_id", foreignField: "_id", as: "customer" } },
+      {
+        $group: {
+          _id: "$customerId",
+          totalWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
+        },
+      },
+      {
+        $lookup: {
+          from: "customers",
+          localField: "_id",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
       { $unwind: "$customer" },
       {
         $project: {
@@ -44,7 +55,14 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
           totalAmount: { $sum: { $ifNull: ["$netTotal", 0] } },
         },
       },
-      { $lookup: { from: "customers", localField: "_id", foreignField: "_id", as: "customer" } },
+      {
+        $lookup: {
+          from: "customers",
+          localField: "_id",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
       { $unwind: "$customer" },
       {
         $project: {
@@ -57,9 +75,23 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
     ]);
 
     const vehicleTonnagePromise = Subtrip.aggregate([
-      { $lookup: { from: "trips", localField: "tripId", foreignField: "_id", as: "trip" } },
+      {
+        $lookup: {
+          from: "trips",
+          localField: "tripId",
+          foreignField: "_id",
+          as: "trip",
+        },
+      },
       { $unwind: "$trip" },
-      { $lookup: { from: "vehicles", localField: "trip.vehicleId", foreignField: "_id", as: "vehicle" } },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "trip.vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
       { $unwind: "$vehicle" },
       {
         $group: {
@@ -161,7 +193,6 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
   }
 });
 
-
 // Get basic entity counts
 const getTotalCounts = asyncHandler(async (req, res) => {
   const [
@@ -185,20 +216,20 @@ const getTotalCounts = asyncHandler(async (req, res) => {
       transporterPaymentReceiptId: { $exists: false },
     })
       .populate({
-        path: 'tripId',
-        populate: { path: 'vehicleId', select: 'isOwn' },
+        path: "tripId",
+        populate: { path: "vehicleId", select: "isOwn" },
       })
-      .populate('expenses')
+      .populate("expenses")
       .lean(),
     Subtrip.find({
       subtripStatus: SUBTRIP_STATUS.RECEIVED,
       driverSalaryReceiptId: { $exists: false },
     })
       .populate({
-        path: 'tripId',
-        populate: { path: 'vehicleId', select: 'isOwn' },
+        path: "tripId",
+        populate: { path: "vehicleId", select: "isOwn" },
       })
-      .populate('expenses')
+      .populate("expenses")
       .lean(),
   ]);
 
@@ -229,7 +260,6 @@ const getTotalCounts = asyncHandler(async (req, res) => {
   });
 });
 
-
 // Get customer-wise total weight and freight for a month
 const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
   const { month } = req.query;
@@ -237,10 +267,10 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
   if (!month) {
     return res
       .status(400)
-      .json({ message: 'Month query parameter required in YYYY-MM format' });
+      .json({ message: "Month query parameter required in YYYY-MM format" });
   }
 
-  const [yearStr, monthStr] = month.split('-');
+  const [yearStr, monthStr] = month.split("-");
   const year = parseInt(yearStr, 10);
   const monthNum = parseInt(monthStr, 10);
 
@@ -252,7 +282,7 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
   ) {
     return res
       .status(400)
-      .json({ message: 'Invalid month format. Use YYYY-MM' });
+      .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
   const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
@@ -269,13 +299,13 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
       },
       {
         $group: {
-          _id: '$customerId',
-          totalLoadingWeight: { $sum: { $ifNull: ['$loadingWeight', 0] } },
+          _id: "$customerId",
+          totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
           totalFreightAmount: {
             $sum: {
               $multiply: [
-                { $ifNull: ['$loadingWeight', 0] },
-                { $ifNull: ['$rate', 0] },
+                { $ifNull: ["$loadingWeight", 0] },
+                { $ifNull: ["$rate", 0] },
               ],
             },
           },
@@ -291,18 +321,18 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
       },
       {
         $lookup: {
-          from: 'customers',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'customer',
+          from: "customers",
+          localField: "_id",
+          foreignField: "_id",
+          as: "customer",
         },
       },
-      { $unwind: '$customer' },
+      { $unwind: "$customer" },
       {
         $project: {
           _id: 0,
-          customerId: '$_id',
-          customerName: '$customer.customerName',
+          customerId: "$_id",
+          customerName: "$customer.customerName",
           totalLoadingWeight: 1,
           totalFreightAmount: 1,
         },
@@ -334,9 +364,7 @@ const getExpiringSubtrips = asyncHandler(async (req, res) => {
     subtripStatus: SUBTRIP_STATUS.LOADED,
     ewayExpiryDate: { $ne: null, $lte: threshold },
   })
-    .select(
-      "_id startDate unloadingPoint ewayExpiryDate tripId customerId"
-    )
+    .select("_id startDate unloadingPoint ewayExpiryDate tripId customerId")
     .populate({
       path: "tripId",
       select: "vehicleId",
@@ -353,7 +381,7 @@ const getExpiringSubtrips = asyncHandler(async (req, res) => {
     startDate: st.startDate,
     unloadingPoint: st.unloadingPoint,
     expired: st.ewayExpiryDate < now,
-    ewayExpiryDate: st.ewayExpiryDate
+    ewayExpiryDate: st.ewayExpiryDate,
   }));
 
   res.status(200).json(formatted);
@@ -361,21 +389,42 @@ const getExpiringSubtrips = asyncHandler(async (req, res) => {
 
 const getSubtripMonthlyData = asyncHandler(async (req, res) => {
   const yearParam = parseInt(req.query.year, 10);
-  const year = Number.isNaN(yearParam) ? new Date().getUTCFullYear() : yearParam;
+  const year = Number.isNaN(yearParam)
+    ? new Date().getUTCFullYear()
+    : yearParam;
 
   const startOfYear = new Date(Date.UTC(year, 0, 1));
   const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
 
   try {
     const results = await Subtrip.aggregate([
-      { $match: { startDate: { $gte: startOfYear, $lt: endOfYear }, isEmpty: false } },
-      { $lookup: { from: 'trips', localField: 'tripId', foreignField: '_id', as: 'trip' } },
-      { $unwind: '$trip' },
-      { $lookup: { from: 'vehicles', localField: 'trip.vehicleId', foreignField: '_id', as: 'vehicle' } },
-      { $unwind: '$vehicle' },
+      {
+        $match: {
+          startDate: { $gte: startOfYear, $lt: endOfYear },
+          isEmpty: false,
+        },
+      },
+      {
+        $lookup: {
+          from: "trips",
+          localField: "tripId",
+          foreignField: "_id",
+          as: "trip",
+        },
+      },
+      { $unwind: "$trip" },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "trip.vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      { $unwind: "$vehicle" },
       {
         $group: {
-          _id: { month: { $month: '$startDate' }, isOwn: '$vehicle.isOwn' },
+          _id: { month: { $month: "$startDate" }, isOwn: "$vehicle.isOwn" },
           count: { $sum: 1 },
         },
       },
@@ -404,10 +453,10 @@ const getMonthlySubtripExpenseSummary = asyncHandler(async (req, res) => {
   if (!month) {
     return res
       .status(400)
-      .json({ message: 'Month query parameter required in YYYY-MM format' });
+      .json({ message: "Month query parameter required in YYYY-MM format" });
   }
 
-  const [yearStr, monthStr] = month.split('-');
+  const [yearStr, monthStr] = month.split("-");
   const year = parseInt(yearStr, 10);
   const monthNum = parseInt(monthStr, 10);
 
@@ -419,7 +468,7 @@ const getMonthlySubtripExpenseSummary = asyncHandler(async (req, res) => {
   ) {
     return res
       .status(400)
-      .json({ message: 'Invalid month format. Use YYYY-MM' });
+      .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
   const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
@@ -435,15 +484,15 @@ const getMonthlySubtripExpenseSummary = asyncHandler(async (req, res) => {
       },
       {
         $group: {
-          _id: '$expenseType',
-          totalAmount: { $sum: { $ifNull: ['$amount', 0] } },
+          _id: "$expenseType",
+          totalAmount: { $sum: { $ifNull: ["$amount", 0] } },
           count: { $sum: 1 },
         },
       },
       {
         $project: {
           _id: 0,
-          expenseType: '$_id',
+          expenseType: "$_id",
           totalAmount: 1,
           count: 1,
         },
@@ -454,7 +503,7 @@ const getMonthlySubtripExpenseSummary = asyncHandler(async (req, res) => {
     res.status(200).json(results);
   } catch (error) {
     res.status(500).json({
-      message: 'An error occurred while fetching expense summary',
+      message: "An error occurred while fetching expense summary",
       error: error.message,
     });
   }
@@ -501,31 +550,32 @@ const getSubtripStatusSummary = asyncHandler(async (req, res) => {
   }
 });
 
-
 // Get total EMI amounts due by month and overall loan totals
 const getLoanSchedule = asyncHandler(async (req, res) => {
   const yearParam = parseInt(req.query.year, 10);
-  const year = Number.isNaN(yearParam) ? new Date().getUTCFullYear() : yearParam;
+  const year = Number.isNaN(yearParam)
+    ? new Date().getUTCFullYear()
+    : yearParam;
 
   const startOfYear = new Date(Date.UTC(year, 0, 1));
   const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
 
   try {
     const monthlyAgg = await Loan.aggregate([
-      { $unwind: '$installments' },
+      { $unwind: "$installments" },
       {
         $match: {
-          'installments.status': 'pending',
-          'installments.dueDate': { $gte: startOfYear, $lt: endOfYear },
+          "installments.status": "pending",
+          "installments.dueDate": { $gte: startOfYear, $lt: endOfYear },
         },
       },
       {
         $group: {
-          _id: { month: { $month: '$installments.dueDate' } },
-          totalEmi: { $sum: '$installments.totalDue' },
+          _id: { month: { $month: "$installments.dueDate" } },
+          totalEmi: { $sum: "$installments.totalDue" },
         },
       },
-      { $sort: { '_id.month': 1 } },
+      { $sort: { "_id.month": 1 } },
     ]);
 
     const schedule = Array(12).fill(0);
@@ -537,8 +587,8 @@ const getLoanSchedule = asyncHandler(async (req, res) => {
       {
         $group: {
           _id: null,
-          totalGiven: { $sum: { $ifNull: ['$principalAmount', 0] } },
-          outstanding: { $sum: { $ifNull: ['$outstandingBalance', 0] } },
+          totalGiven: { $sum: { $ifNull: ["$principalAmount", 0] } },
+          outstanding: { $sum: { $ifNull: ["$outstandingBalance", 0] } },
         },
       },
     ]);
@@ -555,7 +605,9 @@ const getLoanSchedule = asyncHandler(async (req, res) => {
 // Get overall vehicle utilization and empty trip distance for a year
 const getVehicleUtilization = asyncHandler(async (req, res) => {
   const yearParam = parseInt(req.query.year, 10);
-  const year = Number.isNaN(yearParam) ? new Date().getUTCFullYear() : yearParam;
+  const year = Number.isNaN(yearParam)
+    ? new Date().getUTCFullYear()
+    : yearParam;
 
   const startOfYear = new Date(Date.UTC(year, 0, 1));
   const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
@@ -578,8 +630,8 @@ const getVehicleUtilization = asyncHandler(async (req, res) => {
         },
         {
           $group: {
-            _id: '$isEmpty',
-            distance: { $sum: { $abs: { $subtract: ['$endKm', '$startKm'] } } },
+            _id: "$isEmpty",
+            distance: { $sum: { $abs: { $subtract: ["$endKm", "$startKm"] } } },
           },
         },
       ]),
@@ -622,9 +674,40 @@ const getVehicleUtilization = asyncHandler(async (req, res) => {
   }
 });
 
+// Get invoice status counts
+const getInvoiceStatusSummary = asyncHandler(async (req, res) => {
+  try {
+    const statusAgg = await Invoice.aggregate([
+      { $group: { _id: "$invoiceStatus", count: { $sum: 1 } } },
+    ]);
+
+    const statusMap = Object.values(INVOICE_STATUS).reduce((acc, st) => {
+      acc[st] = 0;
+      return acc;
+    }, {});
+
+    statusAgg.forEach((r) => {
+      statusMap[r._id] = r.count;
+    });
+
+    const series = [
+      { label: "Pending", value: statusMap[INVOICE_STATUS.PENDING] },
+      { label: "Paid", value: statusMap[INVOICE_STATUS.PAID] },
+      { label: "OverDue", value: statusMap[INVOICE_STATUS.OVERDUE] },
+    ];
+
+    res.status(200).json({ series });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
 const getFinancialMonthlyData = asyncHandler(async (req, res) => {
   const yearParam = parseInt(req.query.year, 10);
-  const year = Number.isNaN(yearParam) ? new Date().getUTCFullYear() : yearParam;
+  const year = Number.isNaN(yearParam)
+    ? new Date().getUTCFullYear()
+    : yearParam;
 
   const startOfYear = new Date(Date.UTC(year, 0, 1));
   const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
@@ -635,8 +718,8 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         { $match: { issueDate: { $gte: startOfYear, $lt: endOfYear } } },
         {
           $group: {
-            _id: { month: { $month: '$issueDate' } },
-            amount: { $sum: { $ifNull: ['$netTotal', 0] } },
+            _id: { month: { $month: "$issueDate" } },
+            amount: { $sum: { $ifNull: ["$netTotal", 0] } },
           },
         },
       ]),
@@ -644,8 +727,8 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         { $match: { issueDate: { $gte: startOfYear, $lt: endOfYear } } },
         {
           $group: {
-            _id: { month: { $month: '$issueDate' } },
-            amount: { $sum: { $ifNull: ['$summary.netIncome', 0] } },
+            _id: { month: { $month: "$issueDate" } },
+            amount: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
           },
         },
       ]),
@@ -653,8 +736,8 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         { $match: { issueDate: { $gte: startOfYear, $lt: endOfYear } } },
         {
           $group: {
-            _id: { month: { $month: '$issueDate' } },
-            amount: { $sum: { $ifNull: ['$summary.netIncome', 0] } },
+            _id: { month: { $month: "$issueDate" } },
+            amount: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
           },
         },
       ]),
@@ -662,8 +745,8 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         { $match: { disbursementDate: { $gte: startOfYear, $lt: endOfYear } } },
         {
           $group: {
-            _id: { month: { $month: '$disbursementDate' } },
-            amount: { $sum: { $ifNull: ['$principalAmount', 0] } },
+            _id: { month: { $month: "$disbursementDate" } },
+            amount: { $sum: { $ifNull: ["$principalAmount", 0] } },
           },
         },
       ]),
@@ -700,18 +783,17 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
   }
 });
 
-
-
-
 module.exports = {
   getTotalCounts,
+  getLoanSchedule,
   getExpiringSubtrips,
+  getVehicleUtilization,
   getSubtripMonthlyData,
   getDashboardHighlights,
   getFinancialMonthlyData,
+  getInvoiceStatusSummary,
   getSubtripStatusSummary,
   getCustomerMonthlyFreight,
   getMonthlySubtripExpenseSummary,
 
-  getLoanSchedule, getVehicleUtilization
 };

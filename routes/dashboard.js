@@ -9,21 +9,23 @@ const {
     getSubtripStatusSummary,
     getLoanSchedule,
     getVehicleUtilization,
-    getFinancialMonthlyData
+    getFinancialMonthlyData,
+    getInvoiceStatusSummary
 } = require("../controllers/dashboard");
 
 const router = Router();
 
+
 router.get("/counts", getTotalCounts);
+router.get("/loan-schedule", getLoanSchedule);
 router.get("/highlights", getDashboardHighlights);
 router.get("/subtrips-expiry", getExpiringSubtrips);
+router.get("/vehicle-utilization", getVehicleUtilization);
 router.get("/subtrip-monthly-data", getSubtripMonthlyData);
 router.get("/subtrip-status-summary", getSubtripStatusSummary);
-router.get("/grouped/monthly-expense", getMonthlySubtripExpenseSummary);
-router.get("/customer-monthly-freight", getCustomerMonthlyFreight);
-
+router.get("/invoice-status-summary", getInvoiceStatusSummary);
 router.get("/financial-monthly-data", getFinancialMonthlyData);
-router.get("/loan-schedule", getLoanSchedule);
-router.get("/vehicle-utilization", getVehicleUtilization);
+router.get("/customer-monthly-freight", getCustomerMonthlyFreight);
+router.get("/grouped/monthly-expense", getMonthlySubtripExpenseSummary);
 
 module.exports = router;
