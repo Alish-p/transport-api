@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const Expense = require("../model/Expense");
 const Subtrip = require("../model/Subtrip");
+const Vehicle = require("../model/Vehicle");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
 const {
   recordSubtripEvent,
@@ -166,6 +167,104 @@ const fetchExpenses = asyncHandler(async (req, res) => {
   }
 });
 
+// Fetch Expenses with pagination and search
+const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
+  try {
+    const {
+      vehicleNo,
+      startDate,
+      endDate,
+      expenseType,
+      expenseCategory,
+      page = 1,
+      rowsPerPage = 10,
+    } = req.query;
+
+    const limit = parseInt(rowsPerPage, 10) || 10;
+    const skip = (parseInt(page, 10) - 1) * limit;
+
+    const query = {};
+
+    // Vehicle number search
+    if (vehicleNo) {
+      const vehicles = await Vehicle.find({
+        vehicleNo: { $regex: vehicleNo, $options: "i" },
+      }).select("_id");
+      const vehicleIds = vehicles.map((v) => v._id);
+      if (vehicleIds.length > 0) {
+        query.vehicleId = { $in: vehicleIds };
+      } else {
+        // no vehicles match means no expenses will match
+        return res.status(200).json({
+          expenses: [],
+          totalCount: 0,
+          categoryCounts: {},
+          startRange: 0,
+          endRange: 0,
+        });
+      }
+    }
+
+    if (expenseType) {
+      const types = Array.isArray(expenseType) ? expenseType : [expenseType];
+      query.expenseType = { $in: types };
+    }
+
+    if (expenseCategory) {
+      const categories = Array.isArray(expenseCategory)
+        ? expenseCategory
+        : [expenseCategory];
+      query.expenseCategory = { $in: categories };
+    }
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
+    }
+
+    const [totalCount, expenses, categoryAgg] = await Promise.all([
+      Expense.countDocuments(query),
+      Expense.find(query)
+        .populate("pumpCd")
+        .populate({
+          path: "vehicleId",
+          populate: { path: "transporter", model: "Transporter" },
+        })
+        .populate({
+          path: "tripId",
+          populate: [{ path: "driverId", model: "Driver" }],
+        })
+        .populate("subtripId")
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limit),
+      Expense.aggregate([
+        { $match: query },
+        { $group: { _id: "$expenseCategory", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const categoryCounts = categoryAgg.reduce((acc, curr) => {
+      acc[curr._id] = curr.count;
+      return acc;
+    }, {});
+
+    res.status(200).json({
+      expenses,
+      totalCount,
+      categoryCounts,
+      startRange: skip + 1,
+      endRange: skip + expenses.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching paginated expenses",
+      error: error.message,
+    });
+  }
+});
+
 // Fetch Single Expense
 const fetchExpense = asyncHandler(async (req, res) => {
   const expense = await Expense.findById(req.params.id)
@@ -229,6 +328,7 @@ const deleteExpense = asyncHandler(async (req, res) => {
 module.exports = {
   createExpense,
   fetchExpenses,
+  fetchPaginatedExpenses,
   fetchExpense,
   updateExpense,
   deleteExpense,
