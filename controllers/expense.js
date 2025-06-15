@@ -223,12 +223,11 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
     const [totalCount, expenses, categoryAgg] = await Promise.all([
       Expense.countDocuments(query),
       Expense.find(query)
-        .populate("pumpCd")
-        .populate({
-          path: "vehicleId",
-          populate: { path: "transporter", model: "Transporter" },
-        })
-        .populate("subtripId")
+        .select(
+          "vehicleId subtripId date expenseType amount slipNo pumpCd remarks dieselLtr paidThrough authorisedBy"
+        )
+        .populate({ path: "vehicleId", select: "vehicleNo" })
+        .populate({ path: "pumpCd", select: "pumpName" })
         .sort({ date: -1 })
         .skip(skip)
         .limit(limit),
@@ -238,17 +237,31 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       ]),
     ]);
 
+    const formattedExpenses = expenses.map((exp) => ({
+      vehicleNo: exp.vehicleId?.vehicleNo,
+      subtripId: exp.subtripId,
+      date: exp.date,
+      expenseType: exp.expenseType,
+      amount: exp.amount,
+      slipNo: exp.slipNo,
+      pumpCd: exp.pumpCd?.pumpName,
+      remarks: exp.remarks,
+      dieselLtr: exp.dieselLtr,
+      paidThrough: exp.paidThrough,
+      authorisedBy: exp.authorisedBy,
+    }));
+
     const categoryCounts = categoryAgg.reduce((acc, curr) => {
       acc[curr._id] = curr.count;
       return acc;
     }, {});
 
     res.status(200).json({
-      expenses,
+      expenses: formattedExpenses,
       totalCount,
       categoryCounts,
       startRange: skip + 1,
-      endRange: skip + expenses.length,
+      endRange: skip + formattedExpenses.length,
     });
   } catch (error) {
     res.status(500).json({
