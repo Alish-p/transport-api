@@ -176,12 +176,9 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       endDate,
       expenseType,
       expenseCategory,
-      page = 1,
-      rowsPerPage = 10,
     } = req.query;
 
-    const limit = parseInt(rowsPerPage, 10) || 10;
-    const skip = (parseInt(page, 10) - 1) * limit;
+    const { limit, skip } = req.pagination;
 
     const query = {};
 
@@ -230,10 +227,6 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
         .populate({
           path: "vehicleId",
           populate: { path: "transporter", model: "Transporter" },
-        })
-        .populate({
-          path: "tripId",
-          populate: [{ path: "driverId", model: "Driver" }],
         })
         .populate("subtripId")
         .sort({ date: -1 })
