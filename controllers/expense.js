@@ -194,8 +194,11 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
         // no vehicles match means no expenses will match
         return res.status(200).json({
           expenses: [],
-          totalCount: 0,
-          categoryCounts: {},
+          totals: {
+            all: { count: 0, amount: 0 },
+            vehicle: { count: 0, amount: 0 },
+            subtrip: { count: 0, amount: 0 },
+          },
           startRange: 0,
           endRange: 0,
         });
@@ -220,8 +223,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       if (endDate) query.date.$lte = new Date(endDate);
     }
 
-    const [totalCount, expenses, categoryAgg] = await Promise.all([
-      Expense.countDocuments(query),
+    const [expenses, totalsAgg] = await Promise.all([
       Expense.find(query)
         .select(
           "vehicleId subtripId date expenseType amount slipNo pumpCd remarks dieselLtr paidThrough authorisedBy"
@@ -233,7 +235,13 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
         .limit(limit),
       Expense.aggregate([
         { $match: query },
-        { $group: { _id: "$expenseCategory", count: { $sum: 1 } } },
+        {
+          $group: {
+            _id: "$expenseCategory",
+            count: { $sum: 1 },
+            amount: { $sum: "$amount" },
+          },
+        },
       ]),
     ]);
 
@@ -251,15 +259,21 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       authorisedBy: exp.authorisedBy,
     }));
 
-    const categoryCounts = categoryAgg.reduce((acc, curr) => {
-      acc[curr._id] = curr.count;
-      return acc;
-    }, {});
+    const totals = {
+      all: { count: 0, amount: 0 },
+      vehicle: { count: 0, amount: 0 },
+      subtrip: { count: 0, amount: 0 },
+    };
+
+    totalsAgg.forEach((t) => {
+      totals[t._id] = { count: t.count, amount: t.amount };
+      totals.all.count += t.count;
+      totals.all.amount += t.amount;
+    });
 
     res.status(200).json({
       expenses: formattedExpenses,
-      totalCount,
-      categoryCounts,
+      totals,
       startRange: skip + 1,
       endRange: skip + formattedExpenses.length,
     });
