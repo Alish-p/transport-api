@@ -26,7 +26,7 @@ const fetchDrivers = asyncHandler(async (req, res) => {
 
     const now = new Date();
 
-    const [drivers, totalAll, validCount, expiredCount] = await Promise.all([
+    const [drivers, totalAll, validCount] = await Promise.all([
       Driver.find(query)
         .select(
           "-guarantorName -guarantorCellNo -dob -dlImage -photoImage -aadharImage -bankDetails"
@@ -36,7 +36,6 @@ const fetchDrivers = asyncHandler(async (req, res) => {
         .limit(limit),
       Driver.countDocuments(query),
       Driver.countDocuments({ ...query, licenseTo: { $gte: now } }),
-      Driver.countDocuments({ ...query, licenseTo: { $lt: now } }),
     ]);
 
     res.status(200).json({
@@ -44,7 +43,7 @@ const fetchDrivers = asyncHandler(async (req, res) => {
       totals: {
         all: { count: totalAll },
         valid: { count: validCount },
-        expired: { count: expiredCount },
+        expired: { count: totalAll - validCount },
       },
       startRange: skip + 1,
       endRange: skip + drivers.length,
