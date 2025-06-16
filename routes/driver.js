@@ -8,11 +8,13 @@ const {
   fetchDriversSummary,
 } = require("../controllers/driver");
 
-const { private, admin, checkPermission } = require("../middlewares/Auth");
+const { private, checkPermission } = require("../middlewares/Auth");
+const pagination = require("../middlewares/pagination");
+
 const router = Router();
 
 router.post("/", private, checkPermission("driver", "create"), createDriver);
-router.get("/", private, fetchDrivers);
+router.get("/", private, pagination, fetchDrivers);
 router.get("/summary", private, fetchDriversSummary);
 router.get("/:id", private, fetchDriverById);
 router.delete("/:id", private, checkPermission("driver", "delete"), deleteDriver);

@@ -9,10 +9,52 @@ const createDriver = asyncHandler(async (req, res) => {
   res.status(201).json(newDriver);
 });
 
-// Fetch Drivers
+// Fetch Drivers with pagination and search
 const fetchDrivers = asyncHandler(async (req, res) => {
-  const drivers = await Driver.find();
-  res.status(200).json(drivers);
+  try {
+    const { search } = req.query;
+    const { limit, skip } = req.pagination;
+
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { driverName: { $regex: search, $options: "i" } },
+        { driverCellNo: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const now = new Date();
+
+    const [drivers, totalAll, validCount, expiredCount] = await Promise.all([
+      Driver.find(query)
+        .select(
+          "-guarantorName -guarantorCellNo -dob -dlImage -photoImage -aadharImage -bankDetails"
+        )
+        .sort({ driverName: 1 })
+        .skip(skip)
+        .limit(limit),
+      Driver.countDocuments(query),
+      Driver.countDocuments({ ...query, licenseTo: { $gte: now } }),
+      Driver.countDocuments({ ...query, licenseTo: { $lt: now } }),
+    ]);
+
+    res.status(200).json({
+      drivers,
+      totals: {
+        all: { count: totalAll },
+        valid: { count: validCount },
+        expired: { count: expiredCount },
+      },
+      startRange: skip + 1,
+      endRange: skip + drivers.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching paginated drivers",
+      error: error.message,
+    });
+  }
 });
 
 // Fetch Light Drivers (only name, cellNo)
