@@ -15,6 +15,43 @@ const fetchTransporters = asyncHandler(async (req, res) => {
   res.status(200).json(transporters);
 });
 
+// Fetch Transporters with pagination and search
+const fetchPaginatedTransporters = asyncHandler(async (req, res) => {
+  try {
+    const { search } = req.query;
+    const { limit, skip } = req.pagination;
+
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { transportName: { $regex: search, $options: 'i' } },
+        { cellNo: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const [transporters, total] = await Promise.all([
+      Transporter.find(query)
+        .sort({ transportName: 1 })
+        .skip(skip)
+        .limit(limit),
+      Transporter.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      transporters,
+      total,
+      startRange: skip + 1,
+      endRange: skip + transporters.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'An error occurred while fetching paginated transporters',
+      error: error.message,
+    });
+  }
+});
+
 // Fetch Transporter by ID
 const fetchTransporterById = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -44,6 +81,7 @@ const deleteTransporter = asyncHandler(async (req, res) => {
 module.exports = {
   createTransporter,
   fetchTransporters,
+  fetchPaginatedTransporters,
   fetchTransporterById,
   updateTransporter,
   deleteTransporter,
