@@ -1,8 +1,5 @@
 const asyncHandler = require("express-async-handler");
 const Vehicle = require("../model/Vehicle");
-const Subtrip = require("../model/Subtrip");
-const Expense = require("../model/Expense");
-const { EXPENSE_CATEGORIES } = require("../constants/status");
 
 // Create Vehicle
 const createVehicle = asyncHandler(async (req, res) => {
@@ -46,34 +43,7 @@ const fetchVehicleById = asyncHandler(async (req, res) => {
     return;
   }
 
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-  const subtripsData = await Subtrip.find({ startDate: { $gte: sixMonthsAgo } })
-    .select("_id loadingPoint unloadingPoint startDate subtripStatus tripId")
-    .populate({
-      path: "tripId",
-      match: { vehicleId: id },
-      select: "vehicleId driverId",
-      populate: [
-        { path: "vehicleId", select: "vehicleNo isOwn" },
-        { path: "driverId", select: "driverName" },
-      ],
-    })
-    .sort({ startDate: -1 })
-    .lean();
-  const subtrips = subtripsData.filter((st) => st.tripId);
-
-  const expenses = await Expense.find({
-    vehicleId: id,
-    expenseCategory: EXPENSE_CATEGORIES.VEHICLE,
-    date: { $gte: sixMonthsAgo },
-  })
-    .populate("pumpCd")
-    .sort({ date: -1 })
-    .lean();
-
-  res.status(200).json({ vehicle, subtrips, expenses });
+  res.status(200).json(vehicle);
 });
 
 // Update Vehicle
