@@ -9,14 +9,8 @@ const createTransporter = asyncHandler(async (req, res) => {
   res.status(201).json(newTransporter);
 });
 
-// Fetch Transporters
-const fetchTransporters = asyncHandler(async (req, res) => {
-  const transporters = await Transporter.find();
-  res.status(200).json(transporters);
-});
-
 // Fetch Transporters with pagination and search
-const fetchPaginatedTransporters = asyncHandler(async (req, res) => {
+const fetchTransporters = asyncHandler(async (req, res) => {
   try {
     const { search } = req.query;
     const { limit, skip } = req.pagination;
@@ -81,7 +75,6 @@ const deleteTransporter = asyncHandler(async (req, res) => {
 module.exports = {
   createTransporter,
   fetchTransporters,
-  fetchPaginatedTransporters,
   fetchTransporterById,
   updateTransporter,
   deleteTransporter,

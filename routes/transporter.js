@@ -2,7 +2,6 @@ const { Router } = require("express");
 const {
   createTransporter,
   fetchTransporters,
-  fetchPaginatedTransporters,
   deleteTransporter,
   updateTransporter,
   fetchTransporterById,
@@ -13,10 +12,9 @@ const pagination = require("../middlewares/pagination");
 
 const router = Router();
 
-router.post("/", private, checkPermission("transporter", "create"), createTransporter);
-router.get("/", private, fetchTransporters);
-router.get("/pagination", private, pagination, fetchPaginatedTransporters);
+router.get("/", private, pagination, fetchTransporters);
 router.get("/:id", private, fetchTransporterById);
+router.post("/", private, checkPermission("transporter", "create"), createTransporter);
 router.delete("/:id", private, checkPermission("transporter", "delete"), deleteTransporter);
 router.put("/:id", private, checkPermission("transporter", "update"), updateTransporter);
 
