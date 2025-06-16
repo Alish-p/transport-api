@@ -1,8 +1,8 @@
 const asyncHandler = require("express-async-handler");
+const mongoose = require("mongoose");
 const Customer = require("../model/Customer");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
-const mongoose = require("mongoose");
 
 // Create Customer
 const createCustomer = asyncHandler(async (req, res) => {
@@ -13,10 +13,41 @@ const createCustomer = asyncHandler(async (req, res) => {
   res.status(201).json(savedCustomer);
 });
 
-// Fetch All Customers
+// Fetch Customers with pagination and optional search
 const fetchCustomers = asyncHandler(async (req, res) => {
-  const customers = await Customer.find();
-  res.status(200).json(customers);
+  try {
+    const { search } = req.query;
+    const { limit, skip } = req.pagination;
+
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { customerName: { $regex: search, $options: "i" } },
+        { cellNo: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const [customers, total] = await Promise.all([
+      Customer.find(query)
+        .sort({ customerName: 1 })
+        .skip(skip)
+        .limit(limit),
+      Customer.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      customers,
+      total,
+      startRange: skip + 1,
+      endRange: skip + customers.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching paginated customers",
+      error: error.message,
+    });
+  }
 });
 
 // Fetch Light Customers (only name, state, cellNo)
