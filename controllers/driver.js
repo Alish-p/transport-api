@@ -9,6 +9,35 @@ const createDriver = asyncHandler(async (req, res) => {
   res.status(201).json(newDriver);
 });
 
+// Quick Create Driver (only name & cell number)
+const quickCreateDriver = asyncHandler(async (req, res) => {
+  const { driverName, driverCellNo } = req.body;
+
+  if (!driverName || !driverCellNo) {
+    return res
+      .status(400)
+      .json({ message: "driverName and driverCellNo are required" });
+  }
+
+  const now = new Date();
+
+  const driver = new Driver({
+    driverName,
+    driverCellNo,
+    driverLicenceNo: "N/A",
+    driverPresentAddress: "N/A",
+    licenseFrom: now,
+    licenseTo: new Date(now.getFullYear() + 5, now.getMonth(), now.getDate()),
+    aadharNo: "N/A",
+    experience: 0,
+    permanentAddress: "N/A",
+  });
+
+  const newDriver = await driver.save();
+
+  res.status(201).json(newDriver);
+});
+
 // Fetch Drivers with pagination and search
 const fetchDrivers = asyncHandler(async (req, res) => {
   try {
@@ -93,6 +122,7 @@ const deleteDriver = asyncHandler(async (req, res) => {
 
 module.exports = {
   createDriver,
+  quickCreateDriver,
   fetchDrivers,
   fetchDriversSummary,
   fetchDriverById,

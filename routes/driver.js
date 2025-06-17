@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const {
   createDriver,
+  quickCreateDriver,
   fetchDrivers,
   deleteDriver,
   updateDriver,
@@ -14,6 +15,12 @@ const pagination = require("../middlewares/pagination");
 const router = Router();
 
 router.post("/", private, checkPermission("driver", "create"), createDriver);
+router.post(
+  "/quick",
+  private,
+  checkPermission("driver", "create"),
+  quickCreateDriver,
+);
 router.get("/", private, pagination, fetchDrivers);
 router.get("/summary", private, fetchDriversSummary);
 router.get("/:id", private, fetchDriverById);
