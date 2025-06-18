@@ -3,7 +3,7 @@ const Driver = require("../model/Driver");
 
 // Create Driver
 const createDriver = asyncHandler(async (req, res) => {
-  const driver = new Driver({ ...req.body });
+  const driver = new Driver({ ...req.body, driverName: req.body.driverName.trim() });
   const newDriver = await driver.save();
 
   res.status(201).json(newDriver);
@@ -22,7 +22,7 @@ const quickCreateDriver = asyncHandler(async (req, res) => {
   const now = new Date();
 
   const driver = new Driver({
-    driverName,
+    driverName: driverName.trim(),
     driverCellNo,
     driverLicenceNo: "N/A",
     driverPresentAddress: "N/A",
