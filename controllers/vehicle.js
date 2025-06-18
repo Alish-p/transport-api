@@ -71,18 +71,23 @@ const fetchVehicles = asyncHandler(async (req, res) => {
       query.transporter = { $in: ids };
     }
 
-    const [vehicles, total] = await Promise.all([
-      Vehicle.find(query)
-        .populate("transporter", "transportName")
-        .sort({ vehicleNo: 1 })
-        .skip(skip)
-        .limit(limit),
-      Vehicle.countDocuments(query),
-    ]);
+    const [vehicles, total, totalOwnVehicle, totalMarketVehicle] =
+      await Promise.all([
+        Vehicle.find(query)
+          .populate("transporter", "transportName")
+          .sort({ vehicleNo: 1 })
+          .skip(skip)
+          .limit(limit),
+        Vehicle.countDocuments(query),
+        Vehicle.countDocuments({ ...query, isOwn: true }),
+        Vehicle.countDocuments({ ...query, isOwn: false }),
+      ]);
 
     res.status(200).json({
       results: vehicles,
       total,
+      totalOwnVehicle,
+      totalMarketVehicle,
       startRange: skip + 1,
       endRange: skip + vehicles.length,
     });
