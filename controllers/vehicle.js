@@ -14,13 +14,84 @@ const createVehicle = asyncHandler(async (req, res) => {
   res.status(201).json(newVehicle);
 });
 
-// fetch vehicles
+// Quick Create Vehicle (only basic details)
+const quickCreateVehicle = asyncHandler(async (req, res) => {
+  const { vehicleNo, transporterId, noOfTyres, vehicleType } = req.body;
+
+  if (!vehicleNo || !transporterId || !noOfTyres || !vehicleType) {
+    return res.status(400).json({
+      message: "vehicleNo, transporterId, noOfTyres and vehicleType are required",
+    });
+  }
+
+  const now = new Date();
+
+  const vehicle = new Vehicle({
+    vehicleNo,
+    transporter: transporterId,
+    noOfTyres,
+    vehicleType,
+    modelType: "N/A",
+    vehicleCompany: "N/A",
+    manufacturingYear: now.getFullYear(),
+    loadingCapacity: 0,
+    engineType: "N/A",
+    fuelTankCapacity: 0,
+    isOwn: false,
+  });
+
+  const newVehicle = await vehicle.save();
+
+  res.status(201).json(newVehicle);
+});
+
+// Fetch Vehicles with pagination and search
 const fetchVehicles = asyncHandler(async (req, res) => {
-  const vehicles = await Vehicle.find().populate(
-    "transporter",
-    "transportName"
-  );
-  res.status(200).json(vehicles);
+  try {
+    const { vehicleNo, vehicleType, isOwn, transporter } = req.query;
+    const { limit, skip } = req.pagination;
+
+    const query = {};
+
+    if (vehicleNo) {
+      query.vehicleNo = { $regex: vehicleNo, $options: "i" };
+    }
+
+    if (vehicleType) {
+      const types = Array.isArray(vehicleType) ? vehicleType : [vehicleType];
+      query.vehicleType = { $in: types };
+    }
+
+    if (typeof isOwn !== "undefined") {
+      query.isOwn = isOwn === "true" || isOwn === true || isOwn === "1";
+    }
+
+    if (transporter) {
+      const ids = Array.isArray(transporter) ? transporter : [transporter];
+      query.transporter = { $in: ids };
+    }
+
+    const [vehicles, total] = await Promise.all([
+      Vehicle.find(query)
+        .populate("transporter", "transportName")
+        .sort({ vehicleNo: 1 })
+        .skip(skip)
+        .limit(limit),
+      Vehicle.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      results: vehicles,
+      total,
+      startRange: skip + 1,
+      endRange: skip + vehicles.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching paginated vehicles",
+      error: error.message,
+    });
+  }
 });
 
 // fetch vehicles
@@ -69,6 +140,7 @@ const deleteVehicle = asyncHandler(async (req, res) => {
 
 module.exports = {
   createVehicle,
+  quickCreateVehicle,
   fetchVehicles,
   fetchVehiclesSummary,
   fetchVehicleById,
