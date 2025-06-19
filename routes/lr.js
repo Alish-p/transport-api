@@ -15,12 +15,16 @@ const {
   fetchLoadedAndInQueueSubtrips,
   fetchInQueueSubtrips,
   fetchSubtripsByTransporter,
+  fetchPaginatedSubtrips,
 } = require("../controllers/subtrip");
 
 const { private, checkPermission } = require("../middlewares/Auth");
+const pagination = require("../middlewares/pagination");
+
 const router = Router();
 
 router.post("/", private, checkPermission("subtrip", "create"), createSubtrip);
+router.get("/pagination", pagination, fetchPaginatedSubtrips);
 router.get("/", private, fetchSubtrips);
 router.get("/loaded", private, fetchLoadedSubtrips);
 router.get("/inqueue", private, fetchInQueueSubtrips);

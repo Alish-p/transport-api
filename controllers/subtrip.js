@@ -228,6 +228,157 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
   }
 });
 
+// Fetch Subtrips with pagination and search (non-empty only)
+const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
+  try {
+    const {
+      subtripId,
+      routeCd,
+      customerId,
+      subtripStatus,
+      driverId,
+      vehicleId,
+      transporterId,
+      fromDate,
+      toDate,
+      subtripEndFromDate,
+      subtripEndToDate,
+      expiringIn,
+      materials,
+    } = req.query;
+
+    const { limit, skip } = req.pagination;
+
+    // Base query ensures we only consider loaded subtrips
+    const query = { isEmpty: false };
+    const tripQuery = {};
+    let vehicleQuery = {};
+
+    if (subtripId) query._id = subtripId;
+    if (routeCd) query.routeCd = routeCd;
+    if (customerId) query.customerId = customerId;
+
+    // Status filter (single or array)
+    if (subtripStatus) {
+      const statusArray = Array.isArray(subtripStatus)
+        ? subtripStatus
+        : [subtripStatus];
+      query.subtripStatus = { $in: statusArray };
+    }
+
+    // Material filter
+    if (materials) {
+      const materialsArray = Array.isArray(materials) ? materials : [materials];
+      query.materialType = {
+        $in: materialsArray.map((mat) => new RegExp(`^${mat}$`, "i")),
+      };
+    }
+
+    // Start date range
+    if (fromDate || toDate) {
+      query.startDate = {};
+      if (fromDate) query.startDate.$gte = new Date(fromDate);
+      if (toDate) query.startDate.$lte = new Date(toDate);
+    }
+
+    // End date range
+    if (subtripEndFromDate || subtripEndToDate) {
+      query.endDate = {};
+      if (subtripEndFromDate) query.endDate.$gte = new Date(subtripEndFromDate);
+      if (subtripEndToDate) query.endDate.$lte = new Date(subtripEndToDate);
+    }
+
+    // Expiring in hours - only loaded subtrips with expiring/expired ewaybill
+    if (expiringIn) {
+      const hours = parseInt(expiringIn, 10);
+      if (!Number.isNaN(hours)) {
+        const threshold = new Date(Date.now() + hours * 60 * 60 * 1000);
+        query.ewayExpiryDate = { $ne: null, $lte: threshold };
+        query.subtripStatus = SUBTRIP_STATUS.LOADED;
+      }
+    }
+
+    // Nested driver/vehicle/transporter filtering
+    if (driverId || vehicleId || transporterId) {
+      if (transporterId) {
+        vehicleQuery = { transporter: transporterId };
+      }
+
+      if (vehicleId) {
+        vehicleQuery._id = vehicleId;
+      }
+
+      let vehicles = [];
+      if (Object.keys(vehicleQuery).length > 0) {
+        vehicles = await Vehicle.find(vehicleQuery).select("_id");
+        if (!vehicles.length) {
+          return res.status(200).json({
+            results: [],
+            total: 0,
+            startRange: 0,
+            endRange: 0,
+          });
+        }
+        tripQuery.vehicleId = { $in: vehicles.map((v) => v._id) };
+      }
+
+      if (driverId) {
+        tripQuery.driverId = driverId;
+      }
+
+      if (Object.keys(tripQuery).length > 0) {
+        const trips = await Trip.find(tripQuery).select("_id");
+        if (!trips.length) {
+          return res.status(200).json({
+            results: [],
+            total: 0,
+            startRange: 0,
+            endRange: 0,
+          });
+        }
+        query.tripId = { $in: trips.map((t) => t._id) };
+      }
+    }
+
+    // Fetch data and totals in parallel
+    const [subtrips, total, ...statusTotals] = await Promise.all([
+      populateSubtrip(
+        Subtrip.find(query).sort({ startDate: -1 }).skip(skip).limit(limit)
+      ).lean(),
+      Subtrip.countDocuments(query),
+      ...Object.values(SUBTRIP_STATUS).map((st) =>
+        Subtrip.countDocuments({ ...query, subtripStatus: st })
+      ),
+    ]);
+
+    const totalsObj = {};
+    const statusKeys = Object.values(SUBTRIP_STATUS);
+    statusTotals.forEach((cnt, idx) => {
+      const key = statusKeys[idx]
+        .toLowerCase()
+        .replace(/-/g, "")
+        .replace("billedpending", "billedPending")
+        .replace("billedoverdue", "billedOverdue")
+        .replace("billedpaid", "billedPaid")
+        .replace("inqueue", "inqueue");
+      totalsObj[`total${key.charAt(0).toUpperCase()}${key.slice(1)}`] = cnt;
+    });
+
+    res.status(200).json({
+      results: subtrips,
+      total,
+      ...totalsObj,
+      startRange: skip + 1,
+      endRange: skip + subtrips.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching paginated subtrips",
+      error: error.message,
+    });
+  }
+});
+
 // Fetch Loaded Subtrips
 const fetchLoadedSubtrips = asyncHandler(async (req, res) => {
   const subtrips = await Subtrip.find({
@@ -917,6 +1068,7 @@ module.exports = {
   createSubtrip,
   fetchSubtrips,
   fetchSubtrip,
+  fetchPaginatedSubtrips,
   updateSubtrip,
   deleteSubtrip,
   addMaterialInfo,
