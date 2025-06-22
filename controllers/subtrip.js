@@ -457,7 +457,7 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
 
     const statusArray = Array.isArray(subtripStatus) ? subtripStatus : [subtripStatus];
 
-    const query = { subtripStatus: { $in: statusArray } };
+    const query = { subtripStatus: { $in: statusArray }, isEmpty: false };
 
     if (search) {
       const regex = new RegExp(search, "i");
