@@ -4,6 +4,7 @@ const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const Vehicle = require("../model/Vehicle");
+const Driver = require("../model/Driver");
 const { recordSubtripEvent } = require("../helpers/subtrip-event-helper");
 const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
@@ -442,6 +443,92 @@ const fetchLoadedAndInQueueSubtrips = asyncHandler(async (req, res) => {
     .lean();
 
   res.status(200).json(subtrips);
+});
+
+// Fetch Subtrips by selected Statuses with optional search and pagination
+const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
+  try {
+    const { subtripStatus, search } = req.query;
+    const { limit, skip } = req.pagination;
+
+    if (!subtripStatus || (Array.isArray(subtripStatus) && subtripStatus.length === 0)) {
+      return res.status(400).json({ message: "subtripStatus is required" });
+    }
+
+    const statusArray = Array.isArray(subtripStatus) ? subtripStatus : [subtripStatus];
+
+    const query = { subtripStatus: { $in: statusArray } };
+
+    if (search) {
+      const regex = new RegExp(search, "i");
+
+      const [drivers, vehicles] = await Promise.all([
+        Driver.find({ driverName: { $regex: regex } }).select("_id"),
+        Vehicle.find({ vehicleNo: { $regex: regex } }).select("_id"),
+      ]);
+
+      const driverIds = drivers.map((d) => d._id);
+      const vehicleIds = vehicles.map((v) => v._id);
+
+      const trips = await Trip.find({
+        $or: [
+          driverIds.length ? { driverId: { $in: driverIds } } : null,
+          vehicleIds.length ? { vehicleId: { $in: vehicleIds } } : null,
+        ].filter(Boolean),
+      }).select("_id");
+
+      if (!trips.length) {
+        return res.status(200).json({
+          results: [],
+          total: 0,
+          startRange: 0,
+          endRange: 0,
+        });
+      }
+
+      query.tripId = { $in: trips.map((t) => t._id) };
+    }
+
+    const [subtrips, total] = await Promise.all([
+      Subtrip.find(query)
+        .select("_id loadingPoint unloadingPoint startDate subtripStatus tripId")
+        .populate({
+          path: "tripId",
+          select: "vehicleId driverId",
+          populate: [
+            { path: "vehicleId", select: "vehicleNo isOwn" },
+            { path: "driverId", select: "driverName" },
+          ],
+        })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Subtrip.countDocuments(query),
+    ]);
+
+    const formatted = subtrips.map((st) => ({
+      _id: st._id,
+      subtripStatus: st.subtripStatus,
+      loadingPoint: st.loadingPoint,
+      unloadingPoint: st.unloadingPoint,
+      startDate: st.startDate,
+      vehicleNo: st.tripId?.vehicleId?.vehicleNo,
+      isOwn: st.tripId?.vehicleId?.isOwn,
+      driverName: st.tripId?.driverId?.driverName,
+    }));
+
+    res.status(200).json({
+      results: formatted,
+      total,
+      startRange: skip + 1,
+      endRange: skip + formatted.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching subtrips",
+      error: error.message,
+    });
+  }
 });
 
 // Fetch a single Subtrip by ID
@@ -1080,5 +1167,6 @@ module.exports = {
   fetchLoadedSubtrips,
   fetchLoadedAndInQueueSubtrips,
   fetchInQueueSubtrips,
+  fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
 };

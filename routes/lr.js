@@ -14,6 +14,7 @@ const {
   closeEmptySubtrip,
   fetchLoadedAndInQueueSubtrips,
   fetchInQueueSubtrips,
+  fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
   fetchPaginatedSubtrips,
 } = require("../controllers/subtrip");
@@ -25,6 +26,7 @@ const router = Router();
 
 router.post("/", private, checkPermission("subtrip", "create"), createSubtrip);
 router.get("/pagination", pagination, fetchPaginatedSubtrips);
+router.get("/status", pagination, fetchSubtripsByStatuses);
 router.get("/", private, fetchSubtrips);
 router.get("/loaded", private, fetchLoadedSubtrips);
 router.get("/inqueue", private, fetchInQueueSubtrips);
