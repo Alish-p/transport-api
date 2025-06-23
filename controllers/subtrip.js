@@ -380,70 +380,6 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
   }
 });
 
-// Fetch Loaded Subtrips
-const fetchLoadedSubtrips = asyncHandler(async (req, res) => {
-  const subtrips = await Subtrip.find({
-    subtripStatus: SUBTRIP_STATUS.LOADED,
-  })
-    .select("_id loadingPoint unloadingPoint startDate subtripStatus tripId")
-    .populate({
-      path: "tripId",
-      select: "vehicleId driverId",
-      populate: [
-        { path: "vehicleId", select: "vehicleNo isOwn" },
-        { path: "driverId", select: "driverName" },
-      ],
-    })
-    .lean();
-
-  res.status(200).json(subtrips);
-});
-
-const fetchInQueueSubtrips = asyncHandler(async (req, res) => {
-  const subtrips = await Subtrip.find({
-    subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
-    isEmpty: false,
-  })
-    .select(
-      "_id loadingPoint unloadingPoint startDate subtripStatus tripId customerId"
-    )
-    .populate({
-      path: "tripId",
-      select: "vehicleId driverId",
-      populate: [
-        { path: "vehicleId", select: "vehicleNo isOwn" },
-        { path: "driverId", select: "driverName" },
-      ],
-    })
-    .populate({
-      path: "customerId",
-      select: "customerName",
-    })
-    .lean();
-
-  res.status(200).json(subtrips);
-});
-
-const fetchLoadedAndInQueueSubtrips = asyncHandler(async (req, res) => {
-  const subtrips = await Subtrip.find({
-    $or: [
-      { subtripStatus: SUBTRIP_STATUS.LOADED },
-      { subtripStatus: SUBTRIP_STATUS.IN_QUEUE },
-    ],
-  })
-    .select("_id loadingPoint unloadingPoint startDate subtripStatus tripId")
-    .populate({
-      path: "tripId",
-      select: "vehicleId driverId",
-      populate: [
-        { path: "vehicleId", select: "vehicleNo isOwn" },
-        { path: "driverId", select: "driverName" },
-      ],
-    })
-    .lean();
-
-  res.status(200).json(subtrips);
-});
 
 // Fetch Subtrips by selected Statuses with optional search and pagination
 const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
@@ -469,6 +405,15 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
 
       const driverIds = drivers.map((d) => d._id);
       const vehicleIds = vehicles.map((v) => v._id);
+
+      if (!driverIds.length && !vehicleIds.length) {
+        return res.status(200).json({
+          results: [],
+          total: 0,
+          startRange: 0,
+          endRange: 0,
+        });
+      }
 
       const trips = await Trip.find({
         $or: [
@@ -1164,9 +1109,6 @@ module.exports = {
   closeSubtrip,
   createEmptySubtrip,
   closeEmptySubtrip,
-  fetchLoadedSubtrips,
-  fetchLoadedAndInQueueSubtrips,
-  fetchInQueueSubtrips,
   fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
 };

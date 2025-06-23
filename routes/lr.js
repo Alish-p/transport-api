@@ -3,7 +3,6 @@ const {
   createSubtrip,
   fetchSubtrips,
   fetchSubtrip,
-  fetchLoadedSubtrips,
   updateSubtrip,
   deleteSubtrip,
   addMaterialInfo,
@@ -12,8 +11,6 @@ const {
   resolveLR,
   createEmptySubtrip,
   closeEmptySubtrip,
-  fetchLoadedAndInQueueSubtrips,
-  fetchInQueueSubtrips,
   fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
   fetchPaginatedSubtrips,
@@ -28,9 +25,6 @@ router.post("/", private, checkPermission("subtrip", "create"), createSubtrip);
 router.get("/pagination", pagination, fetchPaginatedSubtrips);
 router.get("/status", pagination, fetchSubtripsByStatuses);
 router.get("/", private, fetchSubtrips);
-router.get("/loaded", private, fetchLoadedSubtrips);
-router.get("/inqueue", private, fetchInQueueSubtrips);
-router.get("/loaded-in-queue", private, fetchLoadedAndInQueueSubtrips);
 router.post("/by-transporter", fetchSubtripsByTransporter);
 router.get("/:id", private, fetchSubtrip);
 
