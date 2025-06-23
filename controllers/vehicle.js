@@ -1,5 +1,10 @@
 const asyncHandler = require("express-async-handler");
+const mongoose = require("mongoose");
 const Vehicle = require("../model/Vehicle");
+const Subtrip = require("../model/Subtrip");
+const Expense = require("../model/Expense");
+const Invoice = require("../model/Invoice");
+const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
 
 // Create Vehicle
 const createVehicle = asyncHandler(async (req, res) => {
@@ -101,10 +106,10 @@ const fetchVehicles = asyncHandler(async (req, res) => {
 
 // fetch vehicles
 const fetchVehiclesSummary = asyncHandler(async (req, res) => {
-  const drivers = await Vehicle.find()
+  const Vehicles = await Vehicle.find()
     .select("vehicleNo vehicleType modelType vehicleCompany noOfTyres isOwn")
     .populate("transporter", "transportName");
-  res.status(200).json(drivers);
+  res.status(200).json(Vehicles);
 });
 
 // fetch single vehicle by id
@@ -143,6 +148,130 @@ const deleteVehicle = asyncHandler(async (req, res) => {
   res.status(200).json(vehicle);
 });
 
+// Get billing summary for a vehicle within a date range
+const getVehicleBillingSummary = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { startDate, endDate } = req.query;
+
+  const start = startDate ? new Date(startDate) : new Date(0);
+  const end = endDate ? new Date(endDate) : new Date();
+
+  const matchStage = {
+    subtripStatus: {
+      $in: [
+        SUBTRIP_STATUS.BILLED_PENDING,
+        SUBTRIP_STATUS.BILLED_OVERDUE,
+        SUBTRIP_STATUS.BILLED_PAID,
+      ],
+    },
+    startDate: { $gte: start, $lte: end },
+  };
+
+  const vehicleObjectId = new mongoose.Types.ObjectId(id);
+
+  const subtrips = await Subtrip.aggregate([
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: "trips",
+        localField: "tripId",
+        foreignField: "_id",
+        as: "trip",
+      },
+    },
+    { $unwind: "$trip" },
+    { $match: { "trip.vehicleId": vehicleObjectId } },
+    {
+      $lookup: {
+        from: "expenses",
+        localField: "expenses",
+        foreignField: "_id",
+        as: "expenseDocs",
+      },
+    },
+    { $lookup: { from: "routes", localField: "routeCd", foreignField: "_id", as: "route" } },
+    { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
+    { $lookup: { from: "customers", localField: "customerId", foreignField: "_id", as: "customer" } },
+    { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
+    { $lookup: { from: "invoices", localField: "invoiceId", foreignField: "_id", as: "invoice" } },
+    { $unwind: { path: "$invoice", preserveNullAndEmptyArrays: true } },
+    {
+      $addFields: {
+        amt: {
+          $multiply: [
+            { $ifNull: ["$rate", 0] },
+            { $ifNull: ["$loadingWeight", 0] },
+          ],
+        },
+        totalExpense: { $sum: "$expenseDocs.amount" },
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        rate: 1,
+        loadingWeight: 1,
+        startDate: 1,
+        endDate: 1,
+        invoiceId: "$invoice._id",
+        invoiceNo: "$invoice.invoiceNo",
+        customerName: "$customer.customerName",
+        routeName: "$route.routeName",
+        amt: 1,
+        totalExpense: 1,
+      },
+    },
+    { $sort: { startDate: 1 } },
+  ]);
+
+  const invoiceIds = subtrips
+    .map((st) => st.invoiceId)
+    .filter((inv) => inv)
+    .map((inv) => new mongoose.Types.ObjectId(inv));
+
+  const [subtripAgg, vehicleAgg, invoiceAgg] = await Promise.all([
+    Expense.aggregate([
+      {
+        $match: {
+          vehicleId: vehicleObjectId,
+          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+          date: { $gte: start, $lte: end },
+        },
+      },
+      { $group: { _id: null, amount: { $sum: "$amount" } } },
+    ]),
+    Expense.aggregate([
+      {
+        $match: {
+          vehicleId: vehicleObjectId,
+          expenseCategory: EXPENSE_CATEGORIES.VEHICLE,
+          date: { $gte: start, $lte: end },
+        },
+      },
+      { $group: { _id: null, amount: { $sum: "$amount" } } },
+    ]),
+    invoiceIds.length
+      ? Invoice.aggregate([
+        { $match: { _id: { $in: invoiceIds } } },
+        { $group: { _id: null, amount: { $sum: { $ifNull: ["$netTotal", 0] } } } },
+      ])
+      : [],
+  ]);
+
+  const totalSubtripExpense = subtripAgg[0]?.amount || 0;
+  const totalVehicleExpense = vehicleAgg[0]?.amount || 0;
+  const totalInvoiceAmount = invoiceAgg[0]?.amount || 0;
+
+  res.status(200).json({
+    subtrips,
+    totals: {
+      subtripExpense: totalSubtripExpense,
+      vehicleExpense: totalVehicleExpense,
+      invoiceAmount: totalInvoiceAmount,
+    },
+  });
+});
+
 module.exports = {
   createVehicle,
   quickCreateVehicle,
@@ -151,4 +280,5 @@ module.exports = {
   fetchVehicleById,
   updateVehicle,
   deleteVehicle,
+  getVehicleBillingSummary,
 };
