@@ -343,9 +343,24 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
 
     // Fetch data and totals in parallel
     const [subtrips, total, ...statusTotals] = await Promise.all([
-      populateSubtrip(
-        Subtrip.find(query).sort({ startDate: -1 }).skip(skip).limit(limit)
-      ).lean(),
+      Subtrip.find(query)
+        .select(
+          "-expenses -intentFuelPump -events" // exclude heavy relations
+        )
+        .sort({ startDate: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate({ path: "customerId", select: "customerName" })
+        .populate({ path: "routeCd", select: "routeName" })
+        .populate({
+          path: "tripId",
+          select: "vehicleId driverId",
+          populate: [
+            { path: "vehicleId", select: "vehicleNo" },
+            { path: "driverId", select: "driverName" },
+          ],
+        })
+        .lean(),
       Subtrip.countDocuments(query),
       ...Object.values(SUBTRIP_STATUS).map((st) =>
         Subtrip.countDocuments({ ...query, subtripStatus: st })
