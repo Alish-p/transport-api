@@ -3,7 +3,6 @@ const mongoose = require("mongoose");
 const Vehicle = require("../model/Vehicle");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
-const Invoice = require("../model/Invoice");
 const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
 
 // Create Vehicle
@@ -224,12 +223,7 @@ const getVehicleBillingSummary = asyncHandler(async (req, res) => {
     { $sort: { startDate: 1 } },
   ]);
 
-  const invoiceIds = subtrips
-    .map((st) => st.invoiceId)
-    .filter((inv) => inv)
-    .map((inv) => new mongoose.Types.ObjectId(inv));
-
-  const [subtripAgg, vehicleAgg, invoiceAgg] = await Promise.all([
+  const [subtripAgg, vehicleAgg] = await Promise.all([
     Expense.aggregate([
       {
         $match: {
@@ -250,24 +244,21 @@ const getVehicleBillingSummary = asyncHandler(async (req, res) => {
       },
       { $group: { _id: null, amount: { $sum: "$amount" } } },
     ]),
-    invoiceIds.length
-      ? Invoice.aggregate([
-        { $match: { _id: { $in: invoiceIds } } },
-        { $group: { _id: null, amount: { $sum: { $ifNull: ["$netTotal", 0] } } } },
-      ])
-      : [],
   ]);
 
   const totalSubtripExpense = subtripAgg[0]?.amount || 0;
   const totalVehicleExpense = vehicleAgg[0]?.amount || 0;
-  const totalInvoiceAmount = invoiceAgg[0]?.amount || 0;
+  const totalFreightAmount = subtrips.reduce(
+    (sum, st) => sum + (st.amt || 0),
+    0
+  );
 
   res.status(200).json({
     subtrips,
     totals: {
       subtripExpense: totalSubtripExpense,
       vehicleExpense: totalVehicleExpense,
-      invoiceAmount: totalInvoiceAmount,
+      totalProfit: totalFreightAmount,
     },
   });
 });
