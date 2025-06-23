@@ -470,6 +470,15 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
       const driverIds = drivers.map((d) => d._id);
       const vehicleIds = vehicles.map((v) => v._id);
 
+      if (!driverIds.length && !vehicleIds.length) {
+        return res.status(200).json({
+          results: [],
+          total: 0,
+          startRange: 0,
+          endRange: 0,
+        });
+      }
+
       const trips = await Trip.find({
         $or: [
           driverIds.length ? { driverId: { $in: driverIds } } : null,

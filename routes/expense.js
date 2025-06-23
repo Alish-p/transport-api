@@ -1,12 +1,10 @@
 const { Router } = require("express");
 const {
   createExpense,
-  fetchExpenses,
+  fetchPaginatedExpenses,
   fetchExpense,
   updateExpense,
   deleteExpense,
-  fetchSubtripExpenses,
-  fetchPaginatedExpenses,
 } = require("../controllers/expense");
 
 const { private, admin, checkPermission } = require("../middlewares/Auth");
@@ -14,11 +12,7 @@ const pagination = require("../middlewares/pagination");
 
 const router = Router();
 
-// fetch all expenses of a subtrip
-router.get("/subtrip/:id", private, fetchSubtripExpenses);
-
 router.post("/", private, checkPermission("expense", "create"), createExpense);
-router.get("/", private, fetchExpenses);
 router.get("/pagination", pagination, fetchPaginatedExpenses);
 router.get("/:id", private, fetchExpense);
 router.put("/:id", private, checkPermission("expense", "update"), updateExpense);
