@@ -60,6 +60,7 @@ const getFleetxVehicleData = async (vehicleNo) => {
         latitude: vehicle.latitude,
         longitude: vehicle.longitude,
         fuel: vehicle.otherAttributes?.fuel,
+        address: vehicle.address
     };
 };
 
