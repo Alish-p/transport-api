@@ -293,7 +293,6 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
       {
         $match: {
           customerId: { $ne: null },
-          subtripStatus: { $ne: SUBTRIP_STATUS.IN_QUEUE },
           startDate: { $gte: startDate, $lt: endDate },
         },
       },
@@ -306,6 +305,69 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
               $multiply: [
                 { $ifNull: ["$loadingWeight", 0] },
                 { $ifNull: ["$rate", 0] },
+              ],
+            },
+          },
+          inQueue: {
+            $sum: {
+              $cond: [
+                { $eq: ["$subtripStatus", SUBTRIP_STATUS.IN_QUEUE] },
+                1,
+                0,
+              ],
+            },
+          },
+          loaded: {
+            $sum: {
+              $cond: [
+                { $eq: ["$subtripStatus", SUBTRIP_STATUS.LOADED] },
+                1,
+                0,
+              ],
+            },
+          },
+          error: {
+            $sum: {
+              $cond: [
+                { $eq: ["$subtripStatus", SUBTRIP_STATUS.ERROR] },
+                1,
+                0,
+              ],
+            },
+          },
+          received: {
+            $sum: {
+              $cond: [
+                { $eq: ["$subtripStatus", SUBTRIP_STATUS.RECEIVED] },
+                1,
+                0,
+              ],
+            },
+          },
+          billedPending: {
+            $sum: {
+              $cond: [
+                { $eq: ["$subtripStatus", SUBTRIP_STATUS.BILLED_PENDING] },
+                1,
+                0,
+              ],
+            },
+          },
+          billedOverdue: {
+            $sum: {
+              $cond: [
+                { $eq: ["$subtripStatus", SUBTRIP_STATUS.BILLED_OVERDUE] },
+                1,
+                0,
+              ],
+            },
+          },
+          billedPaid: {
+            $sum: {
+              $cond: [
+                { $eq: ["$subtripStatus", SUBTRIP_STATUS.BILLED_PAID] },
+                1,
+                0,
               ],
             },
           },
@@ -335,6 +397,15 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
           customerName: "$customer.customerName",
           totalLoadingWeight: 1,
           totalFreightAmount: 1,
+          subtripCounts: {
+            inQueue: "$inQueue",
+            loaded: "$loaded",
+            error: "$error",
+            received: "$received",
+            billedPending: "$billedPending",
+            billedOverdue: "$billedOverdue",
+            billedPaid: "$billedPaid",
+          },
         },
       },
       {
