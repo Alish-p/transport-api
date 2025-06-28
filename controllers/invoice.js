@@ -1,4 +1,5 @@
 const asyncHandler = require("express-async-handler");
+const mongoose = require("mongoose");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
 const Customer = require("../model/Customer");
@@ -161,6 +162,7 @@ const fetchInvoices = asyncHandler(async (req, res) => {
       invoiceStatus,
       issueFromDate,
       issueToDate,
+      invoiceNo,
     } = req.query;
     const { limit, skip } = req.pagination;
 
@@ -183,10 +185,23 @@ const fetchInvoices = asyncHandler(async (req, res) => {
       query.invoiceStatus = { $in: statuses };
     }
 
+    if (invoiceNo) {
+      query.invoiceNo = { $regex: invoiceNo, $options: "i" };
+    }
+
     if (issueFromDate || issueToDate) {
       query.issueDate = {};
       if (issueFromDate) query.issueDate.$gte = new Date(issueFromDate);
       if (issueToDate) query.issueDate.$lte = new Date(issueToDate);
+    }
+
+    // Mongoose does not cast values in aggregation pipelines
+    // Cast ObjectId fields explicitly for aggregation stage
+    const aggMatch = { ...query };
+    if (aggMatch.customerId && aggMatch.customerId.$in) {
+      aggMatch.customerId.$in = aggMatch.customerId.$in.map((id) =>
+        new mongoose.Types.ObjectId(id)
+      );
     }
 
     const [invoices, total, statusAgg] = await Promise.all([
@@ -197,7 +212,7 @@ const fetchInvoices = asyncHandler(async (req, res) => {
         .limit(limit),
       Invoice.countDocuments(query),
       Invoice.aggregate([
-        { $match: query },
+        { $match: aggMatch },
         {
           $group: {
             _id: "$invoiceStatus",
