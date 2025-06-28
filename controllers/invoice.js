@@ -1,4 +1,5 @@
 const asyncHandler = require("express-async-handler");
+const mongoose = require("mongoose");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
 const Customer = require("../model/Customer");
@@ -152,14 +153,101 @@ const createInvoice = asyncHandler(async (req, res) => {
   }
 });
 
-// Fetch All Invoices
+// Fetch Invoices with pagination and optional search
 const fetchInvoices = asyncHandler(async (req, res) => {
-  const invoices = await Invoice.find({}).populate(
-    "customerId",
-    "customerName cellNo"
-  );
+  try {
+    const {
+      customerId,
+      subtripId,
+      invoiceStatus,
+      issueFromDate,
+      issueToDate,
+      invoiceNo,
+    } = req.query;
+    const { limit, skip } = req.pagination;
 
-  res.status(200).json(invoices);
+    const query = {};
+
+    if (customerId) {
+      const ids = Array.isArray(customerId) ? customerId : [customerId];
+      query.customerId = { $in: ids };
+    }
+
+    if (subtripId) {
+      const ids = Array.isArray(subtripId) ? subtripId : [subtripId];
+      query.invoicedSubTrips = { $in: ids };
+    }
+
+    if (invoiceStatus) {
+      const statuses = Array.isArray(invoiceStatus)
+        ? invoiceStatus
+        : [invoiceStatus];
+      query.invoiceStatus = { $in: statuses };
+    }
+
+    if (invoiceNo) {
+      query.invoiceNo = { $regex: invoiceNo, $options: "i" };
+    }
+
+    if (issueFromDate || issueToDate) {
+      query.issueDate = {};
+      if (issueFromDate) query.issueDate.$gte = new Date(issueFromDate);
+      if (issueToDate) query.issueDate.$lte = new Date(issueToDate);
+    }
+
+    // Mongoose does not cast values in aggregation pipelines
+    // Cast ObjectId fields explicitly for aggregation stage
+    const aggMatch = { ...query };
+    if (aggMatch.customerId && aggMatch.customerId.$in) {
+      aggMatch.customerId.$in = aggMatch.customerId.$in.map((id) =>
+        new mongoose.Types.ObjectId(id)
+      );
+    }
+
+    const [invoices, total, statusAgg] = await Promise.all([
+      Invoice.find(query)
+        .populate("customerId", "customerName cellNo")
+        .sort({ issueDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      Invoice.countDocuments(query),
+      Invoice.aggregate([
+        { $match: aggMatch },
+        {
+          $group: {
+            _id: "$invoiceStatus",
+            count: { $sum: 1 },
+            amount: { $sum: { $ifNull: ["$netTotal", 0] } },
+          },
+        },
+      ]),
+    ]);
+
+    const totals = {
+      all: { count: total, amount: 0 },
+      pending: { count: 0, amount: 0 },
+      paid: { count: 0, amount: 0 },
+      overdue: { count: 0, amount: 0 },
+    };
+
+    statusAgg.forEach((ag) => {
+      totals.all.amount += ag.amount;
+      totals[ag._id] = { count: ag.count, amount: ag.amount };
+    });
+
+    res.status(200).json({
+      invoices,
+      totals,
+      total,
+      startRange: skip + 1,
+      endRange: skip + invoices.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching paginated invoices",
+      error: error.message,
+    });
+  }
 });
 
 // Fetch Single Invoice
