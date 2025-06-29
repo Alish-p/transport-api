@@ -329,6 +329,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       issueToDate,
       status,
       hasTds,
+      paymentId,
     } = req.query;
     const { limit, skip } = req.pagination;
 
@@ -347,6 +348,10 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
     if (status) {
       const statuses = Array.isArray(status) ? status : [status];
       query.status = { $in: statuses };
+    }
+
+    if (paymentId) {
+      query.paymentId = { $regex: paymentId, $options: "i" };
     }
 
     if (issueFromDate || issueToDate) {
