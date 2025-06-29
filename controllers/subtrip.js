@@ -479,7 +479,14 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
 // Fetch a single Subtrip by ID
 const fetchSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const subtrip = await populateSubtrip(Subtrip.findById(id));
+
+  const subtrip = await populateSubtrip(Subtrip.findById(id))
+    .populate({ path: "invoiceId", select: "invoiceNo issueDate" })
+    .populate({ path: "driverSalaryId", select: "paymentId issueDate" })
+    .populate({
+      path: "transporterPaymentReceiptId",
+      select: "paymentId issueDate",
+    });
 
   if (!subtrip) {
     return res.status(404).json({ message: "Subtrip not found" });
