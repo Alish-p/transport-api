@@ -319,11 +319,103 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
   }
 });
 
-// Fetch All Transporter Payment Receipts
+// Fetch All Transporter Payment Receipts with pagination and search
 const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
-  const receipts = await TransporterPayment.find().populate("transporterId");
+  try {
+    const {
+      transporterId,
+      subtripId,
+      issueFromDate,
+      issueToDate,
+      status,
+      hasTds,
+      paymentId,
+    } = req.query;
+    const { limit, skip } = req.pagination;
 
-  res.status(200).json(receipts);
+    const query = {};
+
+    if (transporterId) {
+      const ids = Array.isArray(transporterId) ? transporterId : [transporterId];
+      query.transporterId = { $in: ids };
+    }
+
+    if (subtripId) {
+      const ids = Array.isArray(subtripId) ? subtripId : [subtripId];
+      query.associatedSubtrips = { $in: ids };
+    }
+
+    if (status) {
+      const statuses = Array.isArray(status) ? status : [status];
+      query.status = { $in: statuses };
+    }
+
+    if (paymentId) {
+      query.paymentId = { $regex: paymentId, $options: "i" };
+    }
+
+    if (issueFromDate || issueToDate) {
+      query.issueDate = {};
+      if (issueFromDate) query.issueDate.$gte = new Date(issueFromDate);
+      if (issueToDate) query.issueDate.$lte = new Date(issueToDate);
+    }
+
+    if (typeof hasTds !== "undefined") {
+      const boolVal =
+        hasTds === true || hasTds === "true" || hasTds === "1";
+      query["taxBreakup.tds.amount"] = boolVal ? { $gt: 0 } : { $lte: 0 };
+    }
+
+    const aggMatch = { ...query };
+    if (aggMatch.transporterId && aggMatch.transporterId.$in) {
+      aggMatch.transporterId.$in = aggMatch.transporterId.$in.map((id) =>
+        new mongoose.Types.ObjectId(id)
+      );
+    }
+
+    const [receipts, total, statusAgg] = await Promise.all([
+      TransporterPayment.find(query)
+        .populate("transporterId", "transportName cellNo")
+        .sort({ issueDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      TransporterPayment.countDocuments(query),
+      TransporterPayment.aggregate([
+        { $match: aggMatch },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+            amount: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
+          },
+        },
+      ]),
+    ]);
+
+    const totals = {
+      all: { count: total, amount: 0 },
+      generated: { count: 0, amount: 0 },
+      paid: { count: 0, amount: 0 },
+    };
+
+    statusAgg.forEach((ag) => {
+      totals.all.amount += ag.amount;
+      totals[ag._id] = { count: ag.count, amount: ag.amount };
+    });
+
+    res.status(200).json({
+      receipts,
+      totals,
+      total,
+      startRange: skip + 1,
+      endRange: skip + receipts.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching transporter payment receipts",
+      error: error.message,
+    });
+  }
 });
 
 // Fetch Single Transporter Payment Receipt
