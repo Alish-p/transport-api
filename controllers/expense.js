@@ -115,9 +115,13 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
     const [expenses, totalsAgg] = await Promise.all([
       Expense.find(query)
         .select(
-          "vehicleId subtripId date expenseType amount slipNo pumpCd remarks dieselLtr paidThrough authorisedBy"
+          "vehicleId subtripId date expenseType amount slipNo pumpCd remarks dieselLtr dieselPrice paidThrough authorisedBy"
         )
-        .populate({ path: "vehicleId", select: "vehicleNo" })
+        .populate({
+          path: "vehicleId",
+          select: "vehicleNo transporter",
+          populate: { path: "transporter", select: "transportName" },
+        })
         .populate({ path: "pumpCd", select: "pumpName" })
         .sort({ date: -1 })
         .skip(skip)
@@ -136,6 +140,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
 
     const formattedExpenses = expenses.map((exp) => ({
       vehicleNo: exp.vehicleId?.vehicleNo,
+      transportName: exp.vehicleId?.transporter?.transportName,
       subtripId: exp.subtripId,
       date: exp.date,
       expenseType: exp.expenseType,
@@ -144,6 +149,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       pumpCd: exp.pumpCd?.pumpName,
       remarks: exp.remarks,
       dieselLtr: exp.dieselLtr,
+      dieselPrice: exp.dieselPrice,
       paidThrough: exp.paidThrough,
       authorisedBy: exp.authorisedBy,
     }));
