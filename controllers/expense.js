@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const Expense = require("../model/Expense");
 const Subtrip = require("../model/Subtrip");
 const Vehicle = require("../model/Vehicle");
+const mongoose = require("mongoose");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
 const {
   recordSubtripEvent,
@@ -77,7 +78,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
 
     if (subtripId) query.subtripId = subtripId;
     if (tripId) query.tripId = tripId;
-    if (pumpId) query.pumpCd = pumpId;
+    if (pumpId) query.pumpCd = new mongoose.Types.ObjectId(pumpId);
     if (expenseType) query.expenseType = expenseType;
     if (expenseCategory) query.expenseCategory = expenseCategory;
 
