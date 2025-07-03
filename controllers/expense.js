@@ -60,9 +60,13 @@ const createExpense = asyncHandler(async (req, res) => {
 const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
   try {
     const {
-      vehicleNo,
-      startDate,
-      endDate,
+      vehicleId,
+      transporterId,
+      subtripId,
+      pumpId,
+      tripId,
+      fromDate,
+      toDate,
       expenseType,
       expenseCategory,
     } = req.query;
@@ -71,16 +75,26 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
 
     const query = {};
 
-    // Vehicle number search
-    if (vehicleNo) {
-      const vehicles = await Vehicle.find({
-        vehicleNo: { $regex: vehicleNo, $options: "i" },
-      }).select("_id");
-      const vehicleIds = vehicles.map((v) => v._id);
-      if (vehicleIds.length > 0) {
-        query.vehicleId = { $in: vehicleIds };
-      } else {
-        // no vehicles match means no expenses will match
+    if (subtripId) query.subtripId = subtripId;
+    if (tripId) query.tripId = tripId;
+    if (pumpId) query.pumpCd = pumpId;
+    if (expenseType) query.expenseType = expenseType;
+    if (expenseCategory) query.expenseCategory = expenseCategory;
+
+    if (fromDate || toDate) {
+      query.date = {};
+      if (fromDate) query.date.$gte = new Date(fromDate);
+      if (toDate) query.date.$lte = new Date(toDate);
+    }
+
+    if (vehicleId || transporterId) {
+      const vehicleQuery = {};
+      if (vehicleId) vehicleQuery._id = vehicleId;
+      if (transporterId) vehicleQuery.transporter = transporterId;
+
+      const vehicles = await Vehicle.find(vehicleQuery).select("_id");
+
+      if (!vehicles.length) {
         return res.status(200).json({
           expenses: [],
           totals: {
@@ -92,24 +106,8 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
           endRange: 0,
         });
       }
-    }
 
-    if (expenseType) {
-      const types = Array.isArray(expenseType) ? expenseType : [expenseType];
-      query.expenseType = { $in: types };
-    }
-
-    if (expenseCategory) {
-      const categories = Array.isArray(expenseCategory)
-        ? expenseCategory
-        : [expenseCategory];
-      query.expenseCategory = { $in: categories };
-    }
-
-    if (startDate || endDate) {
-      query.date = {};
-      if (startDate) query.date.$gte = new Date(startDate);
-      if (endDate) query.date.$lte = new Date(endDate);
+      query.vehicleId = { $in: vehicles.map((v) => v._id) };
     }
 
     const [expenses, totalsAgg] = await Promise.all([
