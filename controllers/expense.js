@@ -65,8 +65,8 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       subtripId,
       pumpId,
       tripId,
-      fromDate,
-      toDate,
+      startDate,
+      endDate,
       expenseType,
       expenseCategory,
     } = req.query;
@@ -81,10 +81,10 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
     if (expenseType) query.expenseType = expenseType;
     if (expenseCategory) query.expenseCategory = expenseCategory;
 
-    if (fromDate || toDate) {
+    if (startDate || endDate) {
       query.date = {};
-      if (fromDate) query.date.$gte = new Date(fromDate);
-      if (toDate) query.date.$lte = new Date(toDate);
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
     }
 
     if (vehicleId || transporterId) {
@@ -136,21 +136,6 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       ]),
     ]);
 
-    const formattedExpenses = expenses.map((exp) => ({
-      vehicleNo: exp.vehicleId?.vehicleNo,
-      transportName: exp.vehicleId?.transporter?.transportName,
-      subtripId: exp.subtripId,
-      date: exp.date,
-      expenseType: exp.expenseType,
-      amount: exp.amount,
-      slipNo: exp.slipNo,
-      pumpCd: exp.pumpCd?.pumpName,
-      remarks: exp.remarks,
-      dieselLtr: exp.dieselLtr,
-      dieselPrice: exp.dieselPrice,
-      paidThrough: exp.paidThrough,
-      authorisedBy: exp.authorisedBy,
-    }));
 
     const totals = {
       all: { count: 0, amount: 0 },
@@ -165,10 +150,10 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
     });
 
     res.status(200).json({
-      expenses: formattedExpenses,
+      expenses,
       totals,
       startRange: skip + 1,
-      endRange: skip + formattedExpenses.length,
+      endRange: skip + expenses.length,
     });
   } catch (error) {
     res.status(500).json({
