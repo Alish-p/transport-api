@@ -98,7 +98,7 @@ exports.deleteTask = asyncHandler(async (req, res) => {
     throw new Error("Task not found");
   }
 
-  await task.remove();
+  await task.deleteOne();
 
   res.json({
     success: true,
@@ -258,9 +258,8 @@ exports.toggleSubtaskComplete = asyncHandler(async (req, res) => {
   task.activities.push({
     user: req.user._id,
     action: "subtask_status_changed",
-    message: `Marked subtask "${subtask.text}" as ${
-      subtask.completed ? "completed" : "incomplete"
-    }`,
+    message: `Marked subtask "${subtask.text}" as ${subtask.completed ? "completed" : "incomplete"
+      }`,
   });
 
   await task.save();
