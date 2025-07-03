@@ -112,9 +112,6 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
 
     const [expenses, totalsAgg] = await Promise.all([
       Expense.find(query)
-        .select(
-          "vehicleId subtripId date expenseType amount slipNo pumpCd remarks dieselLtr dieselPrice paidThrough authorisedBy"
-        )
         .populate({
           path: "vehicleId",
           select: "vehicleNo transporter",
