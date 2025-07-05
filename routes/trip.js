@@ -10,9 +10,10 @@ const {
 } = require("../controllers/trip");
 
 const { private, admin, checkPermission } = require("../middlewares/Auth");
+const pagination = require("../middlewares/pagination");
 const router = Router();
 
-router.get("/", private, fetchTrips);
+router.get("/", private, pagination, fetchTrips);
 router.get("/open", private, fetchOpenTrips);
 
 router.post("/", private, checkPermission("trip", "create"), createTrip);

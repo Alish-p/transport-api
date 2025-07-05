@@ -51,22 +51,69 @@ const createTrip = asyncHandler(async (req, res) => {
   }
 });
 
-// Fetch Trips
+// Fetch Trips with pagination and search
 const fetchTrips = asyncHandler(async (req, res) => {
-  const trips = await Trip.find()
-    .populate({
-      path: "subtrips",
-      populate: [{ path: "customerId", model: "Customer" }],
-    })
-    .populate({
-      path: "driverId",
-      select: "driverName",
-    })
-    .populate({
-      path: "vehicleId",
-      select: "vehicleNo",
+  try {
+    const {
+      tripId,
+      driverId,
+      vehicleId,
+      subtripId,
+      fromDate,
+      toDate,
+      status,
+    } = req.query;
+
+    const { limit, skip } = req.pagination || {};
+
+    const query = {};
+
+    if (tripId) query._id = tripId;
+    if (driverId) query.driverId = driverId;
+    if (vehicleId) query.vehicleId = vehicleId;
+    if (subtripId) query.subtrips = subtripId;
+
+    if (fromDate || toDate) {
+      query.fromDate = {};
+      if (fromDate) query.fromDate.$gte = new Date(fromDate);
+      if (toDate) query.fromDate.$lte = new Date(toDate);
+    }
+
+    if (status) {
+      const statuses = Array.isArray(status) ? status : [status];
+      query.tripStatus = { $in: statuses };
+    }
+
+    const [trips, total, totalClosed, totalOpen] = await Promise.all([
+      Trip.find(query)
+        .populate({
+          path: "subtrips",
+          populate: [{ path: "customerId", model: "Customer" }],
+        })
+        .populate({ path: "driverId", select: "driverName" })
+        .populate({ path: "vehicleId", select: "vehicleNo" })
+        .sort({ fromDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      Trip.countDocuments(query),
+      Trip.countDocuments({ ...query, tripStatus: TRIP_STATUS.CLOSED }),
+      Trip.countDocuments({ ...query, tripStatus: TRIP_STATUS.OPEN }),
+    ]);
+
+    res.status(200).json({
+      trips,
+      total,
+      totalClosed,
+      totalOpen,
+      startRange: (skip || 0) + 1,
+      endRange: (skip || 0) + trips.length,
     });
-  res.status(200).json(trips);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching trips",
+      error: error.message,
+    });
+  }
 });
 
 const fetchOpenTrips = asyncHandler(async (req, res) => {
