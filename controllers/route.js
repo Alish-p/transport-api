@@ -23,34 +23,73 @@ const createRoute = asyncHandler(async (req, res) => {
   }
 });
 
-// Fetch Routes
+// Fetch Routes with pagination and search
 const fetchRoutes = asyncHandler(async (req, res) => {
-  const { customerId, genericRoutes } = req.query;
-  let query = {};
+  try {
+    const {
+      routeName,
+      fromPlace,
+      toPlace,
+      isCustomerSpecific,
+      customer,
+    } = req.query;
+    const { limit, skip } = req.pagination || {};
 
-  if (customerId && genericRoutes === "true") {
-    // Fetch both customer-specific routes and generic routes
-    query = {
-      $or: [
-        { isCustomerSpecific: false },
-        { isCustomerSpecific: true, customer: customerId },
-      ],
-    };
-  } else if (customerId) {
-    // Fetch only customer-specific routes
-    query = { isCustomerSpecific: true, customer: customerId };
-  } else if (genericRoutes === "true") {
-    // Fetch only generic routes
-    query = { isCustomerSpecific: false };
+    const query = {};
+
+    if (routeName) {
+      query.routeName = { $regex: routeName, $options: "i" };
+    }
+
+    if (fromPlace) {
+      query.fromPlace = { $regex: fromPlace, $options: "i" };
+    }
+
+    if (toPlace) {
+      query.toPlace = { $regex: toPlace, $options: "i" };
+    }
+
+    if (typeof isCustomerSpecific !== "undefined") {
+      query.isCustomerSpecific =
+        isCustomerSpecific === "true" ||
+        isCustomerSpecific === true ||
+        isCustomerSpecific === "1";
+    }
+
+    if (customer) {
+      query.customer = customer;
+    }
+
+    const [routes, total, totalCustomerSpecific, totalGeneric] =
+      await Promise.all([
+        Route.find(query)
+          .populate({
+            path: "customer",
+            select: "-__v", // Exclude version field
+            options: { lean: true },
+          })
+          .sort({ routeName: 1 })
+          .skip(skip)
+          .limit(limit),
+        Route.countDocuments(query),
+        Route.countDocuments({ ...query, isCustomerSpecific: true }),
+        Route.countDocuments({ ...query, isCustomerSpecific: false }),
+      ]);
+
+    res.status(200).json({
+      results: routes,
+      total,
+      totalCustomerSpecific,
+      totalGeneric,
+      startRange: (skip || 0) + 1,
+      endRange: (skip || 0) + routes.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching routes",
+      error: error.message,
+    });
   }
-
-  const routes = await Route.find(query).populate({
-    path: "customer",
-    select: "-__v", // Exclude version field
-    options: { lean: true },
-  });
-
-  res.status(200).json(routes);
 });
 
 // Fetch Single Route by ID
