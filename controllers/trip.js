@@ -51,36 +51,159 @@ const createTrip = asyncHandler(async (req, res) => {
   }
 });
 
-// Fetch Trips
+// Fetch Trips with pagination and search
 const fetchTrips = asyncHandler(async (req, res) => {
-  const trips = await Trip.find()
-    .populate({
-      path: "subtrips",
-      populate: [{ path: "customerId", model: "Customer" }],
-    })
-    .populate({
-      path: "driverId",
-      select: "driverName",
-    })
-    .populate({
-      path: "vehicleId",
-      select: "vehicleNo",
+  try {
+    const {
+      tripId,
+      driverId,
+      vehicleId,
+      subtripId,
+      fromDate,
+      toDate,
+      status,
+    } = req.query;
+
+    const { limit, skip } = req.pagination || {};
+
+    const query = {};
+
+    if (tripId) query._id = tripId;
+    if (driverId) query.driverId = driverId;
+    if (vehicleId) query.vehicleId = vehicleId;
+    if (subtripId) query.subtrips = subtripId;
+
+    if (fromDate || toDate) {
+      query.fromDate = {};
+      if (fromDate) query.fromDate.$gte = new Date(fromDate);
+      if (toDate) query.fromDate.$lte = new Date(toDate);
+    }
+
+    if (status) {
+      const statuses = Array.isArray(status) ? status : [status];
+      query.tripStatus = { $in: statuses };
+    }
+
+    const [trips, total, totalClosed, totalOpen] = await Promise.all([
+      Trip.find(query)
+        .populate({
+          path: "subtrips",
+          populate: [{ path: "customerId", model: "Customer" }],
+        })
+        .populate({ path: "driverId", select: "driverName" })
+        .populate({ path: "vehicleId", select: "vehicleNo" })
+        .sort({ fromDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      Trip.countDocuments(query),
+      Trip.countDocuments({ ...query, tripStatus: TRIP_STATUS.CLOSED }),
+      Trip.countDocuments({ ...query, tripStatus: TRIP_STATUS.OPEN }),
+    ]);
+
+    res.status(200).json({
+      trips,
+      total,
+      totalClosed,
+      totalOpen,
+      startRange: (skip || 0) + 1,
+      endRange: (skip || 0) + trips.length,
     });
-  res.status(200).json(trips);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching trips",
+      error: error.message,
+    });
+  }
 });
 
-const fetchOpenTrips = asyncHandler(async (req, res) => {
-  const openTrips = await Trip.find({ tripStatus: TRIP_STATUS.OPEN })
-    .select("_id tripStatus fromDate")
-    .populate({
-      path: "driverId",
-      select: "driverName",
-    })
-    .populate({
-      path: "vehicleId",
-      select: "vehicleNo",
+// Fetch minimal trip preview with pagination and search
+const fetchTripsPreview = asyncHandler(async (req, res) => {
+  try {
+    const { search, status } = req.query;
+    const { limit, skip } = req.pagination || {};
+
+    const basePipeline = [
+      {
+        $lookup: {
+          from: "drivers",
+          localField: "driverId",
+          foreignField: "_id",
+          as: "driver",
+        },
+      },
+      { $unwind: "$driver" },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      { $unwind: "$vehicle" },
+    ];
+
+    const matchStage = {};
+
+    if (status) {
+      const statuses = Array.isArray(status) ? status : [status];
+      matchStage.tripStatus = { $in: statuses };
+    }
+
+    if (search) {
+      matchStage.$or = [
+        { "driver.driverName": { $regex: search, $options: "i" } },
+        { "vehicle.vehicleNo": { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (Object.keys(matchStage).length) {
+      basePipeline.push({ $match: matchStage });
+    }
+
+    const projectStage = {
+      $project: {
+        _id: 1,
+        driverId: {
+          driverName: "$driver.driverName"
+        },
+        vehicleId: {
+          vehicleNo: "$vehicle.vehicleNo"
+        },
+        fromDate: "$fromDate",
+        tripStatus: "$tripStatus"
+      }
+    };
+
+    const dataPipeline = [
+      ...basePipeline,
+      { $sort: { fromDate: -1 } },
+      projectStage,
+      { $skip: skip || 0 },
+      { $limit: limit || 0 },
+    ];
+
+    const countPipeline = [...basePipeline, { $count: "count" }];
+
+    const [trips, countArr] = await Promise.all([
+      Trip.aggregate(dataPipeline),
+      Trip.aggregate(countPipeline),
+    ]);
+
+    const total = countArr[0]?.count || 0;
+
+    res.status(200).json({
+      trips,
+      total,
+      startRange: (skip || 0) + 1,
+      endRange: (skip || 0) + trips.length,
     });
-  res.status(200).json(openTrips);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching trip previews",
+      error: error.message,
+    });
+  }
 });
 
 // fetch All details of trip
@@ -197,7 +320,7 @@ const deleteTrip = asyncHandler(async (req, res) => {
 module.exports = {
   createTrip,
   fetchTrips,
-  fetchOpenTrips,
+  fetchTripsPreview,
   fetchTrip,
   closeTrip,
   updateTrip,
