@@ -71,7 +71,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     const {
       subtripId,
       tripId,
-      routeCd,
+      routeId,
       customerId,
       subtripStatus,
       invoiceId,
@@ -92,6 +92,8 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       materials,
     } = req.query;
 
+    console.log({ routeId })
+
     // Initialize base query
     const query = {};
     const tripQuery = {};
@@ -100,7 +102,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     // Direct field filters
     if (subtripId) query._id = subtripId;
     if (tripId) query.tripId = tripId;
-    if (routeCd) query.routeCd = routeCd;
+    if (routeId) query.routeCd = new mongoose.Types.ObjectId(routeId);
     if (customerId) query.customerId = customerId;
     if (invoiceId) query.invoiceId = invoiceId;
     if (driverSalaryId) query.driverSalaryId = driverSalaryId;
@@ -234,7 +236,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
   try {
     const {
       subtripId,
-      routeCd,
+      routeId,
       customerId,
       subtripStatus,
       driverId,
@@ -256,7 +258,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
     let vehicleQuery = {};
 
     if (subtripId) query._id = subtripId;
-    if (routeCd) query.routeCd = routeCd;
+    if (routeId) query.routeCd = routeId;
     if (customerId) query.customerId = customerId;
 
     // Status filter (single or array)
