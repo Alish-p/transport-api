@@ -14,11 +14,11 @@ const pagination = require("../middlewares/pagination");
 
 const router = Router();
 
-router.get("/:id", private, fetchTrip);
 router.get("/", private, pagination, fetchTrips);
 router.get("/preview", private, pagination, fetchTripsPreview);
 
 router.post("/", private, checkPermission("trip", "create"), createTrip);
+router.get("/:id", private, fetchTrip);
 router.put("/:id", private, checkPermission("trip", "update"), updateTrip);
 router.delete("/:id", private, checkPermission("trip", "delete"), deleteTrip);
 
