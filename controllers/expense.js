@@ -64,6 +64,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       vehicleId,
       transporterId,
       subtripId,
+      routeId,
       pumpId,
       tripId,
       startDate,
@@ -76,8 +77,32 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
 
     const query = {};
 
-    if (subtripId) query.subtripId = subtripId;
     if (tripId) query.tripId = tripId;
+    let subtripIdsFromRoute = [];
+    if (routeId) {
+      const subtripFilter = { routeCd: routeId };
+      if (subtripId) subtripFilter._id = subtripId;
+      const subtrips = await Subtrip.find(subtripFilter).select('_id');
+      if (!subtrips.length) {
+        return res.status(200).json({
+          expenses: [],
+          totals: {
+            all: { count: 0, amount: 0 },
+            vehicle: { count: 0, amount: 0 },
+            subtrip: { count: 0, amount: 0 },
+          },
+          startRange: 0,
+          endRange: 0,
+        });
+      }
+      subtripIdsFromRoute = subtrips.map((st) => st._id);
+    }
+
+    if (subtripId && !routeId) {
+      query.subtripId = subtripId;
+    } else if (subtripIdsFromRoute.length) {
+      query.subtripId = { $in: subtripIdsFromRoute };
+    }
     if (pumpId) query.pumpCd = new mongoose.Types.ObjectId(pumpId);
     if (expenseType) query.expenseType = expenseType;
     if (expenseCategory) query.expenseCategory = expenseCategory;
