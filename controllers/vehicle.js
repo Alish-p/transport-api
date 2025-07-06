@@ -52,7 +52,7 @@ const quickCreateVehicle = asyncHandler(async (req, res) => {
 // Fetch Vehicles with pagination and search
 const fetchVehicles = asyncHandler(async (req, res) => {
   try {
-    const { vehicleNo, vehicleType, isOwn, transporter } = req.query;
+    const { vehicleNo, vehicleType, isOwn, transporter, noOfTyres } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = {};
@@ -73,6 +73,11 @@ const fetchVehicles = asyncHandler(async (req, res) => {
     if (transporter) {
       const ids = Array.isArray(transporter) ? transporter : [transporter];
       query.transporter = { $in: ids };
+    }
+
+    if (noOfTyres) {
+      const tyres = Array.isArray(noOfTyres) ? noOfTyres : [noOfTyres];
+      query.noOfTyres = { $in: tyres.map((t) => Number(t)) };
     }
 
     const [vehicles, total, totalOwnVehicle, totalMarketVehicle] =
