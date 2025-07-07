@@ -9,10 +9,42 @@ const createBank = asyncHandler(async (req, res) => {
   res.status(201).json(newBank);
 });
 
-// Fetch Banks
+// Fetch Banks with pagination and search
 const fetchBanks = asyncHandler(async (req, res) => {
-  const banks = await Bank.find();
-  res.status(200).json(banks);
+  try {
+    const { search } = req.query;
+    const { limit, skip } = req.pagination;
+
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { ifsc: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { branch: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const [banks, total] = await Promise.all([
+      Bank.find(query)
+        .sort({ name: 1 })
+        .skip(skip)
+        .limit(limit),
+      Bank.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      banks,
+      total,
+      startRange: skip + 1,
+      endRange: skip + banks.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'An error occurred while fetching paginated banks',
+      error: error.message,
+    });
+  }
 });
 
 // Fetch Bank Details by ID
