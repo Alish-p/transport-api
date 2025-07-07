@@ -4,7 +4,7 @@ const { Schema, model } = require("mongoose");
 const bankSchema = new Schema({
   name: { type: String, required: true },
   branch: { type: String, required: true },
-  ifsc: { type: String, required: true },
+  ifsc: { type: String, required: true, unique: true },
   place: { type: String, required: true },
 });
 
