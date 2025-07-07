@@ -22,10 +22,41 @@ const fetchPumpById = asyncHandler(async (req, res) => {
   res.status(200).json(pump);
 });
 
-// Fetch Pumps
+// Fetch Pumps with pagination and search
 const fetchPumps = asyncHandler(async (req, res) => {
-  const pumps = await Pump.find();
-  res.status(200).json(pumps);
+  try {
+    const { search } = req.query;
+    const { limit, skip } = req.pagination;
+
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { pumpName: { $regex: search, $options: 'i' } },
+        { placeName: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const [pumps, total] = await Promise.all([
+      Pump.find(query)
+        .sort({ pumpName: 1 })
+        .skip(skip)
+        .limit(limit),
+      Pump.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      pumps,
+      total,
+      startRange: skip + 1,
+      endRange: skip + pumps.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'An error occurred while fetching paginated pumps',
+      error: error.message,
+    });
+  }
 });
 
 // Update Pump

@@ -53,7 +53,7 @@ app.use(express.json());
 // ratelimits
 const limiter = rateLimit({
   windowMs: 2 * 60 * 1000, //  100 reqs in 2 minutes only
-  max: 100,
+  max: 200,
   message: "Too many requests from this Devices, please try again later.",
   headers: true,
 });
