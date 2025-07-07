@@ -34,10 +34,50 @@ const createDieselPrice = asyncHandler(async (req, res) => {
   res.status(201).json(newDieselPrice);
 });
 
-// Fetch Diesel Prices (can be filtered)
+// Fetch Diesel Prices with pagination and search
 const fetchDieselPrices = asyncHandler(async (req, res) => {
-  const dieselPrices = await DieselPrice.find().populate("pump");
-  res.status(200).json(dieselPrices);
+  try {
+    const { pumpId, fromDate, toDate } = req.query;
+    const { limit, skip } = req.pagination || {};
+
+    const query = {};
+
+    if (pumpId) {
+      query.pump = pumpId;
+    }
+
+    if (fromDate || toDate) {
+      query.$and = [];
+      if (fromDate) {
+        query.$and.push({ endDate: { $gte: new Date(fromDate) } });
+      }
+      if (toDate) {
+        query.$and.push({ startDate: { $lte: new Date(toDate) } });
+      }
+      if (query.$and.length === 0) delete query.$and;
+    }
+
+    const [dieselPrices, total] = await Promise.all([
+      DieselPrice.find(query)
+        .populate("pump")
+        .sort({ startDate: -1 })
+        .skip(skip || 0)
+        .limit(limit || 0),
+      DieselPrice.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      dieselPrices,
+      total,
+      startRange: (skip || 0) + 1,
+      endRange: (skip || 0) + dieselPrices.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching diesel prices",
+      error: error.message,
+    });
+  }
 });
 
 // Fetch Diesel Price on a particular day for any pump
