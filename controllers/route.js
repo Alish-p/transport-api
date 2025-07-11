@@ -65,7 +65,7 @@ const fetchRoutes = asyncHandler(async (req, res) => {
         Route.find(query)
           .populate({
             path: "customer",
-            select: "-__v", // Exclude version field
+            select: "_id customerName",
             options: { lean: true },
           })
           .sort({ routeName: 1 })
