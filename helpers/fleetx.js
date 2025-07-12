@@ -32,7 +32,7 @@ const loginToFleetx = async () => {
 
 const fetchLiveAnalytics = async (token) => {
     const response = await fetch(FLEETX_LIVE_URL, {
-        headers: { Authorization: `bearer 5d6a3fba-6506-4d73-b37f-b5576aed87eb` },
+        headers: { Authorization: `bearer c487c488-0e60-40e6-9586-e3bd1b55e226` },
         // headers: { Authorization: `bearer ${token}` },
     });
 
