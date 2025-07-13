@@ -11,7 +11,9 @@ const {
     getVehicleUtilization,
     getFinancialMonthlyData,
     getInvoiceStatusSummary,
-    getTopRoutes
+    getTopRoutes,
+    getTransporterPaymentTotals,
+    getInvoiceAmountSummary
 } = require("../controllers/dashboard");
 
 const router = Router();
@@ -29,5 +31,7 @@ router.get("/financial-monthly-data", getFinancialMonthlyData);
 router.get("/customer-monthly-freight", getCustomerMonthlyFreight);
 router.get("/top-routes", getTopRoutes);
 router.get("/grouped/monthly-expense", getMonthlySubtripExpenseSummary);
+router.get("/invoice-amount-summary", getInvoiceAmountSummary);
+router.get("/transporter-payment-summary", getTransporterPaymentTotals);
 
 module.exports = router;

@@ -890,6 +890,134 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
   }
 });
 
+// Get transporter payment totals for dashboard
+const getTransporterPaymentTotals = asyncHandler(async (req, res) => {
+  try {
+    const [generatedAgg, paidAgg, pendingSubtrips] = await Promise.all([
+      TransporterPayment.aggregate([
+        { $match: { status: "generated" } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
+          },
+        },
+      ]),
+      TransporterPayment.aggregate([
+        { $match: { status: "paid" } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
+          },
+        },
+      ]),
+      Subtrip.find({
+        subtripStatus: SUBTRIP_STATUS.RECEIVED,
+        transporterPaymentReceiptId: { $exists: false },
+      })
+        .populate({
+          path: "tripId",
+          populate: { path: "vehicleId", select: "isOwn" },
+        })
+        .populate("expenses")
+        .lean(),
+    ]);
+
+    let yetToCreateAmount = 0;
+    pendingSubtrips.forEach((st) => {
+      if (st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn) {
+        const { totalTransporterPayment } = calculateTransporterPayment(st);
+        yetToCreateAmount += totalTransporterPayment;
+      }
+    });
+
+    const generatedAmount = generatedAgg[0]?.total || 0;
+    const paidAmount = paidAgg[0]?.total || 0;
+
+    res.status(200).json({
+      generatedAmount,
+      paidAmount,
+      yetToCreateAmount,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
+// Get invoice amounts summary for dashboard
+const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
+  try {
+    const [generatedAgg, paidAgg, pendingAgg] = await Promise.all([
+      Invoice.aggregate([
+        {
+          $match: {
+            invoiceStatus: {
+              $in: [INVOICE_STATUS.PENDING, INVOICE_STATUS.OVERDUE],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ["$netTotal", 0] } },
+          },
+        },
+      ]),
+      Invoice.aggregate([
+        { $match: { invoiceStatus: INVOICE_STATUS.PAID } },
+        { $group: { _id: null, total: { $sum: { $ifNull: ["$netTotal", 0] } } } },
+      ]),
+      Subtrip.aggregate([
+        {
+          $match: {
+            $and: [
+              {
+                $or: [
+                  { invoiceId: { $exists: false } },
+                  { invoiceId: null },
+                ],
+              },
+              {
+                subtripStatus: {
+                  $in: [
+                    SUBTRIP_STATUS.LOADED,
+                    SUBTRIP_STATUS.ERROR,
+                    SUBTRIP_STATUS.RECEIVED,
+                  ],
+                },
+              },
+            ],
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: {
+                $multiply: [
+                  { $ifNull: ["$loadingWeight", 0] },
+                  { $ifNull: ["$rate", 0] },
+                ],
+              },
+            },
+          },
+        },
+      ]),
+    ]);
+
+    const generatedAmount = generatedAgg[0]?.total || 0;
+    const paidAmount = paidAgg[0]?.total || 0;
+    const pendingAmount = pendingAgg[0]?.total || 0;
+
+    res.status(200).json({ generatedAmount, paidAmount, pendingAmount });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
 module.exports = {
   getTotalCounts,
   getLoanSchedule,
@@ -903,5 +1031,6 @@ module.exports = {
   getSubtripStatusSummary,
   getCustomerMonthlyFreight,
   getMonthlySubtripExpenseSummary,
-
+  getTransporterPaymentTotals,
+  getInvoiceAmountSummary
 };
