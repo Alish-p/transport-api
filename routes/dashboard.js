@@ -6,6 +6,7 @@ const {
     getTotalCounts,
     getSubtripMonthlyData,
     getMonthlySubtripExpenseSummary,
+    getMonthlyMaterialWeightSummary,
     getSubtripStatusSummary,
     getLoanSchedule,
     getVehicleUtilization,
@@ -31,6 +32,7 @@ router.get("/financial-monthly-data", getFinancialMonthlyData);
 router.get("/customer-monthly-freight", getCustomerMonthlyFreight);
 router.get("/top-routes", getTopRoutes);
 router.get("/grouped/monthly-expense", getMonthlySubtripExpenseSummary);
+router.get("/grouped/monthly-material-weight", getMonthlyMaterialWeightSummary);
 router.get("/invoice-amount-summary", getInvoiceAmountSummary);
 router.get("/transporter-payment-summary", getTransporterPaymentTotals);
 
