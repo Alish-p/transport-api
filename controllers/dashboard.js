@@ -774,6 +774,42 @@ const getInvoiceStatusSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Get top 10 routes by number of associated subtrips
+const getTopRoutes = asyncHandler(async (req, res) => {
+  try {
+    const results = await Subtrip.aggregate([
+      { $match: { routeCd: { $ne: null } } },
+      { $group: { _id: '$routeCd', subtripCount: { $sum: 1 } } },
+      { $sort: { subtripCount: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'routes',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'route',
+        },
+      },
+      { $unwind: '$route' },
+      {
+        $project: {
+          _id: 0,
+          routeId: '$_id',
+          routeName: '$route.routeName',
+          fromPlace: '$route.fromPlace',
+          toPlace: '$route.toPlace',
+          subtripCount: 1,
+        },
+      },
+    ]);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
 const getFinancialMonthlyData = asyncHandler(async (req, res) => {
   const yearParam = parseInt(req.query.year, 10);
   const year = Number.isNaN(yearParam)
@@ -863,6 +899,7 @@ module.exports = {
   getDashboardHighlights,
   getFinancialMonthlyData,
   getInvoiceStatusSummary,
+  getTopRoutes,
   getSubtripStatusSummary,
   getCustomerMonthlyFreight,
   getMonthlySubtripExpenseSummary,
