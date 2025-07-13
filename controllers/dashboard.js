@@ -1142,7 +1142,7 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
       {
         $match: {
           startDate: { $gte: startDate, $lt: endDate },
-          subtripStatus: { $ne: SUBTRIP_STATUS.IN_QUEUE },
+          subtripStatus: { $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED] },
         },
       },
       {
