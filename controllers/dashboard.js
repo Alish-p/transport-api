@@ -1348,6 +1348,124 @@ const getMonthlyDriverSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Get monthly subtrip count and weight per transporter owned vehicles
+const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
+  const { month } = req.query;
+
+  if (!month) {
+    return res
+      .status(400)
+      .json({ message: "Month query parameter required in YYYY-MM format" });
+  }
+
+  const [yearStr, monthStr] = month.split("-");
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNum) ||
+    monthNum < 1 ||
+    monthNum > 12
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Invalid month format. Use YYYY-MM" });
+  }
+
+  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
+  const endDate = new Date(Date.UTC(year, monthNum, 1));
+
+  try {
+    const results = await Subtrip.aggregate([
+      {
+        $match: {
+          startDate: { $gte: startDate, $lt: endDate },
+          subtripStatus: { $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED] },
+        },
+      },
+      {
+        $lookup: {
+          from: "trips",
+          localField: "tripId",
+          foreignField: "_id",
+          as: "trip",
+        },
+      },
+      { $unwind: "$trip" },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "trip.vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      { $unwind: "$vehicle" },
+      { $match: { "vehicle.isOwn": false } },
+      {
+        $lookup: {
+          from: "transporters",
+          localField: "vehicle.transporter",
+          foreignField: "_id",
+          as: "transporter",
+        },
+      },
+      { $unwind: "$transporter" },
+      {
+        $group: {
+          _id: {
+            transporterId: "$transporter._id",
+            hasPayment: {
+              $cond: [{ $ifNull: ["$transporterPaymentReceiptId", false] }, true, false],
+            },
+          },
+          transporterName: { $first: "$transporter.transportName" },
+          subtripCount: { $sum: 1 },
+          totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.transporterId",
+          transporterName: { $first: "$transporterName" },
+          subtripCount: { $sum: "$subtripCount" },
+          totalLoadingWeight: { $sum: "$totalLoadingWeight" },
+          paymentDone: {
+            $sum: {
+              $cond: ["$_id.hasPayment", "$subtripCount", 0],
+            },
+          },
+          pendingForPayment: {
+            $sum: {
+              $cond: ["$_id.hasPayment", 0, "$subtripCount"],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          transporterId: "$_id",
+          transporterName: 1,
+          subtripCount: 1,
+          totalLoadingWeight: 1,
+          pendingForPayment: 1,
+          paymentDone: 1,
+        },
+      },
+      { $sort: { subtripCount: -1 } },
+    ]);
+
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching transporter subtrip summary",
+      error: error.message,
+    });
+  }
+});
+
 
 
 module.exports = {
@@ -1367,5 +1485,6 @@ module.exports = {
   getTransporterPaymentTotals,
   getInvoiceAmountSummary,
   getMonthlyDriverSummary,
+  getMonthlyTransporterSummary,
   getMonthlyVehicleSubtripSummary
 };
