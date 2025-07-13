@@ -1109,8 +1109,154 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
   }
 });
 
-// Get monthly subtrip count and weight per own vehicle
+// Get monthly subtrip count, weight, distance and diesel usage per own vehicle
 const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
+  const { month } = req.query;
+
+  if (!month) {
+    return res
+      .status(400)
+      .json({ message: "Month query parameter required in YYYY-MM format" });
+  }
+
+  const [yearStr, monthStr] = month.split("-");
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNum) ||
+    monthNum < 1 ||
+    monthNum > 12
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Invalid month format. Use YYYY-MM" });
+  }
+
+  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
+  const endDate = new Date(Date.UTC(year, monthNum, 1));
+
+  try {
+    // Aggregate subtrip metrics per own vehicle
+    const subtripAgg = await Subtrip.aggregate([
+      {
+        $match: {
+          startDate: { $gte: startDate, $lt: endDate },
+          subtripStatus: { $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED] },
+        },
+      },
+      {
+        $lookup: {
+          from: "trips",
+          localField: "tripId",
+          foreignField: "_id",
+          as: "trip",
+        },
+      },
+      { $unwind: "$trip" },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "trip.vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      { $unwind: "$vehicle" },
+      { $match: { "vehicle.isOwn": true } },
+      {
+        $lookup: {
+          from: "expenses",
+          localField: "expenses",
+          foreignField: "_id",
+          as: "expenses",
+        },
+      },
+      {
+        $addFields: {
+          distance: {
+            $cond: [
+              { $and: [{ $ne: ["$startKm", null] }, { $ne: ["$endKm", null] }] },
+              { $abs: { $subtract: ["$endKm", "$startKm"] } },
+              0,
+            ],
+          },
+          dieselUsed: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$expenses",
+                    as: "e",
+                    cond: { $eq: ["$$e.expenseType", "diesel"] },
+                  },
+                },
+                as: "d",
+                in: { $ifNull: ["$$d.dieselLtr", 0] },
+              },
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$vehicle._id",
+          vehicleNo: { $first: "$vehicle.vehicleNo" },
+          subtripCount: { $sum: 1 },
+          totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
+          totalKm: { $sum: "$distance" },
+          totalDiesel: { $sum: "$dieselUsed" },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          vehicleId: "$_id",
+          vehicleNo: 1,
+          subtripCount: 1,
+          totalLoadingWeight: 1,
+          totalKm: 1,
+          totalDiesel: 1,
+        },
+      },
+    ]);
+
+    // Fetch all own vehicles to include those without subtrips
+    const allVehicles = await Vehicle.find({ isOwn: true })
+      .select("_id vehicleNo")
+      .lean();
+
+    const subtripMap = new Map();
+    subtripAgg.forEach((r) => {
+      subtripMap.set(String(r.vehicleId), r);
+    });
+
+    const results = allVehicles
+      .map((v) => {
+        const data = subtripMap.get(String(v._id)) || {};
+        return {
+          vehicleId: v._id,
+          vehicleNo: v.vehicleNo,
+          subtripCount: data.subtripCount || 0,
+          totalLoadingWeight: data.totalLoadingWeight || 0,
+          totalKm: data.totalKm || 0,
+          totalDiesel: data.totalDiesel || 0,
+        };
+      })
+      .sort((a, b) => b.subtripCount - a.subtripCount);
+
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching vehicle subtrip summary",
+      error: error.message,
+    });
+  }
+});
+
+// Get monthly subtrip count and weight per own vehicle driver
+const getMonthlyDriverSummary = asyncHandler(async (req, res) => {
   const { month } = req.query;
 
   if (!month) {
@@ -1165,9 +1311,18 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
       { $unwind: "$vehicle" },
       { $match: { "vehicle.isOwn": true } },
       {
+        $lookup: {
+          from: "drivers",
+          localField: "trip.driverId",
+          foreignField: "_id",
+          as: "driver",
+        },
+      },
+      { $unwind: "$driver" },
+      {
         $group: {
-          _id: "$vehicle._id",
-          vehicleNo: { $first: "$vehicle.vehicleNo" },
+          _id: "$driver._id",
+          driverName: { $first: "$driver.driverName" },
           subtripCount: { $sum: 1 },
           totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
         },
@@ -1175,8 +1330,8 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
       {
         $project: {
           _id: 0,
-          vehicleId: "$_id",
-          vehicleNo: 1,
+          driverId: "$_id",
+          driverName: 1,
           subtripCount: 1,
           totalLoadingWeight: 1,
         },
@@ -1187,7 +1342,7 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
     res.status(200).json(results);
   } catch (error) {
     res.status(500).json({
-      message: "An error occurred while fetching vehicle subtrip summary",
+      message: "An error occurred while fetching driver subtrip summary",
       error: error.message,
     });
   }
@@ -1211,5 +1366,6 @@ module.exports = {
   getMonthlyMaterialWeightSummary,
   getTransporterPaymentTotals,
   getInvoiceAmountSummary,
+  getMonthlyDriverSummary,
   getMonthlyVehicleSubtripSummary
 };
