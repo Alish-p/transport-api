@@ -1109,6 +1109,92 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Get monthly subtrip count and weight per own vehicle
+const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
+  const { month } = req.query;
+
+  if (!month) {
+    return res
+      .status(400)
+      .json({ message: "Month query parameter required in YYYY-MM format" });
+  }
+
+  const [yearStr, monthStr] = month.split("-");
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNum) ||
+    monthNum < 1 ||
+    monthNum > 12
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Invalid month format. Use YYYY-MM" });
+  }
+
+  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
+  const endDate = new Date(Date.UTC(year, monthNum, 1));
+
+  try {
+    const results = await Subtrip.aggregate([
+      {
+        $match: {
+          startDate: { $gte: startDate, $lt: endDate },
+          subtripStatus: { $ne: SUBTRIP_STATUS.IN_QUEUE },
+        },
+      },
+      {
+        $lookup: {
+          from: "trips",
+          localField: "tripId",
+          foreignField: "_id",
+          as: "trip",
+        },
+      },
+      { $unwind: "$trip" },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "trip.vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      { $unwind: "$vehicle" },
+      { $match: { "vehicle.isOwn": true } },
+      {
+        $group: {
+          _id: "$vehicle._id",
+          vehicleNo: { $first: "$vehicle.vehicleNo" },
+          subtripCount: { $sum: 1 },
+          totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          vehicleId: "$_id",
+          vehicleNo: 1,
+          subtripCount: 1,
+          totalLoadingWeight: 1,
+        },
+      },
+      { $sort: { subtripCount: -1 } },
+    ]);
+
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching vehicle subtrip summary",
+      error: error.message,
+    });
+  }
+});
+
+
+
 module.exports = {
   getTotalCounts,
   getLoanSchedule,
@@ -1124,5 +1210,6 @@ module.exports = {
   getMonthlySubtripExpenseSummary,
   getMonthlyMaterialWeightSummary,
   getTransporterPaymentTotals,
-  getInvoiceAmountSummary
+  getInvoiceAmountSummary,
+  getMonthlyVehicleSubtripSummary
 };
