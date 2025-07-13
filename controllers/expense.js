@@ -104,7 +104,12 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       query.subtripId = { $in: subtripIdsFromRoute };
     }
     if (pumpId) query.pumpCd = new mongoose.Types.ObjectId(pumpId);
-    if (expenseType) query.expenseType = expenseType;
+    if (expenseType) {
+      const expenseTypeArray = Array.isArray(expenseType)
+        ? expenseType
+        : [expenseType];
+      query.expenseType = { $in: expenseTypeArray };
+    }
     if (expenseCategory) query.expenseCategory = expenseCategory;
 
     if (startDate || endDate) {
