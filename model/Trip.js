@@ -20,10 +20,10 @@ tripSchema.pre("save", async function (next) {
     return next();
   }
   try {
-    const counter = await CounterModel.findByIdAndUpdate(
-      { _id: "TripId" },
+    const counter = await CounterModel.findOneAndUpdate(
+      { _id: "TripId", tenant: this.tenant },
       { $inc: { seq: 1 } },
-      { upsert: true }
+      { new: true, upsert: true }
     );
 
     const tripId = counter ? `t-${counter.seq}` : "t-1";

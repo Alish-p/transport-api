@@ -75,10 +75,10 @@ subtripSchema.pre("save", async function (next) {
     return next();
   }
   try {
-    const counter = await CounterModel.findByIdAndUpdate(
-      { _id: "SubtripId" },
+    const counter = await CounterModel.findOneAndUpdate(
+      { _id: "SubtripId", tenant: this.tenant },
       { $inc: { seq: 1 } },
-      { upsert: true }
+      { new: true, upsert: true }
     );
 
     const subtripId = counter ? `st-${counter.seq}` : "st-1";
