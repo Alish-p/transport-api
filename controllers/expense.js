@@ -4,6 +4,7 @@ const Subtrip = require("../model/Subtrip");
 const Vehicle = require("../model/Vehicle");
 const mongoose = require("mongoose");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 const {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,
@@ -16,7 +17,10 @@ const createExpense = asyncHandler(async (req, res) => {
   const { expenseCategory, subtripId } = req.body;
 
   if (expenseCategory === EXPENSE_CATEGORIES.SUBTRIP) {
-    const subtrip = await Subtrip.findById(subtripId).populate("tripId");
+    const subtrip = await Subtrip.findOne({
+      _id: subtripId,
+      tenant: req.tenant,
+    }).populate("tripId");
 
     if (!subtrip) {
       res.status(404).json({ message: "Subtrip not found" });
@@ -28,6 +32,7 @@ const createExpense = asyncHandler(async (req, res) => {
       subtripId,
       tripId: subtrip?.tripId,
       vehicleId: subtrip?.tripId?.vehicleId,
+      tenant: req.tenant,
     });
 
     const newExpense = await expense.save();
@@ -50,6 +55,7 @@ const createExpense = asyncHandler(async (req, res) => {
     // If expenseCategory is not "subtrip", create an expense without associating it with a subtrip
     const expense = new Expense({
       ...req.body,
+      tenant: req.tenant,
     });
     const newExpense = await expense.save();
 
@@ -75,12 +81,12 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
 
     const { limit, skip } = req.pagination;
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (tripId) query.tripId = tripId;
     let subtripIdsFromRoute = [];
     if (routeId) {
-      const subtripFilter = { routeCd: routeId };
+      const subtripFilter = addTenantToQuery(req, { routeCd: routeId });
       if (subtripId) subtripFilter._id = subtripId;
       const subtrips = await Subtrip.find(subtripFilter).select('_id');
       if (!subtrips.length) {
@@ -123,7 +129,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       if (vehicleId) vehicleQuery._id = vehicleId;
       if (transporterId) vehicleQuery.transporter = transporterId;
 
-      const vehicles = await Vehicle.find(vehicleQuery).select("_id");
+      const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleQuery)).select("_id");
 
       if (!vehicles.length) {
         return res.status(200).json({
@@ -193,7 +199,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
 
 // Fetch Single Expense
 const fetchExpense = asyncHandler(async (req, res) => {
-  const expense = await Expense.findById(req.params.id)
+  const expense = await Expense.findOne({ _id: req.params.id, tenant: req.tenant })
     .populate("vehicleId")
     .populate("pumpCd");
 
@@ -207,9 +213,11 @@ const fetchExpense = asyncHandler(async (req, res) => {
 
 // Update Expense
 const updateExpense = asyncHandler(async (req, res) => {
-  const expense = await Expense.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-  });
+  const expense = await Expense.findOneAndUpdate(
+    { _id: req.params.id, tenant: req.tenant },
+    req.body,
+    { new: true }
+  );
   res.status(200).json(expense);
 });
 
@@ -218,7 +226,7 @@ const deleteExpense = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   // Step 1: Check if expense exists
-  const expense = await Expense.findById(id);
+  const expense = await Expense.findOne({ _id: id, tenant: req.tenant });
   if (!expense) {
     return res.status(404).json({ message: "Expense not found" });
   }
@@ -226,7 +234,7 @@ const deleteExpense = asyncHandler(async (req, res) => {
   // Step 2: If it's linked to a subtrip, remove reference
   if (expense.subtripId) {
     await Subtrip.findOneAndUpdate(
-      { _id: expense.subtripId },
+      { _id: expense.subtripId, tenant: req.tenant },
       { $pull: { expenses: expense._id } }
     );
     // Record subtrip event for expense deletion
@@ -239,7 +247,7 @@ const deleteExpense = asyncHandler(async (req, res) => {
   }
 
   // Step 3: Delete the expense
-  await Expense.findByIdAndDelete(id);
+  await Expense.findOneAndDelete({ _id: id, tenant: req.tenant });
 
   // Step 4: Respond
   res.status(200).json({ message: "Expense deleted successfully" });
