@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Task = require("../model/Task");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // @desc    Create a new task
 // @route   POST /api/tasks
@@ -8,6 +9,7 @@ exports.createTask = asyncHandler(async (req, res) => {
   const task = await Task.create({
     ...req.body,
     reporter: req.user._id,
+    tenant: req.tenant,
   });
 
   // Add initial activity
@@ -28,7 +30,7 @@ exports.createTask = asyncHandler(async (req, res) => {
 exports.updateTask = asyncHandler(async (req, res) => {
   const { status, assignees } = req.body;
 
-  const task = await Task.findById(req.params.taskId);
+  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
 
   if (!task) {
     res.status(404);
@@ -71,7 +73,7 @@ exports.updateTask = asyncHandler(async (req, res) => {
 // @route   GET /api/tasks/:taskId
 // @access  Private
 exports.getTask = asyncHandler(async (req, res) => {
-  const task = await Task.findById(req.params.taskId)
+  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant })
     .populate("reporter", "name email")
     .populate("assignees", "name email")
     .populate("activities.user", "name email");
@@ -91,7 +93,7 @@ exports.getTask = asyncHandler(async (req, res) => {
 // @route   DELETE /api/tasks/:taskId
 // @access  Private
 exports.deleteTask = asyncHandler(async (req, res) => {
-  const task = await Task.findById(req.params.taskId);
+  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
 
   if (!task) {
     res.status(404);
@@ -110,7 +112,7 @@ exports.deleteTask = asyncHandler(async (req, res) => {
 // @route   POST /api/tasks/:taskId/activity
 // @access  Private
 exports.addActivityToTask = asyncHandler(async (req, res) => {
-  const task = await Task.findById(req.params.taskId);
+  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
 
   if (!task) {
     res.status(404);
@@ -138,7 +140,7 @@ exports.addActivityToTask = asyncHandler(async (req, res) => {
 exports.fetchTasksByStatus = asyncHandler(async (req, res) => {
   const tasks = await Task.aggregate([
     {
-      $match: {}, // You can add conditions here if needed
+      $match: { tenant: req.tenant },
     },
     {
       $group: {
@@ -174,7 +176,7 @@ exports.fetchAllTasks = asyncHandler(async (req, res) => {
   const { status, priority, department, assignees } = req.query;
 
   // Build query
-  const query = {};
+  const query = addTenantToQuery(req);
 
   // Add filters if they exist
   if (status) query.status = status;
@@ -206,7 +208,7 @@ exports.fetchAllTasks = asyncHandler(async (req, res) => {
 // @route   POST /api/tasks/:taskId/subtasks
 // @access  Private
 exports.addSubtask = asyncHandler(async (req, res) => {
-  const task = await Task.findById(req.params.taskId);
+  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
 
   if (!task) {
     res.status(404);
@@ -238,7 +240,7 @@ exports.addSubtask = asyncHandler(async (req, res) => {
 // @route   PATCH /api/tasks/:taskId/subtasks/:subtaskId
 // @access  Private
 exports.toggleSubtaskComplete = asyncHandler(async (req, res) => {
-  const task = await Task.findById(req.params.taskId);
+  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
 
   if (!task) {
     res.status(404);
@@ -271,7 +273,7 @@ exports.toggleSubtaskComplete = asyncHandler(async (req, res) => {
 // @route   DELETE /api/tasks/:taskId/subtasks/:subtaskId
 // @access  Private
 exports.deleteSubtask = asyncHandler(async (req, res) => {
-  const task = await Task.findById(req.params.taskId);
+  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
 
   if (!task) {
     res.status(404);

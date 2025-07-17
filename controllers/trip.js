@@ -4,6 +4,7 @@ const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const { TRIP_STATUS } = require("../constants/trip-constants");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 const createTrip = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
@@ -16,7 +17,7 @@ const createTrip = asyncHandler(async (req, res) => {
     // 1) If requested, close all existing OPEN trips for this vehicle (inside txn)
     if (closePreviousTrips) {
       await Trip.updateMany(
-        { vehicleId, tripStatus: TRIP_STATUS.OPEN },
+        { vehicleId, tripStatus: TRIP_STATUS.OPEN, tenant: req.tenant },
         { tripStatus: TRIP_STATUS.CLOSED, toDate: new Date() },
         { session }
       );
@@ -31,6 +32,7 @@ const createTrip = asyncHandler(async (req, res) => {
         fromDate,
         remarks,
         dateOfCreation: new Date(),
+        tenant: req.tenant,
       },
       { session }
     );
@@ -66,7 +68,7 @@ const fetchTrips = asyncHandler(async (req, res) => {
 
     const { limit, skip } = req.pagination || {};
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (tripId) query._id = tripId;
     if (driverId) query.driverId = driverId;
@@ -143,7 +145,7 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
       { $unwind: "$vehicle" },
     ];
 
-    const matchStage = {};
+    const matchStage = { tenant: req.tenant };
 
     if (status) {
       const statuses = Array.isArray(status) ? status : [status];
@@ -208,7 +210,7 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
 
 // fetch All details of trip
 const fetchTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findById(req.params.id)
+  const trip = await Trip.findOne({ _id: req.params.id, tenant: req.tenant })
     .populate({
       path: "subtrips",
       populate: [
@@ -236,8 +238,8 @@ const closeTrip = asyncHandler(async (req, res) => {
   const tripId = req.params.id;
 
   // Find the trip by ID and update it
-  const trip = await Trip.findByIdAndUpdate(
-    tripId,
+  const trip = await Trip.findOneAndUpdate(
+    { _id: tripId, tenant: req.tenant },
     {
       tripStatus: TRIP_STATUS.CLOSED,
       toDate: new Date(),
@@ -258,7 +260,7 @@ const updateTrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   // 1. Fetch the trip
-  const trip = await Trip.findById(id);
+  const trip = await Trip.findOne({ _id: id, tenant: req.tenant });
   if (!trip) {
     res.status(404);
     throw new Error("Trip not found");
@@ -290,7 +292,14 @@ const updateTrip = asyncHandler(async (req, res) => {
   }
 
   // 4. Perform the update
-  const updatedTrip = await Trip.findByIdAndUpdate(id, req.body, {
+  const updatedTrip = await Trip.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    req.body,
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
     new: true,
     runValidators: true,
   });
@@ -300,7 +309,7 @@ const updateTrip = asyncHandler(async (req, res) => {
 
 // Delete Trip and Associated Subtrips and Expenses
 const deleteTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findById(req.params.id);
+  const trip = await Trip.findOne({ _id: req.params.id, tenant: req.tenant });
 
   if (!trip) {
     res.status(404).json({ message: "Trip not found" });
@@ -310,10 +319,10 @@ const deleteTrip = asyncHandler(async (req, res) => {
   // Delete all subtrips and their expenses
   for (const subtripId of trip.subtrips) {
     await Expense.deleteMany({ subtripId });
-    await Subtrip.findByIdAndDelete(subtripId);
+    await Subtrip.findOneAndDelete({ _id: subtripId, tenant: req.tenant });
   }
 
-  await Trip.findByIdAndDelete(req.params.id);
+  await Trip.findOneAndDelete({ _id: req.params.id, tenant: req.tenant });
   res.status(200).json({ message: "Trip deleted successfully" });
 });
 

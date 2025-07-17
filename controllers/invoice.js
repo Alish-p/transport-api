@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
 const Customer = require("../model/Customer");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 const { INVOICE_STATUS, SUBTRIP_STATUS } = require("../constants/status");
 
@@ -22,7 +23,10 @@ const createInvoice = asyncHandler(async (req, res) => {
   } = req.body;
 
   // 1. Fetch customer to get invoicePayWithin
-  const customer = await Customer.findById(customerId);
+  const customer = await Customer.findOne({
+    _id: customerId,
+    tenant: req.tenant,
+  });
   if (!customer) {
     return res.status(404).json({ message: "Customer not found." });
   }
@@ -44,8 +48,8 @@ const createInvoice = asyncHandler(async (req, res) => {
   try {
     // 4.1 Increment currentInvoiceSerialNumber on Customer (in same session)
     //    This returns the updated customer doc with the new serial.
-    const updatedCustomer = await Customer.findByIdAndUpdate(
-      customerId,
+    const updatedCustomer = await Customer.findOneAndUpdate(
+      { _id: customerId, tenant: req.tenant },
       { $inc: { currentInvoiceSerialNumber: 1 } },
       { new: true, session }
     );
@@ -64,6 +68,7 @@ const createInvoice = asyncHandler(async (req, res) => {
       _id: { $in: subtripIds },
       subtripStatus: SUBTRIP_STATUS.RECEIVED,
       invoiceId: null,
+      tenant: req.tenant,
     })
       .populate({
         path: "tripId",
@@ -121,6 +126,7 @@ const createInvoice = asyncHandler(async (req, res) => {
       totalAfterTax: summary.totalAfterTax,
       netTotal: summary.netTotal,
       invoiceStatus: INVOICE_STATUS.PENDING,
+      tenant: req.tenant,
     });
 
     const savedInvoice = await invoice.save({ session });
@@ -167,7 +173,7 @@ const fetchInvoices = asyncHandler(async (req, res) => {
     } = req.query;
     const { limit, skip } = req.pagination;
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (customerId) {
       const ids = Array.isArray(customerId) ? customerId : [customerId];
@@ -253,7 +259,7 @@ const fetchInvoices = asyncHandler(async (req, res) => {
 
 // Fetch Single Invoice
 const fetchInvoice = asyncHandler(async (req, res) => {
-  const invoice = await Invoice.findById(req.params.id)
+  const invoice = await Invoice.findOne({ _id: req.params.id, tenant: req.tenant })
     .populate("customerId") // full customer info
     .populate({
       path: "invoicedSubTrips",
@@ -282,7 +288,7 @@ const deleteInvoice = asyncHandler(async (req, res) => {
 
   try {
     // 1. Load invoice with subtrip refs
-    const invoice = await Invoice.findById(id).session(session);
+    const invoice = await Invoice.findOne({ _id: id, tenant: req.tenant }).session(session);
 
     if (!invoice) {
       await session.abortTransaction();
@@ -293,6 +299,7 @@ const deleteInvoice = asyncHandler(async (req, res) => {
     // 2. Revert invoiceId on linked subtrips
     const subtrips = await Subtrip.find({
       _id: { $in: invoice.invoicedSubTrips },
+      tenant: req.tenant,
     }).session(session);
 
     for (const subtrip of subtrips) {
@@ -313,7 +320,7 @@ const deleteInvoice = asyncHandler(async (req, res) => {
     }
 
     // 3. Delete the invoice
-    await Invoice.findByIdAndDelete(id).session(session);
+    await Invoice.findOneAndDelete({ _id: id, tenant: req.tenant }).session(session);
 
     await session.commitTransaction();
     session.endSession();
@@ -334,8 +341,8 @@ const updateInvoice = asyncHandler(async (req, res) => {
   const { invoiceStatus } = req.body;
 
   // Update invoice
-  const updatedInvoice = await Invoice.findByIdAndUpdate(
-    req.params.id,
+  const updatedInvoice = await Invoice.findOneAndUpdate(
+    { _id: req.params.id, tenant: req.tenant },
     req.body,
     {
       new: true,
@@ -371,7 +378,10 @@ const updateInvoice = asyncHandler(async (req, res) => {
   }
 
   if (newSubtripStatus) {
-    const subtrips = await Subtrip.find({ invoiceId: req.params.id });
+    const subtrips = await Subtrip.find({
+      invoiceId: req.params.id,
+      tenant: req.tenant,
+    });
 
     for (const subtrip of subtrips) {
       subtrip.subtripStatus = newSubtripStatus;
