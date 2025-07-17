@@ -9,12 +9,13 @@ const loginUser = asyncHandler(async (req, res) => {
 
   if (user && matched) {
     res.status(200).json({
-      accessToken: generateToken(user._id),
+      accessToken: generateToken(user),
       user: {
         _id: user._id,
         displayName: user.displayName,
         email: user.email,
         role: user.role,
+        tenant: user.tenant,
       },
     });
   } else {

@@ -26,6 +26,7 @@ const routeSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "Customer",
   },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
 });
 
 // Custom validator to check for unique vehicle configurations
