@@ -9,9 +9,10 @@ const private = asyncHandler(async (req, res, next) => {
   if (token && token.startsWith("Bearer")) {
     token = token.split(" ")[1];
     try {
-      const { id } = jwt.verify(token, process.env.JWT_SECRET);
+      const { id, tenant } = jwt.verify(token, process.env.JWT_SECRET);
       const user = await UserModel.findById(id, { password: 0 });
       req.user = user;
+      req.tenant = tenant;
       next();
     } catch (err) {
       const error = new Error("Invalid Token.");

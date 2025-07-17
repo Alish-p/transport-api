@@ -20,6 +20,7 @@ const vehicleSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "Transporter",
   },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
 });
 
 module.exports = model("Vehicle", vehicleSchema);

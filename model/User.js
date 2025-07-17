@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema(
     address: { type: String, required: true },
     password: { type: String, required: true },
     designation: { type: String, required: true },
+    tenant: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true },
 
     permissions: {
       bank: {
