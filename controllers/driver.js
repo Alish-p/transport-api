@@ -1,9 +1,14 @@
 const asyncHandler = require("express-async-handler");
 const Driver = require("../model/Driver");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Driver
 const createDriver = asyncHandler(async (req, res) => {
-  const driver = new Driver({ ...req.body, driverName: req.body.driverName.trim() });
+  const driver = new Driver({
+    ...req.body,
+    driverName: req.body.driverName.trim(),
+    tenant: req.tenant,
+  });
   const newDriver = await driver.save();
 
   res.status(201).json(newDriver);
@@ -31,6 +36,7 @@ const quickCreateDriver = asyncHandler(async (req, res) => {
     aadharNo: "N/A",
     experience: 0,
     permanentAddress: "N/A",
+    tenant: req.tenant,
   });
 
   const newDriver = await driver.save();
@@ -44,7 +50,7 @@ const fetchDrivers = asyncHandler(async (req, res) => {
     const { search } = req.query;
     const { limit, skip } = req.pagination;
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (search) {
       query.$or = [
@@ -87,14 +93,16 @@ const fetchDrivers = asyncHandler(async (req, res) => {
 
 // Fetch Light Drivers (only name, cellNo)
 const fetchDriversSummary = asyncHandler(async (req, res) => {
-  const drivers = await Driver.find().select("driverName driverCellNo");
+  const drivers = await Driver.find({ tenant: req.tenant }).select(
+    "driverName driverCellNo"
+  );
   res.status(200).json(drivers);
 });
 
 // Fetch Driver by ID
 const fetchDriverById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const driver = await Driver.findById(id);
+  const driver = await Driver.findOne({ _id: id, tenant: req.tenant });
   if (!driver) {
     res.status(404).json({ message: "Driver not found" });
   } else {
@@ -107,7 +115,11 @@ const updateDriver = asyncHandler(async (req, res) => {
   const { id } = req.params;
   console.log({ id, body: req.body });
 
-  const driver = await Driver.findByIdAndUpdate(id, req.body, { new: true });
+  const driver = await Driver.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    req.body,
+    { new: true }
+  );
 
   res.status(200).json(driver);
 });
@@ -115,7 +127,7 @@ const updateDriver = asyncHandler(async (req, res) => {
 // Delete Driver
 const deleteDriver = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const driver = await Driver.findByIdAndDelete(id);
+  const driver = await Driver.findOneAndDelete({ _id: id, tenant: req.tenant });
 
   res.status(200).json(driver);
 });
