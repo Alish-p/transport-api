@@ -99,10 +99,10 @@ driverSalarySchema.pre("save", async function (next) {
     return next();
   }
   try {
-    const counter = await CounterModel.findByIdAndUpdate(
-      { _id: "DriverSalaryId" },
+    const counter = await CounterModel.findOneAndUpdate(
+      { _id: "DriverSalaryId", tenant: this.tenant },
       { $inc: { seq: 1 } },
-      { upsert: true, new: true }
+      { new: true, upsert: true }
     );
 
     const Id = counter ? `DSR-${counter.seq}` : "DSR-1";

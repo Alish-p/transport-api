@@ -10,6 +10,7 @@ const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
 const Route = require("../model/Route");
 const { TRIP_STATUS } = require("../constants/trip-constants");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>
@@ -36,7 +37,7 @@ const populateSubtrip = (query) =>
 // Create Subtrip
 const createSubtrip = asyncHandler(async (req, res) => {
   const { tripId } = req.body;
-  const trip = await Trip.findById(tripId);
+  const trip = await Trip.findOne({ _id: tripId, tenant: req.tenant });
 
   if (!trip) {
     return res.status(404).json({ message: "Trip not found" });
@@ -46,6 +47,7 @@ const createSubtrip = asyncHandler(async (req, res) => {
     ...req.body,
     tripId,
     subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
+    tenant: req.tenant,
   });
 
 
@@ -94,10 +96,10 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
 
     console.log({ routeId })
 
-    // Initialize base query
-    const query = {};
-    const tripQuery = {};
-    let vehicleQuery = {};
+    // Initialize base query with tenant filter
+    const query = addTenantToQuery(req);
+    const tripQuery = addTenantToQuery(req);
+    let vehicleQuery = addTenantToQuery(req);
 
     // Direct field filters
     if (subtripId) query._id = subtripId;
@@ -173,7 +175,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     if (driverId || vehicleId || transporterId) {
       // Build vehicle query if transporterId is provided
       if (transporterId) {
-        vehicleQuery = { transporter: transporterId };
+        vehicleQuery = addTenantToQuery(req, { transporter: transporterId });
       }
 
       // If vehicleId is provided, add it to vehicle query
@@ -252,10 +254,10 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
 
     const { limit, skip } = req.pagination;
 
-    // Base query ensures we only consider loaded subtrips
-    const query = { isEmpty: false };
-    const tripQuery = {};
-    let vehicleQuery = {};
+    // Base query ensures we only consider loaded subtrips and tenant matches
+    const query = addTenantToQuery(req, { isEmpty: false });
+    const tripQuery = addTenantToQuery(req);
+    let vehicleQuery = addTenantToQuery(req);
 
     if (subtripId) query._id = subtripId;
     if (routeId) query.routeCd = routeId;
@@ -304,7 +306,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
     // Nested driver/vehicle/transporter filtering
     if (driverId || vehicleId || transporterId) {
       if (transporterId) {
-        vehicleQuery = { transporter: transporterId };
+        vehicleQuery = addTenantToQuery(req, { transporter: transporterId });
       }
 
       if (vehicleId) {
@@ -395,14 +397,21 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
 
     const statusArray = Array.isArray(subtripStatus) ? subtripStatus : [subtripStatus];
 
-    const query = { subtripStatus: { $in: statusArray }, isEmpty: false };
+    const query = addTenantToQuery(req, {
+      subtripStatus: { $in: statusArray },
+      isEmpty: false,
+    });
 
     if (search) {
       const regex = new RegExp(search, "i");
 
       const [drivers, vehicles] = await Promise.all([
-        Driver.find({ driverName: { $regex: regex } }).select("_id"),
-        Vehicle.find({ vehicleNo: { $regex: regex } }).select("_id"),
+        Driver.find({ driverName: { $regex: regex }, tenant: req.tenant }).select(
+          "_id"
+        ),
+        Vehicle.find({ vehicleNo: { $regex: regex }, tenant: req.tenant }).select(
+          "_id"
+        ),
       ]);
 
       const driverIds = drivers.map((d) => d._id);
@@ -418,6 +427,7 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
       }
 
       const trips = await Trip.find({
+        tenant: req.tenant,
         $or: [
           driverIds.length ? { driverId: { $in: driverIds } } : null,
           vehicleIds.length ? { vehicleId: { $in: vehicleIds } } : null,
@@ -482,7 +492,9 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
 const fetchSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const subtrip = await populateSubtrip(Subtrip.findById(id))
+  const subtrip = await populateSubtrip(
+    Subtrip.findOne({ _id: id, tenant: req.tenant })
+  )
     .populate({ path: "invoiceId", select: "invoiceNo issueDate" })
     .populate({ path: "driverSalaryId", select: "paymentId issueDate" })
     .populate({
@@ -528,13 +540,16 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
       unloadingPoint,
     } = req.body;
 
-    const subtrip = await Subtrip.findById(id).session(session);
+    const subtrip = await Subtrip.findOne({ _id: id, tenant: req.tenant })
+      .session(session);
     if (!subtrip) throw new Error("Subtrip not found");
 
-    const route = await Route.findById(routeCd).session(session);
+    const route = await Route.findOne({ _id: routeCd, tenant: req.tenant })
+      .session(session);
     if (!route) throw new Error("Route not found");
 
-    const vehicle = await Vehicle.findById(vehicleId).session(session);
+    const vehicle = await Vehicle.findOne({ _id: vehicleId, tenant: req.tenant })
+      .session(session);
     if (!vehicle) throw new Error("Vehicle not found");
 
     const config = route.vehicleConfiguration.find(
@@ -686,7 +701,9 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     );
 
     // Populate updated subtrip
-    const updatedSubtrip = await populateSubtrip(Subtrip.findById(subtrip._id));
+    const updatedSubtrip = await populateSubtrip(
+      Subtrip.findOne({ _id: subtrip._id, tenant: req.tenant })
+    );
     res.status(200).json(updatedSubtrip);
   } catch (error) {
     await session.abortTransaction();
@@ -710,7 +727,9 @@ const receiveLR = asyncHandler(async (req, res) => {
     endDate,
   } = req.body;
 
-  const subtrip = await populateSubtrip(Subtrip.findById(id));
+  const subtrip = await populateSubtrip(
+    Subtrip.findOne({ _id: id, tenant: req.tenant })
+  );
 
   if (!subtrip) {
     return res.status(404).json({ message: "Subtrip not found" });
@@ -753,10 +772,13 @@ const receiveLR = asyncHandler(async (req, res) => {
     subtrip.tripId.vehicleId &&
     !subtrip.tripId.vehicleId.isOwn
   ) {
-    await Trip.findByIdAndUpdate(subtrip.tripId._id || subtrip.tripId, {
-      tripStatus: TRIP_STATUS.CLOSED,
-      toDate: new Date(),
-    });
+    await Trip.findOneAndUpdate(
+      { _id: subtrip.tripId._id || subtrip.tripId, tenant: req.tenant },
+      {
+        tripStatus: TRIP_STATUS.CLOSED,
+        toDate: new Date(),
+      }
+    );
   }
 
   res.status(200).json(subtrip);
@@ -767,7 +789,9 @@ const resolveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { hasError, remarks } = req.body;
 
-  const subtrip = await populateSubtrip(Subtrip.findById(id));
+  const subtrip = await populateSubtrip(
+    Subtrip.findOne({ _id: id, tenant: req.tenant })
+  );
 
   if (!subtrip) {
     return res.status(404).json({ message: "Subtrip not found" });
@@ -795,7 +819,9 @@ const resolveLR = asyncHandler(async (req, res) => {
 const closeSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const subtrip = await populateSubtrip(Subtrip.findById(id));
+  const subtrip = await populateSubtrip(
+    Subtrip.findOne({ _id: id, tenant: req.tenant })
+  );
 
   if (!subtrip) {
     return res.status(404).json({ message: "Subtrip not found" });
@@ -817,17 +843,21 @@ const updateSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   // Find the subtrip first to compare changes
-  const existingSubtrip = await Subtrip.findById(id);
+  const existingSubtrip = await Subtrip.findOne({ _id: id, tenant: req.tenant });
 
   if (!existingSubtrip) {
     return res.status(404).json({ message: "Subtrip not found" });
   }
 
   // Find and update the subtrip
-  const updatedSubtrip = await Subtrip.findByIdAndUpdate(id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const updatedSubtrip = await Subtrip.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    req.body,
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
 
   // Record the update event with changed fields
   const changedFields = {};
@@ -875,7 +905,7 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   // 1. Find the subtrip
-  const subtrip = await Subtrip.findById(id);
+  const subtrip = await Subtrip.findOne({ _id: id, tenant: req.tenant });
 
   if (!subtrip) {
     return res.status(404).json({ message: "Subtrip not found" });
@@ -905,10 +935,10 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
     }
 
     // 3. Delete the subtrip itself
-    await Subtrip.findByIdAndDelete(id);
+    await Subtrip.findOneAndDelete({ _id: id, tenant: req.tenant });
 
     // 4. Remove the deleted subtrip ID from the Trip's `subtrips` array
-    const trip = await Trip.findOne({ subtrips: id });
+    const trip = await Trip.findOne({ subtrips: id, tenant: req.tenant });
     if (trip) {
       trip.subtrips.pull(id);
       await trip.save();
@@ -944,7 +974,7 @@ const createEmptySubtrip = asyncHandler(async (req, res) => {
   }
 
   // Check if trip exists
-  const trip = await Trip.findById(tripId);
+  const trip = await Trip.findOne({ _id: tripId, tenant: req.tenant });
   if (!trip) {
     return res.status(404).json({ message: "Trip not found" });
   }
@@ -958,6 +988,7 @@ const createEmptySubtrip = asyncHandler(async (req, res) => {
     startKm,
     subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
     isEmpty: true, // Mark as empty trip
+    tenant: req.tenant,
   });
 
   // Record creation event
@@ -988,7 +1019,9 @@ const closeEmptySubtrip = asyncHandler(async (req, res) => {
     });
   }
 
-  const subtrip = await populateSubtrip(Subtrip.findById(id));
+  const subtrip = await populateSubtrip(
+    Subtrip.findOne({ _id: id, tenant: req.tenant })
+  );
 
   if (!subtrip) {
     return res.status(404).json({ message: "Subtrip not found" });
@@ -1030,6 +1063,7 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
   try {
     // Find all subtrips within the date range
     const subtrips = await Subtrip.find({
+      tenant: req.tenant,
       startDate: {
         $gte: new Date(startDate),
         $lte: new Date(endDate),

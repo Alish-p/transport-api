@@ -141,10 +141,10 @@ transporterPaymentReceiptSchema.pre("save", async function (next) {
   if (!this.isNew) return next();
 
   try {
-    const counter = await CounterModel.findByIdAndUpdate(
-      { _id: "TransporterPaymentReceiptId" },
+    const counter = await CounterModel.findOneAndUpdate(
+      { _id: "TransporterPaymentReceiptId", tenant: this.tenant },
       { $inc: { seq: 1 } },
-      { upsert: true, new: true }
+      { new: true, upsert: true }
     );
 
     this.paymentId = `TPR-${counter.seq}`;
