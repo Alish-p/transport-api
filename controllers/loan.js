@@ -1,13 +1,14 @@
 // controllers/loanController.js
 const asyncHandler = require("express-async-handler");
 const Loan = require("../model/Loan");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 /**
  * @route   GET /api/loans
  * @desc    Fetch all loans (Driver & Transporter)
  */
 const fetchAllLoans = asyncHandler(async (req, res) => {
-  const loans = await Loan.find().populate("borrowerId");
+  const loans = await Loan.find({ tenant: req.tenant }).populate("borrowerId");
   res.status(200).json(loans);
 });
 
@@ -16,7 +17,10 @@ const fetchAllLoans = asyncHandler(async (req, res) => {
  * @desc    Fetch a single loan by ID
  */
 const fetchLoanById = asyncHandler(async (req, res) => {
-  const loan = await Loan.findById(req.params.id).populate("borrowerId");
+  const loan = await Loan.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  }).populate("borrowerId");
   if (!loan) {
     res.status(404);
     throw new Error("Loan not found");
@@ -59,6 +63,7 @@ const createLoan = asyncHandler(async (req, res) => {
     tenureMonths,
     remarks,
     disbursementDate: new Date(disbursementDate),
+    tenant: req.tenant,
   });
 
   await loan.save(); // pre-save hook will build EMI schedule
@@ -70,7 +75,7 @@ const createLoan = asyncHandler(async (req, res) => {
  * @desc    Update loan terms or remarks
  */
 const updateLoan = asyncHandler(async (req, res) => {
-  const loan = await Loan.findById(req.params.id);
+  const loan = await Loan.findOne({ _id: req.params.id, tenant: req.tenant });
   if (!loan) {
     res.status(404);
     throw new Error("Loan not found");
@@ -93,7 +98,7 @@ const updateLoan = asyncHandler(async (req, res) => {
  * @desc    Delete a loan
  */
 const deleteLoan = asyncHandler(async (req, res) => {
-  const loan = await Loan.findById(req.params.id);
+  const loan = await Loan.findOne({ _id: req.params.id, tenant: req.tenant });
   if (!loan) {
     res.status(404);
     throw new Error("Loan not found");
@@ -114,7 +119,7 @@ const repayLoan = asyncHandler(async (req, res) => {
     throw new Error("`amount` is required for repayment");
   }
 
-  const loan = await Loan.findById(req.params.id);
+  const loan = await Loan.findOne({ _id: req.params.id, tenant: req.tenant });
   if (!loan) {
     res.status(404);
     throw new Error("Loan not found");
@@ -162,7 +167,7 @@ const deferNextInstallment = asyncHandler(async (req, res) => {
     throw new Error("`deferredTo` must be a valid date");
   }
 
-  const loan = await Loan.findById(req.params.id);
+  const loan = await Loan.findOne({ _id: req.params.id, tenant: req.tenant });
   if (!loan) {
     res.status(404);
     throw new Error("Loan not found");
@@ -197,7 +202,7 @@ const deferAllInstallments = asyncHandler(async (req, res) => {
     throw new Error("`days` (integer) is required");
   }
 
-  const loan = await Loan.findById(req.params.id);
+  const loan = await Loan.findOne({ _id: req.params.id, tenant: req.tenant });
   if (!loan) {
     res.status(404);
     throw new Error("Loan not found");
@@ -229,6 +234,7 @@ const fetchPendingLoans = asyncHandler(async (req, res) => {
     borrowerType,
     borrowerId: id,
     status: "active",
+    tenant: req.tenant,
   }).populate("borrowerId");
   res.status(200).json(loans);
 });

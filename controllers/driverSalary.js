@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const DriverSalary = require("../model/DriverSalary");
 const Driver = require("../model/Driver");
 const Subtrip = require("../model/Subtrip");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 const {
   recordSubtripEvent,
@@ -38,7 +39,10 @@ const createDriverSalary = asyncHandler(async (req, res) => {
 
   try {
     // 1. Fetch driver
-    const driver = await Driver.findById(driverId).session(session);
+    const driver = await Driver.findOne({
+      _id: driverId,
+      tenant: req.tenant,
+    }).session(session);
     if (!driver) {
       await session.abortTransaction();
       return res.status(404).json({ message: "Driver not found." });
@@ -48,6 +52,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
     const rawSubtrips = await Subtrip.find({
       _id: { $in: associatedSubtrips },
       driverSalaryReceiptId: null, // requires this field on Subtrip
+      tenant: req.tenant,
     })
       .populate("tripId")
       .populate("expenses")
@@ -110,13 +115,14 @@ const createDriverSalary = asyncHandler(async (req, res) => {
       additionalDeductions,
       summary,
       meta,
+      tenant: req.tenant,
     });
 
     const saved = await salaryDoc.save({ session });
 
     // 6. Link subtrips back to this salary receipt
     await Subtrip.updateMany(
-      { _id: { $in: associatedSubtrips } },
+      { _id: { $in: associatedSubtrips }, tenant: req.tenant },
       { $set: { driverSalaryReceiptId: saved._id } },
       { session }
     );
@@ -180,7 +186,10 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
       }
 
       // Fetch driver
-      const driver = await Driver.findById(driverId).session(session);
+      const driver = await Driver.findOne({
+        _id: driverId,
+        tenant: req.tenant,
+      }).session(session);
       if (!driver) {
         await session.abortTransaction();
         return res.status(404).json({
@@ -193,6 +202,7 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
       const rawSubtrips = await Subtrip.find({
         _id: { $in: associatedSubtrips },
         driverSalaryReceiptId: null,
+        tenant: req.tenant,
       })
         .populate("tripId")
         .populate("expenses")
@@ -255,13 +265,14 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
         additionalDeductions,
         summary,
         meta,
+        tenant: req.tenant,
       });
       const saved = await doc.save({ session });
       savedDocs.push(saved);
 
       // Link subtrips
       await Subtrip.updateMany(
-        { _id: { $in: associatedSubtrips } },
+        { _id: { $in: associatedSubtrips }, tenant: req.tenant },
         { $set: { driverSalaryReceiptId: saved._id } },
         { session }
       );
@@ -294,13 +305,18 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
 
 // 📋 Fetch All
 const fetchDriverSalaries = asyncHandler(async (req, res) => {
-  const docs = await DriverSalary.find().populate("driverId").lean();
+  const docs = await DriverSalary.find({ tenant: req.tenant })
+    .populate("driverId")
+    .lean();
   res.status(200).json(docs);
 });
 
 // 📋 Fetch One
 const fetchDriverSalary = asyncHandler(async (req, res) => {
-  const doc = await DriverSalary.findById(req.params.id)
+  const doc = await DriverSalary.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  })
     .populate("driverId")
     .lean();
   if (!doc) {
@@ -311,8 +327,8 @@ const fetchDriverSalary = asyncHandler(async (req, res) => {
 
 // ✏️ Update
 const updateDriverSalary = asyncHandler(async (req, res) => {
-  const updated = await DriverSalary.findByIdAndUpdate(
-    req.params.id,
+  const updated = await DriverSalary.findOneAndUpdate(
+    { _id: req.params.id, tenant: req.tenant },
     req.body,
     { new: true }
   ).populate("driverId");
@@ -324,18 +340,21 @@ const updateDriverSalary = asyncHandler(async (req, res) => {
 
 // 🗑️ Delete
 const deleteDriverSalary = asyncHandler(async (req, res) => {
-  const doc = await DriverSalary.findById(req.params.id);
+  const doc = await DriverSalary.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  });
   if (!doc) {
     return res.status(404).json({ message: "Driver Salary not found." });
   }
 
   // unlink subtrips
   await Subtrip.updateMany(
-    { _id: { $in: doc.associatedSubtrips } },
+    { _id: { $in: doc.associatedSubtrips }, tenant: req.tenant },
     { $unset: { driverSalaryReceiptId: "" } }
   );
 
-  await DriverSalary.findByIdAndDelete(req.params.id);
+  await DriverSalary.findOneAndDelete({ _id: req.params.id, tenant: req.tenant });
   res.status(200).json({ message: "Driver Salary deleted successfully." });
 });
 

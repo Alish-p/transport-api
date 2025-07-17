@@ -11,6 +11,7 @@ const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const Loan = require("../model/Loan");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 const { SUBTRIP_STATUS, INVOICE_STATUS } = require("../constants/status");
 const {
