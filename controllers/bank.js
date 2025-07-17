@@ -1,9 +1,10 @@
 const asyncHandler = require("express-async-handler");
 const Bank = require("../model/Bank");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Bank
 const createBank = asyncHandler(async (req, res) => {
-  const bank = new Bank({ ...req.body });
+  const bank = new Bank({ ...req.body, tenant: req.tenant });
   const newBank = await bank.save();
 
   res.status(201).json(newBank);
@@ -15,7 +16,7 @@ const fetchBanks = asyncHandler(async (req, res) => {
     const { search } = req.query;
     const { limit, skip } = req.pagination;
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (search) {
       query.$or = [
@@ -50,7 +51,7 @@ const fetchBanks = asyncHandler(async (req, res) => {
 // Fetch Bank Details by ID
 const fetchBankDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const bank = await Bank.findById(id);
+  const bank = await Bank.findOne({ _id: id, tenant: req.tenant });
 
   if (!bank) {
     res.status(404).json({ message: "Bank not found" });
@@ -66,7 +67,11 @@ const updateBank = asyncHandler(async (req, res) => {
   console.log({ req });
 
   const { id } = req.params;
-  const bank = await Bank.findByIdAndUpdate(id, req.body, { new: true });
+  const bank = await Bank.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    req.body,
+    { new: true }
+  );
 
   res.status(200).json(bank);
 });
@@ -74,7 +79,7 @@ const updateBank = asyncHandler(async (req, res) => {
 // Delete Bank
 const deleteBank = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const bank = await Bank.findByIdAndDelete(id);
+  const bank = await Bank.findOneAndDelete({ _id: id, tenant: req.tenant });
 
   res.status(200).json(bank);
 });

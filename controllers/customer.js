@@ -3,11 +3,13 @@ const mongoose = require("mongoose");
 const Customer = require("../model/Customer");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Customer
 const createCustomer = asyncHandler(async (req, res) => {
   const newCustomer = new Customer({
     ...req.body,
+    tenant: req.tenant,
   });
   const savedCustomer = await newCustomer.save();
   res.status(201).json(savedCustomer);
@@ -19,7 +21,7 @@ const fetchCustomers = asyncHandler(async (req, res) => {
     const { search } = req.query;
     const { limit, skip } = req.pagination;
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (search) {
       query.$or = [
@@ -52,7 +54,7 @@ const fetchCustomers = asyncHandler(async (req, res) => {
 
 // Fetch Light Customers (only name, state, cellNo)
 const fetchCustomersSummary = asyncHandler(async (req, res) => {
-  const customers = await Customer.find().select(
+  const customers = await Customer.find({ tenant: req.tenant }).select(
     "customerName state cellNo address gstEnabled"
   );
   res.status(200).json(customers);
@@ -60,16 +62,20 @@ const fetchCustomersSummary = asyncHandler(async (req, res) => {
 
 // Fetch Single Customer
 const fetchCustomer = asyncHandler(async (req, res) => {
-  const customer = await Customer.findById(req.params.id);
+  const customer = await Customer.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  });
 
   if (!customer) {
     res.status(404).json({ message: "Customer not found" });
     return;
   }
 
-  const invoices = await Invoice.find({ customerId: req.params.id }).select(
-    "_id invoiceNo issueDate dueDate netTotal"
-  );
+  const invoices = await Invoice.find({
+    customerId: req.params.id,
+    tenant: req.tenant,
+  }).select("_id invoiceNo issueDate dueDate netTotal");
 
   const currentYear = new Date().getUTCFullYear();
   const marchStart = new Date(Date.UTC(currentYear, 2, 1));
@@ -116,8 +122,8 @@ const fetchCustomer = asyncHandler(async (req, res) => {
 
 // Update Customer
 const updateCustomer = asyncHandler(async (req, res) => {
-  const updatedCustomer = await Customer.findByIdAndUpdate(
-    req.params.id,
+  const updatedCustomer = await Customer.findOneAndUpdate(
+    { _id: req.params.id, tenant: req.tenant },
     req.body,
     {
       new: true,
@@ -128,14 +134,17 @@ const updateCustomer = asyncHandler(async (req, res) => {
 
 // Delete Customer
 const deleteCustomer = asyncHandler(async (req, res) => {
-  const customer = await Customer.findById(req.params.id);
+  const customer = await Customer.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  });
 
   if (!customer) {
     res.status(404).json({ message: "Customer not found" });
     return;
   }
 
-  await Customer.findByIdAndDelete(req.params.id);
+  await Customer.findOneAndDelete({ _id: req.params.id, tenant: req.tenant });
   res.status(200).json({ message: "Customer deleted successfully" });
 });
 
