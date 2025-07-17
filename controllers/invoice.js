@@ -87,6 +87,7 @@ const createInvoice = asyncHandler(async (req, res) => {
       subtripId: st._id,
       consignee: st.consignee,
       unloadingPoint: st.unloadingPoint,
+      diNumber: st.diNumber,
       vehicleNo: st.tripId?.vehicleId?.vehicleNo,
       rate: st.rate,
       materialType: st.materialType,
@@ -199,8 +200,8 @@ const fetchInvoices = asyncHandler(async (req, res) => {
     // Cast ObjectId fields explicitly for aggregation stage
     const aggMatch = { ...query };
     if (aggMatch.customerId && aggMatch.customerId.$in) {
-      aggMatch.customerId.$in = aggMatch.customerId.$in.map((id) =>
-        new mongoose.Types.ObjectId(id)
+      aggMatch.customerId.$in = aggMatch.customerId.$in.map(
+        (id) => new mongoose.Types.ObjectId(id)
       );
     }
 

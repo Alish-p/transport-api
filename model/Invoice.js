@@ -25,6 +25,7 @@ const subtripSnapshotSchema = new Schema(
     consignee: String,
     unloadingPoint: String,
     vehicleNo: String,
+    diNumber: String,
     rate: Number,
     loadingWeight: Number,
     materialType: String,
@@ -58,7 +59,6 @@ const invoiceSchema = new Schema(
     // Invoice dates
     issueDate: { type: Date, default: Date.now },
     dueDate: { type: Date },
-
 
     // Financials
     totalAmountBeforeTax: { type: Number, default: 0 },
