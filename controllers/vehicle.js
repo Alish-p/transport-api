@@ -25,7 +25,8 @@ const quickCreateVehicle = asyncHandler(async (req, res) => {
 
   if (!vehicleNo || !transporterId || !noOfTyres || !vehicleType) {
     return res.status(400).json({
-      message: "vehicleNo, transporterId, noOfTyres and vehicleType are required",
+      message:
+        "vehicleNo, transporterId, noOfTyres and vehicleType are required",
     });
   }
 
@@ -121,10 +122,10 @@ const fetchVehiclesSummary = asyncHandler(async (req, res) => {
 // fetch single vehicle by id
 const fetchVehicleById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const vehicle = await Vehicle.findOne({ _id: id, tenant: req.tenant }).populate(
-    "transporter",
-    "transportName"
-  );
+  const vehicle = await Vehicle.findOne({
+    _id: id,
+    tenant: req.tenant,
+  }).populate("transporter", "transportName");
   if (!vehicle) {
     res.status(404).json({ message: "Vehicle not found" });
     return;
@@ -153,7 +154,10 @@ const updateVehicle = asyncHandler(async (req, res) => {
 // Delete Vehicle
 const deleteVehicle = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const vehicle = await Vehicle.findOneAndDelete({ _id: id, tenant: req.tenant });
+  const vehicle = await Vehicle.findOneAndDelete({
+    _id: id,
+    tenant: req.tenant,
+  });
 
   res.status(200).json(vehicle);
 });
@@ -199,11 +203,32 @@ const getVehicleBillingSummary = asyncHandler(async (req, res) => {
         as: "expenseDocs",
       },
     },
-    { $lookup: { from: "routes", localField: "routeCd", foreignField: "_id", as: "route" } },
+    {
+      $lookup: {
+        from: "routes",
+        localField: "routeCd",
+        foreignField: "_id",
+        as: "route",
+      },
+    },
     { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
-    { $lookup: { from: "customers", localField: "customerId", foreignField: "_id", as: "customer" } },
+    {
+      $lookup: {
+        from: "customers",
+        localField: "customerId",
+        foreignField: "_id",
+        as: "customer",
+      },
+    },
     { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
-    { $lookup: { from: "invoices", localField: "invoiceId", foreignField: "_id", as: "invoice" } },
+    {
+      $lookup: {
+        from: "invoices",
+        localField: "invoiceId",
+        foreignField: "_id",
+        as: "invoice",
+      },
+    },
     { $unwind: { path: "$invoice", preserveNullAndEmptyArrays: true } },
     {
       $addFields: {

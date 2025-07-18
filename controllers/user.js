@@ -4,25 +4,34 @@ const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create User
 const createUser = asyncHandler(async (req, res) => {
-  const newUser = await new UserModel({ ...req.body, tenant: req.tenant }).save();
+  const newUser = await new UserModel({
+    ...req.body,
+    tenant: req.tenant,
+  }).save();
   res.status(201).json(newUser);
 });
 
 // Fetch Users
 const fetchUsers = asyncHandler(async (req, res) => {
-  const users = await UserModel.find({ tenant: req.tenant });
+  const users = await UserModel.find({ tenant: req.tenant }).populate("tenant");
   res.status(200).json(users);
 });
 
 // Fetch User
 const fetchUser = asyncHandler(async (req, res) => {
-  const user = await UserModel.findOne({ _id: req.params.id, tenant: req.tenant });
+  const user = await UserModel.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  });
   res.status(200).json(user);
 });
 
 // Delete User
 const deleteUser = asyncHandler(async (req, res) => {
-  const user = await UserModel.findOneAndDelete({ _id: req.params.id, tenant: req.tenant });
+  const user = await UserModel.findOneAndDelete({
+    _id: req.params.id,
+    tenant: req.tenant,
+  });
   res.status(200).json(user);
 });
 

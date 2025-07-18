@@ -18,16 +18,12 @@ const fetchTenants = asyncHandler(async (req, res) => {
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
-        { tenantId: { $regex: search, $options: "i" } },
         { slug: { $regex: search, $options: "i" } },
       ];
     }
 
     const [tenants, total] = await Promise.all([
-      Tenant.find(query)
-        .sort({ name: 1 })
-        .skip(skip)
-        .limit(limit),
+      Tenant.find(query).sort({ name: 1 }).skip(skip).limit(limit),
       Tenant.countDocuments(query),
     ]);
 

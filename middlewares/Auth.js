@@ -10,6 +10,11 @@ const private = asyncHandler(async (req, res, next) => {
     token = token.split(" ")[1];
     try {
       const { id, tenant } = jwt.verify(token, process.env.JWT_SECRET);
+      if (!tenant) {
+        const error = new Error("Tenant missing in token");
+        error.status = 400;
+        return next(error);
+      }
       const user = await UserModel.findById(id, { password: 0 });
       req.user = user;
       req.tenant = tenant;
