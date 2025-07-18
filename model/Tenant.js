@@ -2,7 +2,6 @@ const { Schema, model } = require("mongoose");
 
 const paymentHistorySchema = new Schema(
   {
-    transactionId: { type: String, required: true },
     amount: { type: Number, required: true },
     paymentDate: { type: Date, required: true },
     paymentMethod: {
@@ -22,7 +21,6 @@ const paymentHistorySchema = new Schema(
 
 const tenantSchema = new Schema(
   {
-    tenantId: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     slug: { type: String, required: true, unique: true },
     tagline: String,

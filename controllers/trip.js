@@ -56,15 +56,8 @@ const createTrip = asyncHandler(async (req, res) => {
 // Fetch Trips with pagination and search
 const fetchTrips = asyncHandler(async (req, res) => {
   try {
-    const {
-      tripId,
-      driverId,
-      vehicleId,
-      subtripId,
-      fromDate,
-      toDate,
-      status,
-    } = req.query;
+    const { tripId, driverId, vehicleId, subtripId, fromDate, toDate, status } =
+      req.query;
 
     const { limit, skip } = req.pagination || {};
 
@@ -167,14 +160,14 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
       $project: {
         _id: 1,
         driverId: {
-          driverName: "$driver.driverName"
+          driverName: "$driver.driverName",
         },
         vehicleId: {
-          vehicleNo: "$vehicle.vehicleNo"
+          vehicleNo: "$vehicle.vehicleNo",
         },
         fromDate: "$fromDate",
-        tripStatus: "$tripStatus"
-      }
+        tripStatus: "$tripStatus",
+      },
     };
 
     const dataPipeline = [
@@ -300,9 +293,6 @@ const updateTrip = asyncHandler(async (req, res) => {
       runValidators: true,
     }
   );
-    new: true,
-    runValidators: true,
-  });
 
   res.status(200).json(updatedTrip);
 });
