@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const UserModel = require("../model/User");
 const { generateToken } = require("../Utils/generateToken");
+const Tenant = require("../model/Tenant");
 
 // Auth
 const loginUser = asyncHandler(async (req, res) => {
@@ -24,7 +25,8 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const getUser = asyncHandler(async (req, res) => {
-  res.status(200).json({ user: req.user });
+  const tenant = await Tenant.findById(req.user.tenant);
+  res.status(200).json({ user: req.user, tenant });
 });
 
 module.exports = { loginUser, getUser };
