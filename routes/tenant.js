@@ -3,8 +3,7 @@ const {
   createTenant,
   fetchTenants,
   fetchTenantById,
-  updateTenant,
-  deleteTenant,
+  updateTenant
 } = require("../controllers/tenant");
 
 const { private, checkPermission } = require("../middlewares/Auth");
@@ -13,14 +12,15 @@ const pagination = require("../middlewares/pagination");
 const router = Router();
 
 router.post("/", createTenant);
-router.get("/", private, pagination, fetchTenants);
-router.get("/:id", private, fetchTenantById);
-router.put("/:id", private, checkPermission("tenant", "update"), updateTenant);
-router.delete(
-  "/:id",
+router.get(
+  "/",
   private,
-  checkPermission("tenant", "delete"),
-  deleteTenant
+  checkPermission("tenant", "view"),
+  pagination,
+  fetchTenants
 );
+router.get("/:id", private, checkPermission("tenant", "view"), fetchTenantById);
+router.put("/:id", private, checkPermission("tenant", "update"), updateTenant);
+// Delete operation is disabled for tenants
 
 module.exports = router;
