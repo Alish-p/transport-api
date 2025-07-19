@@ -147,6 +147,13 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       query.vehicleId = { $in: vehicles.map((v) => v._id) };
     }
 
+    // Mongoose does not automatically cast aggregation pipeline values, so make
+    // sure tenant is an ObjectId when used in $match
+    const aggQuery = { ...query };
+    if (aggQuery.tenant && typeof aggQuery.tenant === "string") {
+      aggQuery.tenant = new mongoose.Types.ObjectId(aggQuery.tenant);
+    }
+
     const [expenses, totalsAgg] = await Promise.all([
       Expense.find(query)
         .populate({
@@ -159,7 +166,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
         .skip(skip)
         .limit(limit),
       Expense.aggregate([
-        { $match: query },
+        { $match: aggQuery },
         {
           $group: {
             _id: "$expenseCategory",
