@@ -1,16 +1,14 @@
 const asyncHandler = require("express-async-handler");
+const mongoose = require("mongoose");
 const Expense = require("../model/Expense");
 const Subtrip = require("../model/Subtrip");
 const Vehicle = require("../model/Vehicle");
-const mongoose = require("mongoose");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
 const { addTenantToQuery } = require("../Utils/tenant-utils");
 const {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,
 } = require("../helpers/subtrip-event-helper");
-
-
 
 // Create Expense
 const createExpense = asyncHandler(async (req, res) => {
@@ -38,7 +36,6 @@ const createExpense = asyncHandler(async (req, res) => {
     const newExpense = await expense.save();
 
     subtrip.expenses.push(newExpense._id);
-
 
     await subtrip.save();
 
@@ -88,7 +85,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
     if (routeId) {
       const subtripFilter = addTenantToQuery(req, { routeCd: routeId });
       if (subtripId) subtripFilter._id = subtripId;
-      const subtrips = await Subtrip.find(subtripFilter).select('_id');
+      const subtrips = await Subtrip.find(subtripFilter).select("_id");
       if (!subtrips.length) {
         return res.status(200).json({
           expenses: [],
@@ -129,7 +126,9 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       if (vehicleId) vehicleQuery._id = vehicleId;
       if (transporterId) vehicleQuery.transporter = transporterId;
 
-      const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleQuery)).select("_id");
+      const vehicles = await Vehicle.find(
+        addTenantToQuery(req, vehicleQuery)
+      ).select("_id");
 
       if (!vehicles.length) {
         return res.status(200).json({
@@ -150,9 +149,6 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
     // Mongoose does not automatically cast aggregation pipeline values, so make
     // sure tenant is an ObjectId when used in $match
     const aggQuery = { ...query };
-    if (aggQuery.tenant && typeof aggQuery.tenant === "string") {
-      aggQuery.tenant = new mongoose.Types.ObjectId(aggQuery.tenant);
-    }
 
     const [expenses, totalsAgg] = await Promise.all([
       Expense.find(query)
@@ -176,7 +172,6 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
         },
       ]),
     ]);
-
 
     const totals = {
       all: { count: 0, amount: 0 },
@@ -206,7 +201,10 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
 
 // Fetch Single Expense
 const fetchExpense = asyncHandler(async (req, res) => {
-  const expense = await Expense.findOne({ _id: req.params.id, tenant: req.tenant })
+  const expense = await Expense.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  })
     .populate("vehicleId")
     .populate("pumpCd");
 

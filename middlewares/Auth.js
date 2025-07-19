@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const UserModel = require("../model/User");
 
 // check if token exists
@@ -17,7 +18,7 @@ const private = asyncHandler(async (req, res, next) => {
       }
       const user = await UserModel.findById(id, { password: 0 });
       req.user = user;
-      req.tenant = tenant;
+      req.tenant = new mongoose.Types.ObjectId(tenant);
       next();
     } catch (err) {
       const error = new Error("Invalid Token.");
