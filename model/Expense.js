@@ -23,7 +23,7 @@ const expenseSchema = new Schema({
   performanceSalary: { type: Number },
   adblueLiters: { type: Number },
   adbluePrice: { type: Number },
-  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
 expenseSchema.pre("validate", function (next) {

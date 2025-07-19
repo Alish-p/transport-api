@@ -56,7 +56,7 @@ const loanSchema = new Schema(
       enum: ["Driver", "Transporter", "Employee"],
     },
 
-    tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+    tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 
     principalAmount: { type: Number, required: true },
     interestRate: { type: Number, required: true }, // annual %

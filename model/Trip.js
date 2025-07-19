@@ -11,7 +11,7 @@ const tripSchema = new Schema({
   toDate: { type: Date },
   remarks: { type: String },
   subtrips: [{ type: String, ref: "Subtrip" }],
-  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
 // for creating incremental id

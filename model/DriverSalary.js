@@ -40,7 +40,7 @@ const driverSalarySchema = new Schema({
   paymentId: { type: String, immutable: true, unique: true },
   // Reference to the driver
   driverId: { type: Schema.Types.ObjectId, required: true, ref: "Driver" },
-  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   // Status of the payment
   status: {
     type: String,

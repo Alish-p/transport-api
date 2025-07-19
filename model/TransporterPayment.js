@@ -82,7 +82,7 @@ const transporterPaymentReceiptSchema = new Schema(
       ref: "Transporter",
       required: true,
     },
-    tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+    tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 
     // Status of the payment
     status: {

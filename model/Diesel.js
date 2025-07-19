@@ -5,7 +5,7 @@ const dieselPriceSchema = new Schema({
   price: { type: Number, required: true },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
-  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
 module.exports = model("DieselPrice", dieselPriceSchema);

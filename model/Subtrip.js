@@ -65,7 +65,7 @@ const subtripSchema = new Schema({
   invoiceId: { type: String, ref: "Invoice" },
   driverSalaryId: { type: String, ref: "DriverSalary" },
   transporterPaymentReceiptId: { type: String, ref: "TransporterPayment" },
-  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 
 });
 

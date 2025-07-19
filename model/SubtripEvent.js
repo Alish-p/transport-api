@@ -9,7 +9,7 @@ const subtripEventSchema = new Schema({
     _id: { type: String, ref: "User" },
     name: String,
   },
-  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
 module.exports = model("SubtripEvent", subtripEventSchema);

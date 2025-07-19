@@ -87,7 +87,7 @@ const taskSchema = new Schema(
       enum: ["todo", "in-progress", "done"],
       default: "todo",
     },
-    tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+    tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
     subtasks: [subtaskSchema],
   },
   {
