@@ -140,6 +140,12 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
 
     const matchStage = { tenant: req.tenant };
 
+    // Mongoose doesn't cast values in aggregation pipelines automatically
+    // so ensure tenant is an ObjectId before using it in $match
+    if (matchStage.tenant && typeof matchStage.tenant === "string") {
+      matchStage.tenant = new mongoose.Types.ObjectId(matchStage.tenant);
+    }
+
     if (status) {
       const statuses = Array.isArray(status) ? status : [status];
       matchStage.tripStatus = { $in: statuses };
