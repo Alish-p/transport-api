@@ -43,8 +43,7 @@ const fetchTenants = asyncHandler(async (req, res) => {
 
 // Fetch Tenant by ID
 const fetchTenantById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const tenant = await Tenant.findById(id);
+  const tenant = await Tenant.findById(req.tenant);
 
   if (!tenant) {
     res.status(404).json({ message: "Tenant not found" });
@@ -56,8 +55,9 @@ const fetchTenantById = asyncHandler(async (req, res) => {
 
 // Update Tenant
 const updateTenant = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const tenant = await Tenant.findByIdAndUpdate(id, req.body, { new: true });
+  const tenant = await Tenant.findByIdAndUpdate(req.tenant, req.body, {
+    new: true,
+  });
   res.status(200).json(tenant);
 });
 
