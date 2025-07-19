@@ -208,6 +208,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       const rawSubtrips = await Subtrip.find({
         _id: { $in: associatedSubtrips },
         transporterPaymentReceiptId: null,
+        tenant: req.tenant,
       })
         .populate({
           path: "tripId",
@@ -229,7 +230,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         await session.abortTransaction();
         return res.status(400).json({
           message: `Payload #${idx + 1
-            }: Some subtrips invalid or already linked.`,
+            }: Some subtrips invalid, belong to another tenant, or already linked.`,
           failedSubtrips: failed,
           index: idx,
         });
