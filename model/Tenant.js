@@ -24,6 +24,7 @@ const tenantSchema = new Schema(
     name: { type: String, required: true },
     slug: { type: String, required: true, unique: true },
     tagline: String,
+    theme: String,
     address: {
       line1: { type: String, required: true },
       line2: String,
