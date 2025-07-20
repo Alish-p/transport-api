@@ -1,10 +1,13 @@
 const asyncHandler = require("express-async-handler");
 const Tenant = require("../model/Tenant");
+const TenantConfig = require("../model/TenantConfig");
 
 // Create Tenant
 const createTenant = asyncHandler(async (req, res) => {
   const tenant = new Tenant({ ...req.body });
   const newTenant = await tenant.save();
+  // create config document with defaults for this tenant
+  await TenantConfig.create({ tenant: newTenant._id });
   res.status(201).json(newTenant);
 });
 
