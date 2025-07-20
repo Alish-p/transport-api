@@ -1,4 +1,5 @@
 const { Schema, model } = require("mongoose");
+const defaults = require("../constants/tenant-config-defaults");
 
 const paymentHistorySchema = new Schema(
   {
@@ -15,6 +16,15 @@ const paymentHistorySchema = new Schema(
       default: "PENDING",
     },
     notes: String,
+  },
+  { _id: false }
+);
+
+const optionSchema = new Schema(
+  {
+    label: { type: String, required: true },
+    value: { type: String, required: true },
+    icon: { type: String },
   },
   { _id: false }
 );
@@ -53,6 +63,11 @@ const tenantSchema = new Schema(
       isActive: Boolean,
       createdAt: Date,
       updatedAt: Date,
+    },
+    config: {
+      materialOptions: { type: [optionSchema], default: defaults.materialOptions },
+      subtripExpenseTypes: { type: [optionSchema], default: defaults.subtripExpenseTypes },
+      vehicleExpenseTypes: { type: [optionSchema], default: defaults.vehicleExpenseTypes },
     },
     paymentHistory: [paymentHistorySchema],
     isActive: { type: Boolean, default: true },
