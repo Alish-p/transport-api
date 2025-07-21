@@ -44,7 +44,7 @@ const tenantSchema = new Schema(
     },
     contactDetails: {
       email: { type: String, required: true },
-      phoneNumbers: [{ type: String }],
+      phone: { type: String },
       website: String,
     },
     legalInfo: {
@@ -65,9 +65,18 @@ const tenantSchema = new Schema(
       updatedAt: Date,
     },
     config: {
-      materialOptions: { type: [optionSchema], default: defaults.materialOptions },
-      subtripExpenseTypes: { type: [optionSchema], default: defaults.subtripExpenseTypes },
-      vehicleExpenseTypes: { type: [optionSchema], default: defaults.vehicleExpenseTypes },
+      materialOptions: {
+        type: [optionSchema],
+        default: defaults.materialOptions,
+      },
+      subtripExpenseTypes: {
+        type: [optionSchema],
+        default: defaults.subtripExpenseTypes,
+      },
+      vehicleExpenseTypes: {
+        type: [optionSchema],
+        default: defaults.vehicleExpenseTypes,
+      },
     },
     paymentHistory: [paymentHistorySchema],
     isActive: { type: Boolean, default: true },
