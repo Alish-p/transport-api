@@ -65,8 +65,12 @@ const subtripSchema = new Schema({
   invoiceId: { type: String, ref: "Invoice" },
   driverSalaryId: { type: String, ref: "DriverSalary" },
   transporterPaymentReceiptId: { type: String, ref: "TransporterPayment" },
-  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
-
+  tenant: {
+    type: Schema.Types.ObjectId,
+    ref: "Tenant",
+    required: true,
+    index: true,
+  },
 });
 
 // for creating incremental id
@@ -76,8 +80,8 @@ subtripSchema.pre("save", async function (next) {
   }
   try {
     const counter = await CounterModel.findOneAndUpdate(
-      { _id: "SubtripId", tenant: this.tenant },
-      { $inc: { seq: 1 } },
+      { _id: `SubtripId_${this.tenant}` },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant } },
       { new: true, upsert: true }
     );
 

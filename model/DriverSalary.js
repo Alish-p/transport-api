@@ -40,7 +40,12 @@ const driverSalarySchema = new Schema({
   paymentId: { type: String, immutable: true, unique: true },
   // Reference to the driver
   driverId: { type: Schema.Types.ObjectId, required: true, ref: "Driver" },
-  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+  tenant: {
+    type: Schema.Types.ObjectId,
+    ref: "Tenant",
+    required: true,
+    index: true,
+  },
   // Status of the payment
   status: {
     type: String,
@@ -100,8 +105,8 @@ driverSalarySchema.pre("save", async function (next) {
   }
   try {
     const counter = await CounterModel.findOneAndUpdate(
-      { _id: "DriverSalaryId", tenant: this.tenant },
-      { $inc: { seq: 1 } },
+      { _id: `DriverSalaryId_${this.tenant}` },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant } },
       { new: true, upsert: true }
     );
 
