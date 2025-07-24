@@ -1,6 +1,8 @@
 /* eslint-disable no-unused-vars */
 const express = require("express");
 const helmet = require("helmet");
+const mongoSanitize = require("express-mongo-sanitize");
+const hpp = require("hpp");
 
 const dotenv = require("dotenv").config();
 
@@ -53,6 +55,8 @@ const gpsRouter = require("./routes/gps");
 connectDB();
 
 app.use(express.json());
+app.use(mongoSanitize());
+app.use(hpp());
 
 // ratelimits
 const limiter = rateLimit({
