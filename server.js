@@ -1,14 +1,17 @@
+/* eslint-disable no-unused-vars */
 const express = require("express");
-const connectDB = require("./config/db");
-const { errorHandler } = require("./middlewares/ErrorHandler");
-const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
+
 const dotenv = require("dotenv").config();
+
+const cors = require("cors");
+const rateLimit = require("express-rate-limit");
+const connectDB = require("./config/db");
+
+const { errorHandler } = require("./middlewares/ErrorHandler");
 
 const port = process.env.PORT || 5001;
 const app = express();
-
-const cors = require("cors");
-const helmet = require("helmet");
 
 // Add CORS options
 const corsOptions = {
@@ -40,7 +43,7 @@ const driverSalaryRouter = require("./routes/driverSalary");
 const loanRouter = require("./routes/loan");
 const transporterPaymentRouter = require("./routes/transporterPayment");
 const subtripEventRouter = require("./routes/subtripEvent");
-const lrRouter = require("./routes/lr");
+const subtripRouter = require("./routes/subtrip");
 const userRouter = require("./routes/user");
 const tenantRouter = require("./routes/tenant");
 const authRouter = require("./routes/auth");
@@ -73,7 +76,7 @@ app.use("/api/pumps", pumpRouter);
 app.use("/api/diesel-prices", dieselPriceRouter);
 app.use("/api/routes", routeRouter);
 app.use("/api/trips", tripRouter);
-app.use("/api/subtrips", lrRouter);
+app.use("/api/subtrips", subtripRouter);
 app.use("/api/expenses", expenseRouter);
 app.use("/api/invoices", invoiceRouter);
 app.use("/api/driverPayroll", driverSalaryRouter);

@@ -7,8 +7,9 @@ const {
   fetchSingleRoute,
 } = require("../controllers/route");
 
-const { private, admin, checkPermission } = require("../middlewares/Auth");
+const { private, checkPermission } = require("../middlewares/Auth");
 const pagination = require("../middlewares/pagination");
+
 const router = Router();
 
 router.post("/", private, checkPermission("route", "create"), createRoute);

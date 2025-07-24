@@ -8,15 +8,31 @@ const {
   fetchDieselPriceOnDate,
 } = require("../controllers/diesel");
 
-const { private, admin, checkPermission } = require("../middlewares/Auth");
+const { private, checkPermission } = require("../middlewares/Auth");
 const pagination = require("../middlewares/pagination");
+
 const router = Router();
 
-router.post("/", private, checkPermission("diesel", "create"), createDieselPrice);
+router.post(
+  "/",
+  private,
+  checkPermission("diesel", "create"),
+  createDieselPrice
+);
 router.get("/", private, pagination, fetchDieselPrices);
 router.get("/:pump/:date", private, fetchDieselPriceOnDate);
 router.get("/:id", private, fetchDieselPrice);
-router.delete("/:id", private, checkPermission("diesel", "delete"), deleteDieselPrice);
-router.put("/:id", private, checkPermission("diesel", "update"), updateDieselPrice);
+router.delete(
+  "/:id",
+  private,
+  checkPermission("diesel", "delete"),
+  deleteDieselPrice
+);
+router.put(
+  "/:id",
+  private,
+  checkPermission("diesel", "update"),
+  updateDieselPrice
+);
 
 module.exports = router;
