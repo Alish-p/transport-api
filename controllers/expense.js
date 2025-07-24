@@ -44,7 +44,8 @@ const createExpense = asyncHandler(async (req, res) => {
       subtrip._id,
       SUBTRIP_EVENT_TYPES.EXPENSE_ADDED,
       { expenseType: newExpense.expenseType, amount: newExpense.amount },
-      req.user
+      req.user,
+      req.tenant
     );
 
     res.status(201).json(newExpense);
@@ -247,7 +248,8 @@ const deleteExpense = asyncHandler(async (req, res) => {
       expense.subtripId,
       SUBTRIP_EVENT_TYPES.EXPENSE_DELETED,
       { expenseType: expense.expenseType, amount: expense.amount },
-      req.user
+      req.user,
+      req.tenant
     );
   }
 

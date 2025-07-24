@@ -143,7 +143,8 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
           stId,
           SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_GENERATED,
           { transporterId },
-          req.user
+          req.user,
+          req.tenant
         )
       )
     );
@@ -306,7 +307,8 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
             stId,
             SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_GENERATED,
             { transporterId },
-            req.user
+            req.user,
+            req.tenant
           )
         )
       );

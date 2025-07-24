@@ -134,7 +134,8 @@ const createDriverSalary = asyncHandler(async (req, res) => {
           stId,
           SUBTRIP_EVENT_TYPES.DRIVER_SALARY_GENERATED,
           { driverId },
-          req.user
+          req.user,
+          req.tenant
         )
       )
     );
@@ -284,7 +285,8 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
             stId,
             SUBTRIP_EVENT_TYPES.DRIVER_SALARY_GENERATED,
             { driverId },
-            req.user
+            req.user,
+            req.tenant
           )
         )
       );

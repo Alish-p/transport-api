@@ -140,7 +140,8 @@ const createInvoice = asyncHandler(async (req, res) => {
         subtrip._id,
         SUBTRIP_EVENT_TYPES.INVOICE_GENERATED,
         { invoiceNo: savedInvoice.invoiceNo, amount: summary.netTotal },
-        req.user
+        req.user,
+        req.tenant
       );
 
       await subtrip.save({ session });
@@ -313,7 +314,8 @@ const deleteInvoice = asyncHandler(async (req, res) => {
           deletedInvoiceId: id,
           invoiceNo: invoice.invoiceNo,
         },
-        req.user
+        req.user,
+        req.tenant
       );
 
       await subtrip.save({ session });
@@ -394,7 +396,8 @@ const updateInvoice = asyncHandler(async (req, res) => {
             invoiceNo: updatedInvoice.invoiceNo,
             amount: updatedInvoice.netTotal,
           },
-          req.user
+          req.user,
+          req.tenant
         );
       }
 
