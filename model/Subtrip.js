@@ -80,8 +80,8 @@ subtripSchema.pre("save", async function (next) {
   }
   try {
     const counter = await CounterModel.findOneAndUpdate(
-      { _id: `SubtripId_${this.tenant}` },
-      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant } },
+      { model: "Subtrip", tenant: this.tenant },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: "Subtrip" } },
       { new: true, upsert: true }
     );
 

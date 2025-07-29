@@ -147,8 +147,8 @@ transporterPaymentReceiptSchema.pre("save", async function (next) {
 
   try {
     const counter = await CounterModel.findOneAndUpdate(
-      { _id: `TransporterPaymentReceiptId_${this.tenant}` },
-      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant } },
+      { model: "TransporterPayment", tenant: this.tenant },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: "TransporterPayment" } },
       { new: true, upsert: true }
     );
 

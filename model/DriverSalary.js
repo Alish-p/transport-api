@@ -105,8 +105,8 @@ driverSalarySchema.pre("save", async function (next) {
   }
   try {
     const counter = await CounterModel.findOneAndUpdate(
-      { _id: `DriverSalaryId_${this.tenant}` },
-      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant } },
+      { model: "DriverSalary", tenant: this.tenant },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: "DriverSalary" } },
       { new: true, upsert: true }
     );
 

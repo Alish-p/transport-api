@@ -26,8 +26,8 @@ tripSchema.pre("save", async function (next) {
   }
   try {
     const counter = await CounterModel.findOneAndUpdate(
-      { _id: `TripId_${this.tenant}` },
-      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant } },
+      { model: "Trip", tenant: this.tenant },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: "Trip" } },
       { new: true, upsert: true }
     );
 
