@@ -20,6 +20,30 @@ const paymentHistorySchema = new Schema(
   { _id: false }
 );
 
+const integrationSchema = new Schema(
+  {
+    whatsapp: {
+      enabled: { type: Boolean, default: false },
+      provider: {
+        type: String,
+        enum: ["Twilio", "Gupshup", "Kaleyra"],
+        default: null,
+      },
+      config: { type: Schema.Types.Mixed },
+    },
+    vehicleGPS: {
+      enabled: { type: Boolean, default: false },
+      provider: {
+        type: String,
+        enum: ["Fleetx", "LocoNav", "BlackBuck", "Other"],
+        default: null,
+      },
+      config: { type: Schema.Types.Mixed },
+    },
+  },
+  { _id: false }
+);
+
 const optionSchema = new Schema(
   {
     label: { type: String, required: true },
@@ -77,6 +101,10 @@ const tenantSchema = new Schema(
         type: [optionSchema],
         default: defaults.vehicleExpenseTypes,
       },
+    },
+    integrations: {
+      type: integrationSchema,
+      default: () => ({}),
     },
     paymentHistory: [paymentHistorySchema],
     isActive: { type: Boolean, default: true },
