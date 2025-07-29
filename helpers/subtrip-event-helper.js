@@ -5,7 +5,8 @@ const recordSubtripEvent = async (
   subtrip,
   eventType,
   details = {},
-  user = null
+  user = null,
+  tenant = null
 ) => {
   const subtripId = typeof subtrip === "string" ? subtrip : subtrip._id;
 
@@ -16,10 +17,13 @@ const recordSubtripEvent = async (
     details,
     user: user
       ? {
-        _id: user._id,
-        name: user.name,
-      }
+          _id: user._id,
+          name: user.name,
+        }
       : null,
+    tenant: tenant || (typeof subtrip === "object" && subtrip.tenant
+      ? subtrip.tenant
+      : undefined),
   };
 
   await SubtripEvent.create(eventData);

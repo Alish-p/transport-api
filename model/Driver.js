@@ -24,6 +24,7 @@ const driverSchema = new Schema({
     place: { type: String },
     accNo: { type: String },
   },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
 module.exports = model("Driver", driverSchema);

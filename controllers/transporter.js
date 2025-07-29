@@ -1,9 +1,10 @@
 const asyncHandler = require("express-async-handler");
 const Transporter = require("../model/Transporter");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Transporter
 const createTransporter = asyncHandler(async (req, res) => {
-  const transporter = new Transporter({ ...req.body });
+  const transporter = new Transporter({ ...req.body, tenant: req.tenant });
   const newTransporter = await transporter.save();
 
   res.status(201).json(newTransporter);
@@ -15,7 +16,7 @@ const fetchTransporters = asyncHandler(async (req, res) => {
     const { search } = req.query;
     const { limit, skip } = req.pagination;
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (search) {
       query.$or = [
@@ -49,17 +50,18 @@ const fetchTransporters = asyncHandler(async (req, res) => {
 // Fetch Transporter by ID
 const fetchTransporterById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  console.log(id);
-  const transporter = await Transporter.findById(id);
+  const transporter = await Transporter.findOne({ _id: id, tenant: req.tenant });
   res.status(200).json(transporter);
 });
 
 // Update Transporter
 const updateTransporter = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const transporter = await Transporter.findByIdAndUpdate(id, req.body, {
-    new: true,
-  });
+  const transporter = await Transporter.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    req.body,
+    { new: true }
+  );
 
   res.status(200).json(transporter);
 });
@@ -67,7 +69,10 @@ const updateTransporter = asyncHandler(async (req, res) => {
 // Delete Transporter
 const deleteTransporter = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const transporter = await Transporter.findByIdAndDelete(id);
+  const transporter = await Transporter.findOneAndDelete({
+    _id: id,
+    tenant: req.tenant,
+  });
 
   res.status(200).json(transporter);
 });

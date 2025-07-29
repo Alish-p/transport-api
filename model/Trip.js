@@ -11,6 +11,12 @@ const tripSchema = new Schema({
   toDate: { type: Date },
   remarks: { type: String },
   subtrips: [{ type: String, ref: "Subtrip" }],
+  tenant: {
+    type: Schema.Types.ObjectId,
+    ref: "Tenant",
+    required: true,
+    index: true,
+  },
 });
 
 // for creating incremental id
@@ -19,10 +25,10 @@ tripSchema.pre("save", async function (next) {
     return next();
   }
   try {
-    const counter = await CounterModel.findByIdAndUpdate(
-      { _id: "TripId" },
-      { $inc: { seq: 1 } },
-      { upsert: true }
+    const counter = await CounterModel.findOneAndUpdate(
+      { model: "Trip", tenant: this.tenant },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: "Trip" } },
+      { new: true, upsert: true }
     );
 
     const tripId = counter ? `t-${counter.seq}` : "t-1";

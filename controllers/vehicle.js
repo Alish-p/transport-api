@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 const Vehicle = require("../model/Vehicle");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
@@ -12,7 +13,7 @@ const createVehicle = asyncHandler(async (req, res) => {
     req.body.transporter = null;
   }
 
-  const vehicle = new Vehicle({ ...req.body });
+  const vehicle = new Vehicle({ ...req.body, tenant: req.tenant });
   const newVehicle = await vehicle.save();
 
   res.status(201).json(newVehicle);
@@ -24,7 +25,8 @@ const quickCreateVehicle = asyncHandler(async (req, res) => {
 
   if (!vehicleNo || !transporterId || !noOfTyres || !vehicleType) {
     return res.status(400).json({
-      message: "vehicleNo, transporterId, noOfTyres and vehicleType are required",
+      message:
+        "vehicleNo, transporterId, noOfTyres and vehicleType are required",
     });
   }
 
@@ -42,6 +44,7 @@ const quickCreateVehicle = asyncHandler(async (req, res) => {
     engineType: "N/A",
     fuelTankCapacity: 0,
     isOwn: false,
+    tenant: req.tenant,
   });
 
   const newVehicle = await vehicle.save();
@@ -55,7 +58,7 @@ const fetchVehicles = asyncHandler(async (req, res) => {
     const { vehicleNo, vehicleType, isOwn, transporter, noOfTyres } = req.query;
     const { limit, skip } = req.pagination;
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (vehicleNo) {
       query.vehicleNo = { $regex: vehicleNo, $options: "i" };
@@ -110,7 +113,7 @@ const fetchVehicles = asyncHandler(async (req, res) => {
 
 // fetch vehicles
 const fetchVehiclesSummary = asyncHandler(async (req, res) => {
-  const Vehicles = await Vehicle.find()
+  const Vehicles = await Vehicle.find({ tenant: req.tenant })
     .select("vehicleNo vehicleType modelType vehicleCompany noOfTyres isOwn")
     .populate("transporter", "transportName");
   res.status(200).json(Vehicles);
@@ -119,10 +122,10 @@ const fetchVehiclesSummary = asyncHandler(async (req, res) => {
 // fetch single vehicle by id
 const fetchVehicleById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const vehicle = await Vehicle.findById(id).populate(
-    "transporter",
-    "transportName"
-  );
+  const vehicle = await Vehicle.findOne({
+    _id: id,
+    tenant: req.tenant,
+  }).populate("transporter", "transportName");
   if (!vehicle) {
     res.status(404).json({ message: "Vehicle not found" });
     return;
@@ -139,7 +142,11 @@ const updateVehicle = asyncHandler(async (req, res) => {
   if (req.body.isOwn) {
     req.body.transporter = null;
   }
-  const vehicle = await Vehicle.findByIdAndUpdate(id, req.body, { new: true });
+  const vehicle = await Vehicle.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    req.body,
+    { new: true }
+  );
 
   res.status(200).json(vehicle);
 });
@@ -147,7 +154,10 @@ const updateVehicle = asyncHandler(async (req, res) => {
 // Delete Vehicle
 const deleteVehicle = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const vehicle = await Vehicle.findByIdAndDelete(id);
+  const vehicle = await Vehicle.findOneAndDelete({
+    _id: id,
+    tenant: req.tenant,
+  });
 
   res.status(200).json(vehicle);
 });
@@ -193,11 +203,32 @@ const getVehicleBillingSummary = asyncHandler(async (req, res) => {
         as: "expenseDocs",
       },
     },
-    { $lookup: { from: "routes", localField: "routeCd", foreignField: "_id", as: "route" } },
+    {
+      $lookup: {
+        from: "routes",
+        localField: "routeCd",
+        foreignField: "_id",
+        as: "route",
+      },
+    },
     { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
-    { $lookup: { from: "customers", localField: "customerId", foreignField: "_id", as: "customer" } },
+    {
+      $lookup: {
+        from: "customers",
+        localField: "customerId",
+        foreignField: "_id",
+        as: "customer",
+      },
+    },
     { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
-    { $lookup: { from: "invoices", localField: "invoiceId", foreignField: "_id", as: "invoice" } },
+    {
+      $lookup: {
+        from: "invoices",
+        localField: "invoiceId",
+        foreignField: "_id",
+        as: "invoice",
+      },
+    },
     { $unwind: { path: "$invoice", preserveNullAndEmptyArrays: true } },
     {
       $addFields: {

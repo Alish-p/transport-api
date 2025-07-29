@@ -12,6 +12,7 @@ const {
 } = require("../controllers/loan");
 
 const { private, checkPermission } = require("../middlewares/Auth");
+
 const router = express.Router();
 
 router.post("/", private, checkPermission("loan", "create"), createLoan);

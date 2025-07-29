@@ -15,12 +15,7 @@ const pagination = require("../middlewares/pagination");
 const router = Router();
 
 // ─── CREATE ─────────────────────────────────────────────────────────
-router.post(
-  "/",
-  private,
-  checkPermission("vehicle", "create"),
-  createVehicle
-);
+router.post("/", private, checkPermission("vehicle", "create"), createVehicle);
 router.post(
   "/quick",
   private,
@@ -29,27 +24,12 @@ router.post(
 );
 
 // ─── READ (LIST & SUMMARY) ──────────────────────────────────────────
-router.get(
-  "/",
-  private,
-  pagination,
-  fetchVehicles
-);
-router.get(
-  "/summary",
-  private,
-  fetchVehiclesSummary
-);
+router.get("/", private, pagination, fetchVehicles);
+router.get("/summary", private, fetchVehiclesSummary);
 
 // ─── READ (SINGLE & BILLING) ────────────────────────────────────────
-router.get(
-  "/:id/billing-summary",
-  getVehicleBillingSummary
-);
-router.get(
-  "/:id",
-  fetchVehicleById
-);
+router.get("/:id/billing-summary", private, getVehicleBillingSummary);
+router.get("/:id", private, fetchVehicleById);
 
 // ─── UPDATE ─────────────────────────────────────────────────────────
 router.put(

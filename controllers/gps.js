@@ -1,21 +1,39 @@
 const asyncHandler = require("express-async-handler");
+const { GPS_PROVIDERS } = require("../constants/gps-providers");
 const { getFleetxVehicleData } = require("../helpers/fleetx");
+const Tenant = require("../model/Tenant");
 
 const getVehicleGpsData = asyncHandler(async (req, res) => {
-    const { vehicleNo } = req.params;
-    const provider = req.query.provider || "fleetx";
+  const { vehicleNo } = req.params;
 
-    if (provider !== "fleetx") {
-        return res.status(400).json({ message: "Unsupported GPS provider" });
-    }
+  const tenant = await Tenant.findById(req.tenant);
+  const integration = tenant?.integrations?.vehicleGPS;
 
-    const data = await getFleetxVehicleData(vehicleNo);
+  if (!integration?.enabled) {
+    return res.status(400).json({ message: "GPS not integrated" });
+  }
 
-    if (!data) {
-        return res.status(404).json({ message: "Vehicle not found" });
-    }
+  const provider = integration?.provider?.toLowerCase();
 
-    res.status(200).json(data);
+  if (!provider || !Object.values(GPS_PROVIDERS).includes(provider)) {
+    return res.status(400).json({ message: "Unsupported GPS provider" });
+  }
+
+  let data;
+
+  switch (provider) {
+    case GPS_PROVIDERS.FLEETX:
+      data = await getFleetxVehicleData(vehicleNo);
+      break;
+    default:
+      return res.status(400).json({ message: "Unsupported GPS provider" });
+  }
+
+  if (!data) {
+    return res.status(404).json({ message: "Vehicle not found" });
+  }
+
+  res.status(200).json(data);
 });
 
 module.exports = { getVehicleGpsData };

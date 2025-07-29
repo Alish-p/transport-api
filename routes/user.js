@@ -8,6 +8,7 @@ const {
 } = require("../controllers/user");
 
 const { private, checkPermission } = require("../middlewares/Auth");
+
 const router = Router();
 
 router.post("/", private, checkPermission("user", "create"), createUser);

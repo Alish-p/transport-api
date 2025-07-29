@@ -14,10 +14,26 @@ const pagination = require("../middlewares/pagination");
 
 const router = Router();
 
-router.post("/", private, checkPermission("invoice", "create"), validateZod(invoiceSchema), createInvoice);
-router.get("/", pagination, fetchInvoices);
+router.post(
+  "/",
+  private,
+  checkPermission("invoice", "create"),
+  validateZod(invoiceSchema),
+  createInvoice
+);
+router.get("/", private, pagination, fetchInvoices);
 router.get("/:id", private, fetchInvoice);
-router.put("/:id", private, checkPermission("invoice", "update"), updateInvoice);
-router.delete("/:id", private, checkPermission("invoice", "delete"), deleteInvoice);
+router.put(
+  "/:id",
+  private,
+  checkPermission("invoice", "update"),
+  updateInvoice
+);
+router.delete(
+  "/:id",
+  private,
+  checkPermission("invoice", "delete"),
+  deleteInvoice
+);
 
 module.exports = router;

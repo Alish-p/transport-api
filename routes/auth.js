@@ -2,6 +2,7 @@ const { Router } = require("express");
 const { loginUser, getUser } = require("../controllers/auth");
 
 const { private } = require("../middlewares/Auth");
+
 const router = Router();
 
 router.get("/my-account", private, getUser);

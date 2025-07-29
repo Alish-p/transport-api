@@ -18,6 +18,7 @@ const pumpSchema = new Schema({
     place: { type: String, required: true },
     accNo: { type: String, required: true },
   },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
 module.exports = model("Pump", pumpSchema);

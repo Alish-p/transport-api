@@ -1,9 +1,10 @@
 const asyncHandler = require("express-async-handler");
 const Pump = require("../model/Pump");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Pump
 const createPump = asyncHandler(async (req, res) => {
-  const pump = new Pump({ ...req.body });
+  const pump = new Pump({ ...req.body, tenant: req.tenant });
   const newPump = await pump.save();
 
   res.status(201).json(newPump);
@@ -12,7 +13,7 @@ const createPump = asyncHandler(async (req, res) => {
 // fetch Pump by ID
 const fetchPumpById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const pump = await Pump.findById(id);
+  const pump = await Pump.findOne({ _id: id, tenant: req.tenant });
 
   if (!pump) {
     res.status(404);
@@ -28,7 +29,7 @@ const fetchPumps = asyncHandler(async (req, res) => {
     const { search } = req.query;
     const { limit, skip } = req.pagination;
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (search) {
       query.$or = [
@@ -62,7 +63,11 @@ const fetchPumps = asyncHandler(async (req, res) => {
 // Update Pump
 const updatePump = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const pump = await Pump.findByIdAndUpdate(id, req.body, { new: true });
+  const pump = await Pump.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    req.body,
+    { new: true }
+  );
 
   res.status(200).json(pump);
 });
@@ -70,7 +75,7 @@ const updatePump = asyncHandler(async (req, res) => {
 // Delete Pump
 const deletePump = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const pump = await Pump.findByIdAndDelete(id);
+  const pump = await Pump.findOneAndDelete({ _id: id, tenant: req.tenant });
 
   res.status(200).json(pump);
 });

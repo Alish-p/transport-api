@@ -36,6 +36,7 @@ const CustomerSchema = new Schema({
 
   // days within which invoice should be paid
   invoiceDueInDays: { type: Number, default: 10 },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
 module.exports = model("Customer", CustomerSchema);

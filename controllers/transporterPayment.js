@@ -5,6 +5,7 @@ const TransporterPayment = require("../model/TransporterPayment");
 
 const Transporter = require("../model/Transporter");
 const Subtrip = require("../model/Subtrip");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 const {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,
@@ -32,7 +33,10 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
   try {
     // 1. Fetch transporter info
-    const transporter = await Transporter.findById(transporterId);
+    const transporter = await Transporter.findOne({
+      _id: transporterId,
+      tenant: req.tenant,
+    });
     if (!transporter) {
       await session.abortTransaction();
       return res.status(404).json({ message: "Transporter not found." });
@@ -42,6 +46,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     const subtripsRaw = await Subtrip.find({
       _id: { $in: associatedSubtrips },
       transporterPaymentReceiptId: null,
+      tenant: req.tenant,
     })
       .populate({
         path: "tripId",
@@ -116,13 +121,14 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       taxBreakup: summary.taxBreakup,
       summary,
       meta,
+      tenant: req.tenant,
     });
 
     const saved = await receipt.save({ session });
 
     // 6. Link subtrips
     await Subtrip.updateMany(
-      { _id: { $in: associatedSubtrips } },
+      { _id: { $in: associatedSubtrips }, tenant: req.tenant },
       { $set: { transporterPaymentReceiptId: saved._id } },
       { session }
     );
@@ -137,7 +143,8 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
           stId,
           SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_GENERATED,
           { transporterId },
-          req.user
+          req.user,
+          req.tenant
         )
       )
     );
@@ -202,6 +209,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       const rawSubtrips = await Subtrip.find({
         _id: { $in: associatedSubtrips },
         transporterPaymentReceiptId: null,
+        tenant: req.tenant,
       })
         .populate({
           path: "tripId",
@@ -223,7 +231,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         await session.abortTransaction();
         return res.status(400).json({
           message: `Payload #${idx + 1
-            }: Some subtrips invalid or already linked.`,
+            }: Some subtrips invalid, belong to another tenant, or already linked.`,
           failedSubtrips: failed,
           index: idx,
         });
@@ -279,6 +287,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         taxBreakup: summary.taxBreakup,
         summary,
         meta,
+        tenant: req.tenant,
       });
 
       const saved = await receipt.save({ session });
@@ -286,7 +295,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
 
       // 7. Link subtrips to this receipt
       await Subtrip.updateMany(
-        { _id: { $in: associatedSubtrips } },
+        { _id: { $in: associatedSubtrips }, tenant: req.tenant },
         { $set: { transporterPaymentReceiptId: saved._id } },
         { session }
       );
@@ -298,7 +307,8 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
             stId,
             SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_GENERATED,
             { transporterId },
-            req.user
+            req.user,
+            req.tenant
           )
         )
       );
@@ -333,7 +343,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
     } = req.query;
     const { limit, skip } = req.pagination;
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (transporterId) {
       const ids = Array.isArray(transporterId) ? transporterId : [transporterId];
@@ -421,9 +431,10 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
 
 // Fetch Single Transporter Payment Receipt
 const fetchTransporterPaymentReceipt = asyncHandler(async (req, res) => {
-  const receipt = await TransporterPayment.findById(req.params.id).populate(
-    "transporterId"
-  );
+  const receipt = await TransporterPayment.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  }).populate("transporterId");
 
   if (!receipt) {
     res.status(404).json({ message: "Transporter Payment Receipt not found" });
@@ -435,8 +446,8 @@ const fetchTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
 // Update Transporter Payment Receipt
 const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
-  const updatedReceipt = await TransporterPayment.findByIdAndUpdate(
-    req.params.id,
+  const updatedReceipt = await TransporterPayment.findOneAndUpdate(
+    { _id: req.params.id, tenant: req.tenant },
     req.body,
     {
       new: true,
@@ -457,7 +468,10 @@ const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
 // Delete Transporter Payment Receipt
 const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
-  const receipt = await TransporterPayment.findById(req.params.id);
+  const receipt = await TransporterPayment.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  });
 
   if (!receipt) {
     return res
@@ -467,11 +481,14 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
   // ✅ Use $in with associatedSubtrips to remove links
   await Subtrip.updateMany(
-    { _id: { $in: receipt.associatedSubtrips } },
+    { _id: { $in: receipt.associatedSubtrips }, tenant: req.tenant },
     { $unset: { transporterPaymentReceiptId: "" } }
   );
 
-  await TransporterPayment.findByIdAndDelete(req.params.id);
+  await TransporterPayment.findOneAndDelete({
+    _id: req.params.id,
+    tenant: req.tenant,
+  });
 
   res.status(200).json({
     message: "Transporter Payment Receipt deleted successfully",

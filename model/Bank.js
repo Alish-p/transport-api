@@ -6,6 +6,7 @@ const bankSchema = new Schema({
   branch: { type: String, required: true },
   ifsc: { type: String, required: true, unique: true },
   place: { type: String, required: true },
+  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
 module.exports = model("Bank", bankSchema);

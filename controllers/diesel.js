@@ -1,11 +1,12 @@
 const asyncHandler = require("express-async-handler");
 const Pump = require("../model/Pump");
 const DieselPrice = require("../model/Diesel");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 const createDieselPrice = asyncHandler(async (req, res) => {
   const { pump, price, startDate, endDate } = req.body;
 
-  const existingPump = await Pump.findById(pump);
+  const existingPump = await Pump.findOne({ _id: pump, tenant: req.tenant });
   if (!existingPump) {
     return res.status(400).json({ message: "Pump not found" });
   }
@@ -13,6 +14,7 @@ const createDieselPrice = asyncHandler(async (req, res) => {
   // Check if there is any overlapping diesel price entry for this pump
   const overlappingDieselPrice = await DieselPrice.findOne({
     pump,
+    tenant: req.tenant,
     $or: [{ startDate: { $lte: endDate }, endDate: { $gte: startDate } }],
   });
 
@@ -28,6 +30,7 @@ const createDieselPrice = asyncHandler(async (req, res) => {
     price,
     startDate,
     endDate,
+    tenant: req.tenant,
   });
 
   const newDieselPrice = await dieselPrice.save();
@@ -40,7 +43,7 @@ const fetchDieselPrices = asyncHandler(async (req, res) => {
     const { pumpId, fromDate, toDate } = req.query;
     const { limit, skip } = req.pagination || {};
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (pumpId) {
       query.pump = pumpId;
@@ -94,6 +97,7 @@ const fetchDieselPriceOnDate = asyncHandler(async (req, res) => {
   // Query: Find diesel price where the given date falls between startDate and endDate
   const dieselPrices = await DieselPrice.find({
     pump,
+    tenant: req.tenant,
     startDate: { $lte: queryDate },
     endDate: { $gte: queryDate },
   });
@@ -118,7 +122,10 @@ const fetchDieselPriceOnDate = asyncHandler(async (req, res) => {
 const fetchDieselPrice = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const dieselPrice = await DieselPrice.findById(id).populate("pump");
+  const dieselPrice = await DieselPrice.findOne({
+    _id: id,
+    tenant: req.tenant,
+  }).populate("pump");
 
   if (!dieselPrice) {
     return res.status(404).json({ message: "Diesel price not found" });
@@ -135,6 +142,7 @@ const updateDieselPrice = asyncHandler(async (req, res) => {
   const overlappingDieselPrice = await DieselPrice.findOne({
     _id: { $ne: id }, // Exclude the current record
     pump,
+    tenant: req.tenant,
     $or: [{ startDate: { $lte: endDate }, endDate: { $gte: startDate } }],
   });
 
@@ -145,8 +153,8 @@ const updateDieselPrice = asyncHandler(async (req, res) => {
   }
 
   // Update diesel price entry
-  const updatedDieselPrice = await DieselPrice.findByIdAndUpdate(
-    id,
+  const updatedDieselPrice = await DieselPrice.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
     { pump, price, startDate, endDate },
     { new: true, runValidators: true }
   ).populate("pump");
@@ -160,7 +168,10 @@ const updateDieselPrice = asyncHandler(async (req, res) => {
 
 const deleteDieselPrice = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const deletedDieselPrice = await DieselPrice.findByIdAndDelete(id);
+  const deletedDieselPrice = await DieselPrice.findOneAndDelete({
+    _id: id,
+    tenant: req.tenant,
+  });
 
   if (!deletedDieselPrice) {
     return res.status(404).json({ message: "Diesel price not found" });

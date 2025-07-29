@@ -87,6 +87,7 @@ const invoiceSchema = new Schema(
       },
       lastModified: { type: Date },
     },
+    tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   },
   {
     timestamps: true, // adds createdAt and updatedAt

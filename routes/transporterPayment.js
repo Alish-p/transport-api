@@ -27,7 +27,17 @@ router.post(
 );
 router.get("/", private, pagination, fetchTransporterPaymentReceipts);
 router.get("/:id", private, fetchTransporterPaymentReceipt);
-router.put("/:id", private, checkPermission("transporterPayment", "update"), updateTransporterPaymentReceipt);
-router.delete("/:id", private, checkPermission("transporterPayment", "delete"), deleteTransporterPaymentReceipt);
+router.put(
+  "/:id",
+  private,
+  checkPermission("transporterPayment", "update"),
+  updateTransporterPaymentReceipt
+);
+router.delete(
+  "/:id",
+  private,
+  checkPermission("transporterPayment", "delete"),
+  deleteTransporterPaymentReceipt
+);
 
 module.exports = router;

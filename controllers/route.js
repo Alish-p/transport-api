@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Route = require("../model/Route");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Route
 const createRoute = asyncHandler(async (req, res) => {
@@ -8,7 +9,7 @@ const createRoute = asyncHandler(async (req, res) => {
     if (!req.body.isCustomerSpecific) {
       req.body.customer = null;
     }
-    const route = new Route({ ...req.body });
+    const route = new Route({ ...req.body, tenant: req.tenant });
 
     const newRoute = await route.save();
     res.status(201).json(newRoute);
@@ -35,7 +36,7 @@ const fetchRoutes = asyncHandler(async (req, res) => {
     } = req.query;
     const { limit, skip } = req.pagination || {};
 
-    const query = {};
+    const query = addTenantToQuery(req);
 
     if (routeName) {
       query.routeName = { $regex: routeName, $options: "i" };
@@ -95,7 +96,9 @@ const fetchRoutes = asyncHandler(async (req, res) => {
 // Fetch Single Route by ID
 const fetchSingleRoute = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const route = await Route.findById(id).populate("customer");
+  const route = await Route.findOne({ _id: id, tenant: req.tenant }).populate(
+    "customer"
+  );
 
   if (!route) {
     res.status(404).json({ message: "Route not found" });
@@ -115,15 +118,19 @@ const updateRoute = asyncHandler(async (req, res) => {
       req.body.customer = null;
     }
 
-    const route = await Route.findByIdAndUpdate(id, req.body, {
-      new: true,
-      populate: {
-        path: "customer",
-        select: "-__v", // Exclude version field
-        options: { lean: true },
-      },
-      runValidators: true, // This ensures our custom validators run on update
-    });
+    const route = await Route.findOneAndUpdate(
+      { _id: id, tenant: req.tenant },
+      req.body,
+      {
+        new: true,
+        populate: {
+          path: "customer",
+          select: "-__v",
+          options: { lean: true },
+        },
+        runValidators: true,
+      }
+    );
 
     if (!route) {
       res.status(404).json({ message: "Route not found" });
@@ -145,7 +152,7 @@ const updateRoute = asyncHandler(async (req, res) => {
 // Delete Route
 const deleteRoute = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const route = await Route.findByIdAndDelete(id);
+  const route = await Route.findOneAndDelete({ _id: id, tenant: req.tenant });
 
   res.status(200).json(route);
 });

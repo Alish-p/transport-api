@@ -7,8 +7,9 @@ const {
   fetchBankDetails,
 } = require("../controllers/bank");
 
-const { private, admin, checkPermission } = require("../middlewares/Auth");
+const { private, checkPermission } = require("../middlewares/Auth");
 const pagination = require("../middlewares/pagination");
+
 const router = Router();
 
 router.post("/", private, checkPermission("bank", "create"), createBank);

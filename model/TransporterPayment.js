@@ -82,6 +82,12 @@ const transporterPaymentReceiptSchema = new Schema(
       ref: "Transporter",
       required: true,
     },
+    tenant: {
+      type: Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+      index: true,
+    },
 
     // Status of the payment
     status: {
@@ -140,10 +146,10 @@ transporterPaymentReceiptSchema.pre("save", async function (next) {
   if (!this.isNew) return next();
 
   try {
-    const counter = await CounterModel.findByIdAndUpdate(
-      { _id: "TransporterPaymentReceiptId" },
-      { $inc: { seq: 1 } },
-      { upsert: true, new: true }
+    const counter = await CounterModel.findOneAndUpdate(
+      { model: "TransporterPayment", tenant: this.tenant },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: "TransporterPayment" } },
+      { new: true, upsert: true }
     );
 
     this.paymentId = `TPR-${counter.seq}`;

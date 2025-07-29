@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema(
     address: { type: String, required: true },
     password: { type: String, required: true },
     designation: { type: String, required: true },
+    tenant: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 
     permissions: {
       bank: {
@@ -105,6 +106,10 @@ const userSchema = new mongoose.Schema(
         view: { type: Boolean, default: false },
         update: { type: Boolean, default: false },
         delete: { type: Boolean, default: false },
+      },
+      tenant: {
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
       },
     },
 

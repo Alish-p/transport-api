@@ -11,6 +11,7 @@ const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const Loan = require("../model/Loan");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
+const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 const { SUBTRIP_STATUS, INVOICE_STATUS } = require("../constants/status");
 const {
@@ -21,8 +22,10 @@ const { calculateDriverSalary } = require("../Utils/driver-salary-utils");
 // Get Dashboard Highlights
 const getDashboardHighlights = asyncHandler(async (req, res) => {
   try {
+    const tenantMatch = { tenant: req.tenant };
+
     const weightByCustomerPromise = Subtrip.aggregate([
-      { $match: { customerId: { $ne: null } } },
+      { $match: { ...tenantMatch, customerId: { $ne: null } } },
       {
         $group: {
           _id: "$customerId",
@@ -49,6 +52,7 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
     ]);
 
     const paymentsByCustomerPromise = Invoice.aggregate([
+      { $match: tenantMatch },
       {
         $group: {
           _id: "$customerId",
@@ -75,6 +79,7 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
     ]);
 
     const vehicleTonnagePromise = Subtrip.aggregate([
+      { $match: tenantMatch },
       {
         $lookup: {
           from: "trips",
@@ -102,6 +107,7 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
     ]);
 
     const loanAggPromise = Loan.aggregate([
+      { $match: tenantMatch },
       {
         $group: {
           _id: null,
@@ -130,19 +136,39 @@ const getDashboardHighlights = asyncHandler(async (req, res) => {
       vehicleTonnageAgg,
       loanAgg,
     ] = await Promise.all([
-      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.IN_QUEUE }),
-      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.LOADED }),
-      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.ERROR }),
-      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.RECEIVED }),
-      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.BILLED_PENDING }),
-      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.BILLED_OVERDUE }),
-      Subtrip.countDocuments({ subtripStatus: SUBTRIP_STATUS.BILLED_PAID }),
-      Vehicle.countDocuments(),
-      Driver.countDocuments(),
-      Customer.countDocuments(),
-      Invoice.countDocuments({ invoiceStatus: INVOICE_STATUS.PENDING }),
-      Invoice.countDocuments({ invoiceStatus: INVOICE_STATUS.OVERDUE }),
-      Invoice.countDocuments({ invoiceStatus: INVOICE_STATUS.PAID }),
+      Subtrip.countDocuments(
+        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.IN_QUEUE })
+      ),
+      Subtrip.countDocuments(
+        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.LOADED })
+      ),
+      Subtrip.countDocuments(
+        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.ERROR })
+      ),
+      Subtrip.countDocuments(
+        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.RECEIVED })
+      ),
+      Subtrip.countDocuments(
+        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.BILLED_PENDING })
+      ),
+      Subtrip.countDocuments(
+        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.BILLED_OVERDUE })
+      ),
+      Subtrip.countDocuments(
+        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.BILLED_PAID })
+      ),
+      Vehicle.countDocuments(addTenantToQuery(req)),
+      Driver.countDocuments(addTenantToQuery(req)),
+      Customer.countDocuments(addTenantToQuery(req)),
+      Invoice.countDocuments(
+        addTenantToQuery(req, { invoiceStatus: INVOICE_STATUS.PENDING })
+      ),
+      Invoice.countDocuments(
+        addTenantToQuery(req, { invoiceStatus: INVOICE_STATUS.OVERDUE })
+      ),
+      Invoice.countDocuments(
+        addTenantToQuery(req, { invoiceStatus: INVOICE_STATUS.PAID })
+      ),
       weightByCustomerPromise,
       paymentsByCustomerPromise,
       vehicleTonnagePromise,
@@ -205,26 +231,30 @@ const getTotalCounts = asyncHandler(async (req, res) => {
     transporterSubtrips,
     salarySubtrips,
   ] = await Promise.all([
-    Vehicle.countDocuments(),
-    Driver.countDocuments(),
-    Transporter.countDocuments(),
-    Customer.countDocuments(),
-    Invoice.countDocuments(),
-    Subtrip.countDocuments(),
-    Subtrip.find({
-      subtripStatus: SUBTRIP_STATUS.RECEIVED,
-      transporterPaymentReceiptId: { $exists: false },
-    })
+    Vehicle.countDocuments(addTenantToQuery(req)),
+    Driver.countDocuments(addTenantToQuery(req)),
+    Transporter.countDocuments(addTenantToQuery(req)),
+    Customer.countDocuments(addTenantToQuery(req)),
+    Invoice.countDocuments(addTenantToQuery(req)),
+    Subtrip.countDocuments(addTenantToQuery(req)),
+    Subtrip.find(
+      addTenantToQuery(req, {
+        subtripStatus: SUBTRIP_STATUS.RECEIVED,
+        transporterPaymentReceiptId: { $exists: false },
+      })
+    )
       .populate({
         path: "tripId",
         populate: { path: "vehicleId", select: "isOwn" },
       })
       .populate("expenses")
       .lean(),
-    Subtrip.find({
-      subtripStatus: SUBTRIP_STATUS.RECEIVED,
-      driverSalaryReceiptId: { $exists: false },
-    })
+    Subtrip.find(
+      addTenantToQuery(req, {
+        subtripStatus: SUBTRIP_STATUS.RECEIVED,
+        driverSalaryReceiptId: { $exists: false },
+      })
+    )
       .populate({
         path: "tripId",
         populate: { path: "vehicleId", select: "isOwn" },
@@ -289,9 +319,11 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
   const endDate = new Date(Date.UTC(year, monthNum, 1));
 
   try {
+    const tenantMatch = { tenant: req.tenant };
     const results = await Subtrip.aggregate([
       {
         $match: {
+          ...tenantMatch,
           customerId: { $ne: null },
           startDate: { $gte: startDate, $lt: endDate },
         },
@@ -431,10 +463,12 @@ const getExpiringSubtrips = asyncHandler(async (req, res) => {
   const now = new Date();
   const threshold = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
-  const subtrips = await Subtrip.find({
-    subtripStatus: SUBTRIP_STATUS.LOADED,
-    ewayExpiryDate: { $ne: null, $lte: threshold },
-  })
+  const subtrips = await Subtrip.find(
+    addTenantToQuery(req, {
+      subtripStatus: SUBTRIP_STATUS.LOADED,
+      ewayExpiryDate: { $ne: null, $lte: threshold },
+    })
+  )
     .select("_id startDate unloadingPoint ewayExpiryDate tripId customerId")
     .populate({
       path: "tripId",
@@ -471,6 +505,7 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
     const results = await Subtrip.aggregate([
       {
         $match: {
+          tenant: req.tenant,
           startDate: { $gte: startOfYear, $lt: endOfYear },
           isEmpty: false,
         },
@@ -549,6 +584,7 @@ const getMonthlySubtripExpenseSummary = asyncHandler(async (req, res) => {
     const results = await Expense.aggregate([
       {
         $match: {
+          tenant: req.tenant,
           expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
           date: { $gte: startDate, $lt: endDate },
         },
@@ -612,6 +648,7 @@ const getMonthlyMaterialWeightSummary = asyncHandler(async (req, res) => {
     const results = await Subtrip.aggregate([
       {
         $match: {
+          tenant: req.tenant,
           materialType: { $ne: null },
           startDate: { $gte: startDate, $lt: endDate },
         },
@@ -652,11 +689,17 @@ const getSubtripStatusSummary = asyncHandler(async (req, res) => {
 
     const [loadedAgg, emptyAgg] = await Promise.all([
       Subtrip.aggregate([
-        { $match: { isEmpty: false } },
+        { $match: { tenant: req.tenant, isEmpty: false } },
         { $group: { _id: "$subtripStatus", count: { $sum: 1 } } },
       ]),
       Subtrip.aggregate([
-        { $match: { isEmpty: true, subtripStatus: { $in: emptyStatuses } } },
+        {
+          $match: {
+            tenant: req.tenant,
+            isEmpty: true,
+            subtripStatus: { $in: emptyStatuses },
+          },
+        },
         { $group: { _id: "$subtripStatus", count: { $sum: 1 } } },
       ]),
     ]);
@@ -697,6 +740,7 @@ const getLoanSchedule = asyncHandler(async (req, res) => {
 
   try {
     const monthlyAgg = await Loan.aggregate([
+      { $match: { tenant: req.tenant } },
       { $unwind: "$installments" },
       {
         $match: {
@@ -719,6 +763,7 @@ const getLoanSchedule = asyncHandler(async (req, res) => {
     });
 
     const loanTotalsAgg = await Loan.aggregate([
+      { $match: { tenant: req.tenant } },
       {
         $group: {
           _id: null,
@@ -750,12 +795,15 @@ const getVehicleUtilization = asyncHandler(async (req, res) => {
 
   try {
     const [vehicleCount, trips, distanceAgg] = await Promise.all([
-      Vehicle.countDocuments(),
-      Trip.find({
-        fromDate: { $lt: endOfYear },
-        $or: [{ toDate: { $gte: startOfYear } }, { toDate: null }],
-      }).lean(),
+      Vehicle.countDocuments(addTenantToQuery(req)),
+      Trip.find(
+        addTenantToQuery(req, {
+          fromDate: { $lt: endOfYear },
+          $or: [{ toDate: { $gte: startOfYear } }, { toDate: null }],
+        })
+      ).lean(),
       Subtrip.aggregate([
+        { $match: { tenant: req.tenant } },
         {
           $match: {
             startDate: { $gte: startOfYear, $lt: endOfYear },
@@ -813,6 +861,7 @@ const getVehicleUtilization = asyncHandler(async (req, res) => {
 const getInvoiceStatusSummary = asyncHandler(async (req, res) => {
   try {
     const statusAgg = await Invoice.aggregate([
+      { $match: { tenant: req.tenant } },
       { $group: { _id: "$invoiceStatus", count: { $sum: 1 } } },
     ]);
 
@@ -842,7 +891,7 @@ const getInvoiceStatusSummary = asyncHandler(async (req, res) => {
 const getTopRoutes = asyncHandler(async (req, res) => {
   try {
     const results = await Subtrip.aggregate([
-      { $match: { routeCd: { $ne: null } } },
+      { $match: { tenant: req.tenant, routeCd: { $ne: null } } },
       {
         $lookup: {
           from: 'trips',
@@ -913,7 +962,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
   try {
     const [invoiceAgg, transporterAgg, driverAgg, loanAgg] = await Promise.all([
       Invoice.aggregate([
-        { $match: { issueDate: { $gte: startOfYear, $lt: endOfYear } } },
+        { $match: { tenant: req.tenant, issueDate: { $gte: startOfYear, $lt: endOfYear } } },
         {
           $group: {
             _id: { month: { $month: "$issueDate" } },
@@ -922,7 +971,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         },
       ]),
       TransporterPayment.aggregate([
-        { $match: { issueDate: { $gte: startOfYear, $lt: endOfYear } } },
+        { $match: { tenant: req.tenant, issueDate: { $gte: startOfYear, $lt: endOfYear } } },
         {
           $group: {
             _id: { month: { $month: "$issueDate" } },
@@ -931,7 +980,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         },
       ]),
       DriverSalary.aggregate([
-        { $match: { issueDate: { $gte: startOfYear, $lt: endOfYear } } },
+        { $match: { tenant: req.tenant, issueDate: { $gte: startOfYear, $lt: endOfYear } } },
         {
           $group: {
             _id: { month: { $month: "$issueDate" } },
@@ -940,7 +989,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         },
       ]),
       Loan.aggregate([
-        { $match: { disbursementDate: { $gte: startOfYear, $lt: endOfYear } } },
+        { $match: { tenant: req.tenant, disbursementDate: { $gte: startOfYear, $lt: endOfYear } } },
         {
           $group: {
             _id: { month: { $month: "$disbursementDate" } },
@@ -986,7 +1035,7 @@ const getTransporterPaymentTotals = asyncHandler(async (req, res) => {
   try {
     const [generatedAgg, paidAgg, pendingSubtrips] = await Promise.all([
       TransporterPayment.aggregate([
-        { $match: { status: "generated" } },
+        { $match: { tenant: req.tenant, status: "generated" } },
         {
           $group: {
             _id: null,
@@ -995,7 +1044,7 @@ const getTransporterPaymentTotals = asyncHandler(async (req, res) => {
         },
       ]),
       TransporterPayment.aggregate([
-        { $match: { status: "paid" } },
+        { $match: { tenant: req.tenant, status: "paid" } },
         {
           $group: {
             _id: null,
@@ -1003,10 +1052,12 @@ const getTransporterPaymentTotals = asyncHandler(async (req, res) => {
           },
         },
       ]),
-      Subtrip.find({
-        subtripStatus: SUBTRIP_STATUS.RECEIVED,
-        transporterPaymentReceiptId: { $exists: false },
-      })
+      Subtrip.find(
+        addTenantToQuery(req, {
+          subtripStatus: SUBTRIP_STATUS.RECEIVED,
+          transporterPaymentReceiptId: { $exists: false },
+        })
+      )
         .populate({
           path: "tripId",
           populate: { path: "vehicleId", select: "isOwn" },
@@ -1044,6 +1095,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
       Invoice.aggregate([
         {
           $match: {
+            tenant: req.tenant,
             invoiceStatus: {
               $in: [INVOICE_STATUS.PENDING, INVOICE_STATUS.OVERDUE],
             },
@@ -1057,12 +1109,13 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         },
       ]),
       Invoice.aggregate([
-        { $match: { invoiceStatus: INVOICE_STATUS.PAID } },
+        { $match: { tenant: req.tenant, invoiceStatus: INVOICE_STATUS.PAID } },
         { $group: { _id: null, total: { $sum: { $ifNull: ["$netTotal", 0] } } } },
       ]),
       Subtrip.aggregate([
         {
           $match: {
+            tenant: req.tenant,
             $and: [
               {
                 $or: [
@@ -1142,6 +1195,7 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
     const subtripAgg = await Subtrip.aggregate([
       {
         $match: {
+          tenant: req.tenant,
           startDate: { $gte: startDate, $lt: endDate },
           subtripStatus: { $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED] },
         },
@@ -1223,7 +1277,7 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
     ]);
 
     // Fetch all own vehicles to include those without subtrips
-    const allVehicles = await Vehicle.find({ isOwn: true })
+    const allVehicles = await Vehicle.find(addTenantToQuery(req, { isOwn: true }))
       .select("_id vehicleNo")
       .lean();
 
@@ -1287,6 +1341,7 @@ const getMonthlyDriverSummary = asyncHandler(async (req, res) => {
     const results = await Subtrip.aggregate([
       {
         $match: {
+          tenant: req.tenant,
           startDate: { $gte: startDate, $lt: endDate },
           subtripStatus: { $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED] },
         },
@@ -1380,6 +1435,7 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
     const results = await Subtrip.aggregate([
       {
         $match: {
+          tenant: req.tenant,
           startDate: { $gte: startDate, $lt: endDate },
           subtripStatus: { $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED] },
         },

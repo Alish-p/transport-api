@@ -19,12 +19,17 @@ router.post(
   "/quick",
   private,
   checkPermission("driver", "create"),
-  quickCreateDriver,
+  quickCreateDriver
 );
 router.get("/", private, pagination, fetchDrivers);
 router.get("/summary", private, fetchDriversSummary);
 router.get("/:id", private, fetchDriverById);
-router.delete("/:id", private, checkPermission("driver", "delete"), deleteDriver);
+router.delete(
+  "/:id",
+  private,
+  checkPermission("driver", "delete"),
+  deleteDriver
+);
 router.put("/:id", private, checkPermission("driver", "update"), updateDriver);
 
 module.exports = router;
