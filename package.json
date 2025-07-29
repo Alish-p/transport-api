@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server",
     "server": "nodemon server",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "copy-collections": "node scripts/copyCollections.js"
   },
   "author": "",
   "license": "ISC",
