@@ -5,6 +5,7 @@ const {
   deleteRoute,
   updateRoute,
   fetchSingleRoute,
+  fetchRouteSubtrips,
 } = require("../controllers/route");
 
 const { private, checkPermission } = require("../middlewares/Auth");
@@ -14,6 +15,7 @@ const router = Router();
 
 router.post("/", private, checkPermission("route", "create"), createRoute);
 router.get("/", private, pagination, fetchRoutes);
+router.get("/:id/subtrips", private, fetchRouteSubtrips);
 router.get("/:id", private, fetchSingleRoute);
 router.delete("/:id", private, checkPermission("route", "delete"), deleteRoute);
 router.put("/:id", private, checkPermission("route", "update"), updateRoute);

@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Route = require("../model/Route");
+const Subtrip = require("../model/Subtrip");
 const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Route
@@ -27,13 +28,8 @@ const createRoute = asyncHandler(async (req, res) => {
 // Fetch Routes with pagination and search
 const fetchRoutes = asyncHandler(async (req, res) => {
   try {
-    const {
-      routeName,
-      fromPlace,
-      toPlace,
-      isCustomerSpecific,
-      customer,
-    } = req.query;
+    const { routeName, fromPlace, toPlace, isCustomerSpecific, customer } =
+      req.query;
     const { limit, skip } = req.pagination || {};
 
     const query = addTenantToQuery(req);
@@ -108,6 +104,46 @@ const fetchSingleRoute = asyncHandler(async (req, res) => {
   res.status(200).json(route);
 });
 
+// Fetch Subtrips for a Route
+const fetchRouteSubtrips = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const route = await Route.findOne({ _id: id, tenant: req.tenant });
+
+  if (!route) {
+    res.status(404).json({ message: "Route not found" });
+    return;
+  }
+
+  const subtrips = await Subtrip.find({
+    routeCd: route._id,
+    tenant: req.tenant,
+  })
+    .populate({
+      path: "tripId",
+      populate: [
+        {
+          path: "vehicleId",
+          select: "vehicleNo vehicleType noOfTyres",
+        },
+        {
+          path: "driverId",
+          select: "driverName",
+        },
+      ],
+    })
+    .populate({
+      path: "customerId",
+      select: "customerName",
+    })
+    .populate("expenses")
+    .select(
+      "loadingPoint unloadingPoint subtripStatus expenses startDate endDate tripId customerId"
+    );
+
+  res.status(200).json(subtrips);
+});
+
 // Update Route
 const updateRoute = asyncHandler(async (req, res) => {
   try {
@@ -161,6 +197,7 @@ module.exports = {
   createRoute,
   fetchRoutes,
   fetchSingleRoute,
+  fetchRouteSubtrips,
   updateRoute,
   deleteRoute,
 };
