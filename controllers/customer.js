@@ -31,10 +31,7 @@ const fetchCustomers = asyncHandler(async (req, res) => {
     }
 
     const [customers, total] = await Promise.all([
-      Customer.find(query)
-        .sort({ customerName: 1 })
-        .skip(skip)
-        .limit(limit),
+      Customer.find(query).sort({ customerName: 1 }).skip(skip).limit(limit),
       Customer.countDocuments(query),
     ]);
 
@@ -122,6 +119,140 @@ const getCustomerMonthlyMaterialWeight = asyncHandler(async (req, res) => {
       message: "An error occurred while fetching material summary",
       error: error.message,
     });
+  }
+});
+
+// Get routes with subtrip counts for a specific customer
+const getCustomerRoutes = asyncHandler(async (req, res) => {
+  try {
+    const results = await Subtrip.aggregate([
+      {
+        $match: {
+          tenant: req.tenant,
+          customerId: new mongoose.Types.ObjectId(req.params.id),
+          routeCd: { $ne: null },
+        },
+      },
+      {
+        $lookup: {
+          from: "trips",
+          localField: "tripId",
+          foreignField: "_id",
+          as: "trip",
+        },
+      },
+      { $unwind: "$trip" },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "trip.vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      { $unwind: "$vehicle" },
+      {
+        $group: {
+          _id: "$routeCd",
+          subtripCount: { $sum: 1 },
+          ownSubtripCount: { $sum: { $cond: ["$vehicle.isOwn", 1, 0] } },
+          marketSubtripCount: { $sum: { $cond: ["$vehicle.isOwn", 0, 1] } },
+        },
+      },
+      { $sort: { subtripCount: -1 } },
+      {
+        $lookup: {
+          from: "routes",
+          localField: "_id",
+          foreignField: "_id",
+          as: "route",
+        },
+      },
+      { $unwind: "$route" },
+      {
+        $project: {
+          _id: 0,
+          routeId: "$_id",
+          routeName: "$route.routeName",
+          fromPlace: "$route.fromPlace",
+          toPlace: "$route.toPlace",
+          subtripCount: 1,
+          ownSubtripCount: 1,
+          marketSubtripCount: 1,
+        },
+      },
+    ]);
+
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching routes",
+      error: error.message,
+    });
+  }
+});
+
+// Get subtrip monthly data (own vs market) for a specific customer
+const getCustomerSubtripMonthlyData = asyncHandler(async (req, res) => {
+  const yearParam = parseInt(req.query.year, 10);
+  const year = Number.isNaN(yearParam)
+    ? new Date().getUTCFullYear()
+    : yearParam;
+
+  const { id } = req.params;
+
+  const startOfYear = new Date(Date.UTC(year, 0, 1));
+  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+
+  try {
+    const results = await Subtrip.aggregate([
+      {
+        $match: {
+          tenant: req.tenant,
+          customerId: new mongoose.Types.ObjectId(id),
+          startDate: { $gte: startOfYear, $lt: endOfYear },
+          isEmpty: false,
+        },
+      },
+      {
+        $lookup: {
+          from: "trips",
+          localField: "tripId",
+          foreignField: "_id",
+          as: "trip",
+        },
+      },
+      { $unwind: "$trip" },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "trip.vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      { $unwind: "$vehicle" },
+      {
+        $group: {
+          _id: { month: { $month: "$startDate" }, isOwn: "$vehicle.isOwn" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const own = Array(12).fill(0);
+    const market = Array(12).fill(0);
+
+    results.forEach((r) => {
+      const monthIndex = r._id.month - 1;
+      if (r._id.isOwn) own[monthIndex] = r.count;
+      else market[monthIndex] = r.count;
+    });
+
+    res.status(200).json({ year, own, market });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
   }
 });
 
@@ -213,6 +344,8 @@ const deleteCustomer = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Customer deleted successfully" });
 });
 
+//
+
 module.exports = {
   createCustomer,
   fetchCustomers,
@@ -221,4 +354,6 @@ module.exports = {
   fetchCustomer,
   updateCustomer,
   deleteCustomer,
+  getCustomerRoutes,
+  getCustomerSubtripMonthlyData,
 };

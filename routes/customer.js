@@ -7,6 +7,8 @@ const {
   deleteCustomer,
   fetchCustomersSummary,
   getCustomerMonthlyMaterialWeight,
+  getCustomerSubtripMonthlyData,
+  getCustomerRoutes,
 } = require("../controllers/customer");
 
 const { private, checkPermission } = require("../middlewares/Auth");
@@ -28,6 +30,10 @@ router.get(
   private,
   getCustomerMonthlyMaterialWeight
 );
+
+router.get("/:id/subtrip-monthly-data", private, getCustomerSubtripMonthlyData);
+
+router.get("/:id/routes", private, getCustomerRoutes);
 
 router.get("/:id", private, fetchCustomer);
 router.put(
