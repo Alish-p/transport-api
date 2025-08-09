@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Transporter = require("../model/Transporter");
+const Vehicle = require("../model/Vehicle");
 const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Transporter
@@ -54,6 +55,19 @@ const fetchTransporterById = asyncHandler(async (req, res) => {
   res.status(200).json(transporter);
 });
 
+// Fetch all vehicles belonging to a transporter
+const fetchTransporterVehicles = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const query = addTenantToQuery(req);
+  query.transporter = id;
+
+  const vehicles = await Vehicle.find(query).select(
+    "vehicleNo vehicleType modelType vehicleCompany noOfTyres isOwn"
+  );
+
+  res.status(200).json(vehicles);
+});
+
 // Update Transporter
 const updateTransporter = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -81,6 +95,7 @@ module.exports = {
   createTransporter,
   fetchTransporters,
   fetchTransporterById,
+  fetchTransporterVehicles,
   updateTransporter,
   deleteTransporter,
 };
