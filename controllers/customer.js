@@ -60,6 +60,71 @@ const fetchCustomersSummary = asyncHandler(async (req, res) => {
   res.status(200).json(customers);
 });
 
+// Get monthly material weight summary for a specific customer
+const getCustomerMonthlyMaterialWeight = asyncHandler(async (req, res) => {
+  const { month } = req.query;
+  const { id } = req.params;
+
+  if (!month) {
+    return res
+      .status(400)
+      .json({ message: "Month query parameter required in YYYY-MM format" });
+  }
+
+  const [yearStr, monthStr] = month.split("-");
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNum) ||
+    monthNum < 1 ||
+    monthNum > 12
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Invalid month format. Use YYYY-MM" });
+  }
+
+  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
+  const endDate = new Date(Date.UTC(year, monthNum, 1));
+
+  try {
+    const results = await Subtrip.aggregate([
+      {
+        $match: {
+          tenant: req.tenant,
+          customerId: new mongoose.Types.ObjectId(id),
+          materialType: { $ne: null },
+          startDate: { $gte: startDate, $lt: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: "$materialType",
+          totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
+        },
+      },
+      { $match: { totalLoadingWeight: { $gt: 0 } } },
+      {
+        $project: {
+          _id: 0,
+          materialType: "$_id",
+          totalLoadingWeight: 1,
+        },
+      },
+      { $sort: { totalLoadingWeight: -1 } },
+    ]);
+
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching material summary",
+      error: error.message,
+    });
+  }
+});
+
 // Fetch Single Customer
 const fetchCustomer = asyncHandler(async (req, res) => {
   const customer = await Customer.findOne({
@@ -152,6 +217,7 @@ module.exports = {
   createCustomer,
   fetchCustomers,
   fetchCustomersSummary,
+  getCustomerMonthlyMaterialWeight,
   fetchCustomer,
   updateCustomer,
   deleteCustomer,

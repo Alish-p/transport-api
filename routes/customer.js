@@ -6,6 +6,7 @@ const {
   updateCustomer,
   deleteCustomer,
   fetchCustomersSummary,
+  getCustomerMonthlyMaterialWeight,
 } = require("../controllers/customer");
 
 const { private, checkPermission } = require("../middlewares/Auth");
@@ -21,6 +22,12 @@ router.post(
 );
 router.get("/", private, pagination, fetchCustomers);
 router.get("/summary", private, fetchCustomersSummary);
+
+router.get(
+  "/:id/monthly-material-weight",
+  private,
+  getCustomerMonthlyMaterialWeight
+);
 
 router.get("/:id", private, fetchCustomer);
 router.put(
