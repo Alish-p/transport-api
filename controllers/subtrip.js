@@ -1024,16 +1024,16 @@ const createEmptySubtrip = asyncHandler(async (req, res) => {
     tenant: req.tenant,
   });
 
+  const newSubtrip = await subtrip.save();
+
   // Record creation event
   await recordSubtripEvent(
-    subtrip._id,
+    newSubtrip._id,
     SUBTRIP_EVENT_TYPES.CREATED,
     { note: "Empty subtrip created" },
     req.user,
     req.tenant
   );
-
-  const newSubtrip = await subtrip.save();
 
   trip.subtrips.push(newSubtrip._id);
   await trip.save();
