@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const Transporter = require("../model/Transporter");
 const Vehicle = require("../model/Vehicle");
+const TransporterPayment = require("../model/TransporterPayment");
 const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Transporter
@@ -21,8 +22,8 @@ const fetchTransporters = asyncHandler(async (req, res) => {
 
     if (search) {
       query.$or = [
-        { transportName: { $regex: search, $options: 'i' } },
-        { cellNo: { $regex: search, $options: 'i' } },
+        { transportName: { $regex: search, $options: "i" } },
+        { cellNo: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -42,7 +43,7 @@ const fetchTransporters = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: 'An error occurred while fetching paginated transporters',
+      message: "An error occurred while fetching paginated transporters",
       error: error.message,
     });
   }
@@ -51,7 +52,10 @@ const fetchTransporters = asyncHandler(async (req, res) => {
 // Fetch Transporter by ID
 const fetchTransporterById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const transporter = await Transporter.findOne({ _id: id, tenant: req.tenant });
+  const transporter = await Transporter.findOne({
+    _id: id,
+    tenant: req.tenant,
+  });
   res.status(200).json(transporter);
 });
 
@@ -66,6 +70,20 @@ const fetchTransporterVehicles = asyncHandler(async (req, res) => {
   );
 
   res.status(200).json(vehicles);
+});
+
+// Fetch transporter payment receipts for a transporter
+const fetchTransporterPayments = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const query = addTenantToQuery(req);
+  query.transporterId = id;
+
+  const payments = await TransporterPayment.find(query)
+    .select("-subtripSnapshot")
+    .sort({ issueDate: -1 });
+
+  res.status(200).json(payments);
 });
 
 // Update Transporter
@@ -96,6 +114,7 @@ module.exports = {
   fetchTransporters,
   fetchTransporterById,
   fetchTransporterVehicles,
+  fetchTransporterPayments,
   updateTransporter,
   deleteTransporter,
 };

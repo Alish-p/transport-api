@@ -6,6 +6,7 @@ const {
   updateTransporter,
   fetchTransporterById,
   fetchTransporterVehicles,
+  fetchTransporterPayments,
 } = require("../controllers/transporter");
 
 const { private, checkPermission } = require("../middlewares/Auth");
@@ -15,9 +16,25 @@ const router = Router();
 
 router.get("/", private, pagination, fetchTransporters);
 router.get("/:id/vehicles", private, fetchTransporterVehicles);
+router.get("/:id/payments", private, fetchTransporterPayments);
 router.get("/:id", private, fetchTransporterById);
-router.post("/", private, checkPermission("transporter", "create"), createTransporter);
-router.delete("/:id", private, checkPermission("transporter", "delete"), deleteTransporter);
-router.put("/:id", private, checkPermission("transporter", "update"), updateTransporter);
+router.post(
+  "/",
+  private,
+  checkPermission("transporter", "create"),
+  createTransporter
+);
+router.delete(
+  "/:id",
+  private,
+  checkPermission("transporter", "delete"),
+  deleteTransporter
+);
+router.put(
+  "/:id",
+  private,
+  checkPermission("transporter", "update"),
+  updateTransporter
+);
 
 module.exports = router;
