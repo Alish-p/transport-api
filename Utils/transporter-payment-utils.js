@@ -33,9 +33,9 @@ const calculateTransporterPayment = (subtrip) => {
   };
 };
 
-// 🛠 Calculate tax breakup based on transporter state
-// IN GST reverse mechanism we just show tax breakdown only not take consideration into netTotal
-const calculateTaxBreakup = (transporter, totalAmountBeforeTax) => {
+// 🛠 Calculate tax breakup based on tenant and transporter state
+// In GST reverse mechanism we just show tax breakdown only not take consideration into netTotal
+const calculateTaxBreakup = (transporter, totalAmountBeforeTax, tenantState) => {
   const taxRate = CONFIG.transporterInvoiceTax || 6; // default GST rate
   const tdsRate = transporter?.tdsPercentage || 0;
   const tdsAmount = (totalAmountBeforeTax * tdsRate) / 100;
@@ -55,7 +55,12 @@ const calculateTaxBreakup = (transporter, totalAmountBeforeTax) => {
     throw new Error("Transporter state is required to calculate tax breakup.");
   }
 
-  const isIntraState = transporter.state.toLowerCase() === "karnataka";
+  if (!tenantState) {
+    throw new Error("Tenant state is required to calculate tax breakup.");
+  }
+
+  const isIntraState =
+    transporter.state.trim().toLowerCase() === tenantState.trim().toLowerCase();
 
   if (isIntraState) {
     const taxAmount = (totalAmountBeforeTax * taxRate) / 100;
@@ -82,7 +87,8 @@ const calculateTaxBreakup = (transporter, totalAmountBeforeTax) => {
 const calculateTransporterPaymentSummary = (
   input,
   transporter,
-  additionalCharges
+  additionalCharges,
+  tenantState
 ) => {
   const subtrips = input?.associatedSubtrips || [];
   if (!Array.isArray(subtrips) || subtrips.length === 0) {
@@ -121,7 +127,11 @@ const calculateTransporterPaymentSummary = (
   }
 
   const preTaxIncome = totalFreightAmount - totalExpense - totalShortageAmount;
-  const taxBreakup = calculateTaxBreakup(transporter, totalFreightAmount);
+  const taxBreakup = calculateTaxBreakup(
+    transporter,
+    totalFreightAmount,
+    tenantState
+  );
   const totalTax = taxBreakup.totalTax || 0;
 
   const totalAdditionalCharges = additionalCharges.reduce(

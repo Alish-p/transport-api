@@ -13,8 +13,8 @@ const calculateInvoicePerSubtrip = (subtrip) => {
   };
 };
 
-// 🛠 Calculate tax breakup based on customer state
-const calculateTaxBreakup = (customer, totalAmountBeforeTax) => {
+// 🛠 Calculate tax breakup based on tenant and customer state
+const calculateTaxBreakup = (customer, totalAmountBeforeTax, tenantState) => {
   const taxRate = CONFIG.customerInvoiceTax || 6; // default to 6%
 
   // 🚫 GST not applicable — return only TDS
@@ -31,7 +31,12 @@ const calculateTaxBreakup = (customer, totalAmountBeforeTax) => {
     throw new Error("Customer state is required to calculate tax breakup.");
   }
 
-  const isIntraState = customer.state.toLowerCase() === "karnataka"; // your business rule
+  if (!tenantState) {
+    throw new Error("Tenant state is required to calculate tax breakup.");
+  }
+
+  const isIntraState =
+    customer.state.trim().toLowerCase() === tenantState.trim().toLowerCase();
 
   if (isIntraState) {
     return {
@@ -67,7 +72,7 @@ const calculateTaxBreakup = (customer, totalAmountBeforeTax) => {
 };
 
 // 🛠 Calculate full invoice summary (including tax breakup and final total)
-const calculateInvoiceSummary = (invoice, customer) => {
+const calculateInvoiceSummary = (invoice, customer, tenantState) => {
   if (!invoice?.invoicedSubTrips || !Array.isArray(invoice.invoicedSubTrips)) {
     return {
       totalAmountBeforeTax: 0,
@@ -124,7 +129,11 @@ const calculateInvoiceSummary = (invoice, customer) => {
   );
 
   // 👇 Calculate tax breakup dynamically
-  const taxBreakup = calculateTaxBreakup(customer, totalAmountBeforeTax);
+  const taxBreakup = calculateTaxBreakup(
+    customer,
+    totalAmountBeforeTax,
+    tenantState
+  );
 
   // 👇 Total tax amount
   const totalTax =

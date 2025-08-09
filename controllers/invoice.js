@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
 const Customer = require("../model/Customer");
+const Tenant = require("../model/Tenant");
 const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 const { INVOICE_STATUS, SUBTRIP_STATUS } = require("../constants/status");
@@ -107,9 +108,12 @@ const createInvoice = asyncHandler(async (req, res) => {
     }));
 
     // 6. Summary and tax
+    const tenant = await Tenant.findById(req.tenant).select('address.state');
+    const tenantState = tenant?.address?.state || '';
     const summary = calculateInvoiceSummary(
       { invoicedSubTrips: subtrips, additionalCharges },
-      customer
+      customer,
+      tenantState
     );
 
     // 7. Save Invoice

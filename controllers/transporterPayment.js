@@ -6,6 +6,7 @@ const TransporterPayment = require("../model/TransporterPayment");
 const Transporter = require("../model/Transporter");
 const Subtrip = require("../model/Subtrip");
 const { addTenantToQuery } = require("../Utils/tenant-utils");
+const Tenant = require("../model/Tenant");
 const {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,
@@ -106,10 +107,13 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     });
 
     // 4. Calculate final summary and tax
+    const tenant = await Tenant.findById(req.tenant).select('address.state');
+    const tenantState = tenant?.address?.state || '';
     const summary = calculateTransporterPaymentSummary(
       { associatedSubtrips: subtrips },
       transporter,
-      additionalCharges
+      additionalCharges,
+      tenantState
     );
 
     // 5. Create and save receipt
@@ -272,10 +276,13 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       });
 
       // 5. Calculate summary & tax
+      const tenant = await Tenant.findById(req.tenant).select('address.state');
+      const tenantState = tenant?.address?.state || '';
       const summary = calculateTransporterPaymentSummary(
         { associatedSubtrips: subtrips },
         transporter,
-        additionalCharges
+        additionalCharges,
+        tenantState
       );
 
       // 6. Create & save receipt
