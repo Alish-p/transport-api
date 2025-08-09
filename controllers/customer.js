@@ -4,6 +4,7 @@ const Customer = require("../model/Customer");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
 const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { INVOICE_STATUS, SUBTRIP_STATUS } = require("../constants/status");
 
 // Create Customer
 const createCustomer = asyncHandler(async (req, res) => {
@@ -192,6 +193,96 @@ const getCustomerRoutes = asyncHandler(async (req, res) => {
   }
 });
 
+// Get invoice amount summary for a specific customer
+const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const customerId = new mongoose.Types.ObjectId(id);
+
+    const [generatedAgg, paidAgg, pendingAgg] = await Promise.all([
+      Invoice.aggregate([
+        {
+          $match: {
+            tenant: req.tenant,
+            customerId,
+            invoiceStatus: {
+              $in: [INVOICE_STATUS.PENDING, INVOICE_STATUS.OVERDUE],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ["$netTotal", 0] } },
+          },
+        },
+      ]),
+      Invoice.aggregate([
+        {
+          $match: {
+            tenant: req.tenant,
+            customerId,
+            invoiceStatus: INVOICE_STATUS.PAID,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ["$netTotal", 0] } },
+          },
+        },
+      ]),
+      Subtrip.aggregate([
+        {
+          $match: {
+            tenant: req.tenant,
+            customerId,
+            $and: [
+              {
+                $or: [
+                  { invoiceId: { $exists: false } },
+                  { invoiceId: null },
+                ],
+              },
+              {
+                subtripStatus: {
+                  $in: [
+                    SUBTRIP_STATUS.LOADED,
+                    SUBTRIP_STATUS.ERROR,
+                    SUBTRIP_STATUS.RECEIVED,
+                  ],
+                },
+              },
+            ],
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: {
+                $multiply: [
+                  { $ifNull: ["$loadingWeight", 0] },
+                  { $ifNull: ["$rate", 0] },
+                ],
+              },
+            },
+          },
+        },
+      ]),
+    ]);
+
+    const generatedAmount = generatedAgg[0]?.total || 0;
+    const paidAmount = paidAgg[0]?.total || 0;
+    const pendingAmount = pendingAgg[0]?.total || 0;
+
+    res.status(200).json({ generatedAmount, paidAmount, pendingAmount });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error });
+  }
+});
+
 // Get subtrip monthly data (own vs market) for a specific customer
 const getCustomerSubtripMonthlyData = asyncHandler(async (req, res) => {
   const yearParam = parseInt(req.query.year, 10);
@@ -355,5 +446,6 @@ module.exports = {
   updateCustomer,
   deleteCustomer,
   getCustomerRoutes,
+  getCustomerInvoiceAmountSummary,
   getCustomerSubtripMonthlyData,
 };
