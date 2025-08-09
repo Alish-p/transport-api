@@ -140,15 +140,28 @@ const fetchDriverSubtrips = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     // fetch trips for the driver
-    const trips = await Trip.find(addTenantToQuery(req, { driverId: id })).select(
-      "subtrips"
-    );
+    const trips = await Trip.find(
+      addTenantToQuery(req, { driverId: id })
+    ).select("subtrips");
 
     const subtripIds = trips.flatMap((trip) => trip.subtrips);
 
     const subtrips = await Subtrip.find(
       addTenantToQuery(req, { _id: { $in: subtripIds } })
     )
+      .populate({
+        path: "tripId",
+        populate: [
+          {
+            path: "vehicleId",
+            select: "vehicleNo vehicleType noOfTyres",
+          },
+          {
+            path: "driverId",
+            select: "driverName",
+          },
+        ],
+      })
       .populate({
         path: "customerId",
         select: "customerName",
