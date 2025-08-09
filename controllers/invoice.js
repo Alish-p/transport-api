@@ -108,8 +108,8 @@ const createInvoice = asyncHandler(async (req, res) => {
     }));
 
     // 6. Summary and tax
-    const tenant = await Tenant.findById(req.tenant).select('address.state');
-    const tenantState = tenant?.address?.state || '';
+    const tenant = await Tenant.findById(req.tenant).select("address.state");
+    const tenantState = tenant?.address?.state || "";
     const summary = calculateInvoiceSummary(
       { invoicedSubTrips: subtrips, additionalCharges },
       customer,
@@ -264,7 +264,10 @@ const fetchInvoices = asyncHandler(async (req, res) => {
 
 // Fetch Single Invoice
 const fetchInvoice = asyncHandler(async (req, res) => {
-  const invoice = await Invoice.findOne({ _id: req.params.id, tenant: req.tenant })
+  const invoice = await Invoice.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  })
     .populate("customerId") // full customer info
     .populate({
       path: "invoicedSubTrips",
@@ -293,7 +296,10 @@ const deleteInvoice = asyncHandler(async (req, res) => {
 
   try {
     // 1. Load invoice with subtrip refs
-    const invoice = await Invoice.findOne({ _id: id, tenant: req.tenant }).session(session);
+    const invoice = await Invoice.findOne({
+      _id: id,
+      tenant: req.tenant,
+    }).session(session);
 
     if (!invoice) {
       await session.abortTransaction();
@@ -326,7 +332,9 @@ const deleteInvoice = asyncHandler(async (req, res) => {
     }
 
     // 3. Delete the invoice
-    await Invoice.findOneAndDelete({ _id: id, tenant: req.tenant }).session(session);
+    await Invoice.findOneAndDelete({ _id: id, tenant: req.tenant }).session(
+      session
+    );
 
     await session.commitTransaction();
     session.endSession();
@@ -342,18 +350,14 @@ const deleteInvoice = asyncHandler(async (req, res) => {
   }
 });
 
-// Update Invoice
+// Update Invoice (supports partial payments and status updates)
 const updateInvoice = asyncHandler(async (req, res) => {
-  const { invoiceStatus } = req.body;
+  const { invoiceStatus, amount } = req.body;
 
-  // Update invoice
-  const updatedInvoice = await Invoice.findOneAndUpdate(
-    { _id: req.params.id, tenant: req.tenant },
-    req.body,
-    {
-      new: true,
-    }
-  )
+  let invoice = await Invoice.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  })
     .populate("customerId")
     .populate({
       path: "invoicedSubTrips",
@@ -365,21 +369,37 @@ const updateInvoice = asyncHandler(async (req, res) => {
       },
     });
 
-  if (!updatedInvoice) {
+  if (!invoice) {
     return res.status(404).json({ message: "Invoice not found" });
   }
 
+  // Handle partial payment
+  if (typeof amount === "number" && amount > 0) {
+    invoice.payments.push({ amount, paidBy: req.user?._id });
+    invoice.totalReceived = (invoice.totalReceived || 0) + amount;
+  }
+
+  // Allow explicit status update (e.g., cancel invoice)
+  if (invoiceStatus) {
+    invoice.invoiceStatus = invoiceStatus;
+  }
+
+  await invoice.save();
+
   // Update subtrip statuses based on invoice status and record events
   let newSubtripStatus;
-  switch (invoiceStatus) {
+  switch (invoice.invoiceStatus) {
     case INVOICE_STATUS.PENDING:
+    case INVOICE_STATUS.OVERDUE:
+    case INVOICE_STATUS.PARTIAL_RECEIVED:
       newSubtripStatus = SUBTRIP_STATUS.BILLED_PENDING;
       break;
-    case INVOICE_STATUS.PAID:
+    case INVOICE_STATUS.RECEIVED:
       newSubtripStatus = SUBTRIP_STATUS.BILLED_PAID;
       break;
-    case INVOICE_STATUS.OVERDUE:
-      newSubtripStatus = SUBTRIP_STATUS.BILLED_OVERDUE;
+
+    case INVOICE_STATUS.CANCELLED:
+      newSubtripStatus = SUBTRIP_STATUS.RECEIVED;
       break;
   }
 
@@ -392,13 +412,13 @@ const updateInvoice = asyncHandler(async (req, res) => {
     for (const subtrip of subtrips) {
       subtrip.subtripStatus = newSubtripStatus;
 
-      if (invoiceStatus === INVOICE_STATUS.PAID) {
+      if (invoice.invoiceStatus === INVOICE_STATUS.RECEIVED) {
         await recordSubtripEvent(
           subtrip._id,
           SUBTRIP_EVENT_TYPES.INVOICE_PAID,
           {
-            invoiceNo: updatedInvoice.invoiceNo,
-            amount: updatedInvoice.netTotal,
+            invoiceNo: invoice.invoiceNo,
+            amount: invoice.netTotal,
           },
           req.user,
           req.tenant
@@ -409,7 +429,7 @@ const updateInvoice = asyncHandler(async (req, res) => {
     }
   }
 
-  res.status(200).json(updatedInvoice);
+  res.status(200).json(invoice);
 });
 
 module.exports = {
