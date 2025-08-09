@@ -1,7 +1,8 @@
 const { Schema, model } = require("mongoose");
+const { toTitleCase } = require("../Utils/format-string");
 
 const driverSchema = new Schema({
-  driverName: { type: String, required: true },
+  driverName: { type: String, required: true, trim: true, set: toTitleCase },
   driverLicenceNo: { type: String, required: true },
   driverPresentAddress: { type: String, required: true },
   driverCellNo: { type: String, required: true, unique: true },
@@ -24,7 +25,12 @@ const driverSchema = new Schema({
     place: { type: String },
     accNo: { type: String },
   },
-  tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+  tenant: {
+    type: Schema.Types.ObjectId,
+    ref: "Tenant",
+    required: true,
+    index: true,
+  },
 });
 
 module.exports = model("Driver", driverSchema);

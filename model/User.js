@@ -1,14 +1,20 @@
 const mongoose = require("mongoose");
+const { toTitleCase } = require("../Utils/format-string");
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
+    name: { type: String, required: true, trim: true, set: toTitleCase },
     email: { type: String, required: true, unique: true },
     mobile: { type: String, required: true, unique: true },
     address: { type: String, required: true },
     password: { type: String, required: true },
     designation: { type: String, required: true },
-    tenant: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    tenant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+      index: true,
+    },
 
     permissions: {
       bank: {
