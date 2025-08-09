@@ -12,7 +12,7 @@ const createUser = asyncHandler(async (req, res) => {
 
 // Fetch Users
 const fetchUsers = asyncHandler(async (req, res) => {
-  const users = await UserModel.find({ tenant: req.tenant });
+  const users = await UserModel.find({ tenant: req.tenant }).sort({ name: 1 });
   res.status(200).json(users);
 });
 
