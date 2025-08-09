@@ -1,5 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const Driver = require("../model/Driver");
+const Trip = require("../model/Trip");
+const Subtrip = require("../model/Subtrip");
 const { addTenantToQuery } = require("../Utils/tenant-utils");
 
 // Create Driver
@@ -132,6 +134,39 @@ const deleteDriver = asyncHandler(async (req, res) => {
   res.status(200).json(driver);
 });
 
+// Fetch subtrips done by a driver
+const fetchDriverSubtrips = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // fetch trips for the driver
+    const trips = await Trip.find(addTenantToQuery(req, { driverId: id })).select(
+      "subtrips"
+    );
+
+    const subtripIds = trips.flatMap((trip) => trip.subtrips);
+
+    const subtrips = await Subtrip.find(
+      addTenantToQuery(req, { _id: { $in: subtripIds } })
+    )
+      .populate({
+        path: "customerId",
+        select: "customerName",
+      })
+      .populate("expenses")
+      .select(
+        "loadingPoint unloadingPoint subtripStatus expenses startDate endDate tripId customerId"
+      );
+
+    res.status(200).json(subtrips);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching subtrips for the driver",
+      error: error.message,
+    });
+  }
+});
+
 module.exports = {
   createDriver,
   quickCreateDriver,
@@ -140,4 +175,5 @@ module.exports = {
   fetchDriverById,
   updateDriver,
   deleteDriver,
+  fetchDriverSubtrips,
 };

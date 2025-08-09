@@ -7,6 +7,7 @@ const {
   updateDriver,
   fetchDriverById,
   fetchDriversSummary,
+  fetchDriverSubtrips,
 } = require("../controllers/driver");
 
 const { private, checkPermission } = require("../middlewares/Auth");
@@ -23,6 +24,7 @@ router.post(
 );
 router.get("/", private, pagination, fetchDrivers);
 router.get("/summary", private, fetchDriversSummary);
+router.get("/:id/subtrips", private, fetchDriverSubtrips);
 router.get("/:id", private, fetchDriverById);
 router.delete(
   "/:id",
