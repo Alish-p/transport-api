@@ -1,4 +1,5 @@
 const { Schema, model } = require("mongoose");
+const { INVOICE_STATUS } = require("../constants/status");
 
 const taxBreakupSchema = new Schema(
   {
@@ -39,6 +40,15 @@ const subtripSnapshotSchema = new Schema(
   { _id: false }
 );
 
+const paymentSchema = new Schema(
+  {
+    amount: { type: Number, required: true },
+    paidAt: { type: Date, default: Date.now },
+    paidBy: { type: Schema.Types.ObjectId, ref: "User" },
+  },
+  { _id: false }
+);
+
 const invoiceSchema = new Schema(
   {
     invoiceNo: { type: String, unique: true, index: true }, // e.g., INV-101
@@ -51,8 +61,8 @@ const invoiceSchema = new Schema(
 
     invoiceStatus: {
       type: String,
-      enum: ["pending", "paid", "overdue"],
-      default: "pending",
+      enum: Object.values(INVOICE_STATUS),
+      default: INVOICE_STATUS.PENDING,
       index: true,
     },
 
@@ -64,6 +74,7 @@ const invoiceSchema = new Schema(
     totalAmountBeforeTax: { type: Number, default: 0 },
     totalAfterTax: { type: Number, default: 0 },
     netTotal: { type: Number, default: 0 },
+    totalReceived: { type: Number, default: 0 },
 
     // Tax & charges
     taxBreakup: taxBreakupSchema,
@@ -73,6 +84,8 @@ const invoiceSchema = new Schema(
         amount: Number,
       },
     ],
+
+    payments: [paymentSchema],
 
     // Hybrid referencing
     invoicedSubTrips: [{ type: String, ref: "Subtrip" }],
@@ -87,11 +100,40 @@ const invoiceSchema = new Schema(
       },
       lastModified: { type: Date },
     },
-    tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    tenant: {
+      type: Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+      index: true,
+    },
   },
   {
     timestamps: true, // adds createdAt and updatedAt
   }
 );
+
+invoiceSchema.pre("save", function (next) {
+  const totalPaid = (this.payments || []).reduce(
+    (sum, p) => sum + (p.amount || 0),
+    0
+  );
+
+  if (totalPaid > this.netTotal) {
+    return next(new Error("Total payments exceed invoice amount"));
+  }
+
+  if (totalPaid === 0) {
+    this.invoiceStatus = INVOICE_STATUS.PENDING;
+  } else if (totalPaid < this.netTotal) {
+    this.invoiceStatus =
+      this.dueDate && this.dueDate < new Date()
+        ? INVOICE_STATUS.OVERDUE
+        : INVOICE_STATUS.PARTIAL_RECEIVED;
+  } else {
+    this.invoiceStatus = INVOICE_STATUS.RECEIVED;
+  }
+
+  next();
+});
 
 module.exports = model("Invoice", invoiceSchema);
