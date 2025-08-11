@@ -239,10 +239,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
             customerId,
             $and: [
               {
-                $or: [
-                  { invoiceId: { $exists: false } },
-                  { invoiceId: null },
-                ],
+                $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }],
               },
               {
                 subtripStatus: {
@@ -281,6 +278,16 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
     console.log(error);
     res.status(500).json({ error });
   }
+});
+
+// Fetch invoices for a specific customer
+const getCustomerInvoices = asyncHandler(async (req, res) => {
+  const invoices = await Invoice.find({
+    customerId: req.params.id,
+    tenant: req.tenant,
+  });
+
+  res.status(200).json(invoices);
 });
 
 // Get subtrip monthly data (own vs market) for a specific customer
@@ -447,5 +454,6 @@ module.exports = {
   deleteCustomer,
   getCustomerRoutes,
   getCustomerInvoiceAmountSummary,
+  getCustomerInvoices,
   getCustomerSubtripMonthlyData,
 };
