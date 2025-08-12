@@ -350,29 +350,19 @@ const deleteInvoice = asyncHandler(async (req, res) => {
   }
 });
 
-// Update Invoice (supports partial payments and status updates)
-const updateInvoice = asyncHandler(async (req, res) => {
-  const { invoiceStatus, amount } = req.body;
+// Mark Invoice as Cancelled
+const cancelInvoice = asyncHandler(async (req, res) => {
+  const { id } = req.params;
 
   const session = await Invoice.startSession();
   session.startTransaction();
 
   try {
-    let invoice = await Invoice.findOne({
-      _id: req.params.id,
-      tenant: req.tenant,
-    })
-      .populate("customerId")
-      .populate({
-        path: "invoicedSubTrips",
-        populate: {
-          path: "tripId",
-          populate: {
-            path: "vehicleId",
-          },
-        },
-      })
-      .session(session);
+    const invoice = await Invoice.findOneAndUpdate(
+      { _id: id, tenant: req.tenant },
+      { $set: { invoiceStatus: INVOICE_STATUS.CANCELLED } },
+      { new: true, session }
+    );
 
     if (!invoice) {
       await session.abortTransaction();
@@ -380,60 +370,14 @@ const updateInvoice = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
-    // Handle partial payment
-    if (typeof amount === "number" && amount > 0) {
-      invoice.payments.push({ amount, paidBy: req.user?._id });
-      invoice.totalReceived = (invoice.totalReceived || 0) + amount;
-    }
+    const subtrips = await Subtrip.find({
+      invoiceId: id,
+      tenant: req.tenant,
+    }).session(session);
 
-    // Allow explicit status update (e.g., cancel invoice)
-    if (invoiceStatus) {
-      invoice.invoiceStatus = invoiceStatus;
-    }
-
-    await invoice.save({ session });
-
-    // Update subtrip statuses based on invoice status and record events
-    let newSubtripStatus;
-    switch (invoice.invoiceStatus) {
-      case INVOICE_STATUS.PENDING:
-      case INVOICE_STATUS.OVERDUE:
-      case INVOICE_STATUS.PARTIAL_RECEIVED:
-        newSubtripStatus = SUBTRIP_STATUS.BILLED_PENDING;
-        break;
-      case INVOICE_STATUS.RECEIVED:
-        newSubtripStatus = SUBTRIP_STATUS.BILLED_PAID;
-        break;
-      case INVOICE_STATUS.CANCELLED:
-        newSubtripStatus = SUBTRIP_STATUS.RECEIVED;
-        break;
-    }
-
-    if (newSubtripStatus) {
-      const subtrips = await Subtrip.find({
-        invoiceId: req.params.id,
-        tenant: req.tenant,
-      }).session(session);
-
-      for (const subtrip of subtrips) {
-        subtrip.subtripStatus = newSubtripStatus;
-
-        if (invoice.invoiceStatus === INVOICE_STATUS.RECEIVED) {
-          await recordSubtripEvent(
-            subtrip._id,
-            SUBTRIP_EVENT_TYPES.INVOICE_PAID,
-            {
-              invoiceNo: invoice.invoiceNo,
-              amount: invoice.netTotal,
-            },
-            req.user,
-            req.tenant,
-            session
-          );
-        }
-
-        await subtrip.save({ session });
-      }
+    for (const subtrip of subtrips) {
+      subtrip.subtripStatus = SUBTRIP_STATUS.RECEIVED;
+      await subtrip.save({ session });
     }
 
     await session.commitTransaction();
@@ -443,10 +387,105 @@ const updateInvoice = asyncHandler(async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error("Invoice update failed:", error);
+    console.error("Invoice cancellation failed:", error);
     res
       .status(500)
-      .json({ message: "Failed to update invoice", error: error.message });
+      .json({ message: "Failed to cancel invoice", error: error.message });
+  }
+});
+
+// Record payment for an invoice
+const payInvoice = asyncHandler(async (req, res) => {
+  const { amount } = req.body;
+
+  if (typeof amount !== "number" || amount <= 0) {
+    return res
+      .status(400)
+      .json({ message: "A valid payment amount is required" });
+  }
+
+  const session = await Invoice.startSession();
+  session.startTransaction();
+
+  try {
+    const invoice = await Invoice.findOne({
+      _id: req.params.id,
+      tenant: req.tenant,
+    }).session(session);
+
+    if (!invoice) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    const pendingAmount = invoice.netTotal - (invoice.totalReceived || 0);
+    if (amount > pendingAmount) {
+      await session.abortTransaction();
+      session.endSession();
+      return res
+        .status(400)
+        .json({ message: "Amount exceeds pending invoice amount" });
+    }
+
+    const newStatus =
+      amount === pendingAmount
+        ? INVOICE_STATUS.RECEIVED
+        : INVOICE_STATUS.PARTIAL_RECEIVED;
+
+    const updatedInvoice = await Invoice.findOneAndUpdate(
+      { _id: req.params.id, tenant: req.tenant },
+      {
+        $push: {
+          payments: { amount, paidBy: req.user?._id, paidAt: new Date() },
+        },
+        $inc: { totalReceived: amount },
+        $set: { invoiceStatus: newStatus },
+      },
+      { new: true, session }
+    );
+
+    const subtripStatus =
+      updatedInvoice.invoiceStatus === INVOICE_STATUS.RECEIVED
+        ? SUBTRIP_STATUS.BILLED_PAID
+        : SUBTRIP_STATUS.BILLED_PENDING;
+
+    const subtrips = await Subtrip.find({
+      invoiceId: req.params.id,
+      tenant: req.tenant,
+    }).session(session);
+
+    for (const subtrip of subtrips) {
+      subtrip.subtripStatus = subtripStatus;
+
+      if (updatedInvoice.invoiceStatus === INVOICE_STATUS.RECEIVED) {
+        await recordSubtripEvent(
+          subtrip._id,
+          SUBTRIP_EVENT_TYPES.INVOICE_PAID,
+          {
+            invoiceNo: updatedInvoice.invoiceNo,
+            amount: updatedInvoice.netTotal,
+          },
+          req.user,
+          req.tenant,
+          session
+        );
+      }
+
+      await subtrip.save({ session });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json(updatedInvoice);
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Invoice payment failed:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to record payment", error: error.message });
   }
 });
 
@@ -454,6 +493,7 @@ module.exports = {
   createInvoice,
   fetchInvoices,
   fetchInvoice,
-  updateInvoice,
+  cancelInvoice,
+  payInvoice,
   deleteInvoice,
 };
