@@ -277,6 +277,10 @@ const fetchInvoice = asyncHandler(async (req, res) => {
           path: "vehicleId",
         },
       },
+    })
+    .populate({
+      path: "payments.paidBy",
+      select: "name",
     });
 
   if (!invoice) {
