@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    lastSeen: { type: Date },
 
     permissions: {
       bank: {

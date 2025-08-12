@@ -16,6 +16,14 @@ const fetchUsers = asyncHandler(async (req, res) => {
   res.status(200).json(users);
 });
 
+// Fetch Users Last Seen
+const fetchUsersLastSeen = asyncHandler(async (req, res) => {
+  const users = await UserModel.find({ tenant: req.tenant })
+    .select("name lastSeen")
+    .sort({ name: 1 });
+  res.status(200).json(users);
+});
+
 // Fetch User
 const fetchUser = asyncHandler(async (req, res) => {
   const user = await UserModel.findOne({
@@ -47,6 +55,7 @@ const updateUser = asyncHandler(async (req, res) => {
 module.exports = {
   createUser,
   fetchUsers,
+  fetchUsersLastSeen,
   fetchUser,
   deleteUser,
   updateUser,

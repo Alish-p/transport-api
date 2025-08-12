@@ -19,6 +19,14 @@ const private = asyncHandler(async (req, res, next) => {
       const user = await UserModel.findById(id, { password: 0 });
       req.user = user;
       req.tenant = new mongoose.Types.ObjectId(tenant);
+      // ✅ Update last seen in background (non-blocking)
+      setImmediate(() => {
+        UserModel.updateOne({ _id: id }, { lastSeen: new Date() }).catch(
+          (error) => {
+            console.error("Failed to update lastSeen", error);
+          },
+        );
+      });
       next();
     } catch (err) {
       const error = new Error("Invalid Token.");
