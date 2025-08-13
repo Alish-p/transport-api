@@ -75,9 +75,6 @@ const generateEventMessage = (event) => {
     case SUBTRIP_EVENT_TYPES.INVOICE_DELETED:
       return `Invoice deleted: ${details.invoiceNo} ${userInfo}`;
 
-    case SUBTRIP_EVENT_TYPES.INVOICE_PAID:
-      return `Invoice marked as paid ${userInfo}`;
-
     case SUBTRIP_EVENT_TYPES.DRIVER_SALARY_GENERATED:
       return `Driver salary processed ${userInfo}`;
 

@@ -362,9 +362,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       const key = statusKeys[idx]
         .toLowerCase()
         .replace(/-/g, "")
-        .replace("billedpending", "billedPending")
-        .replace("billedoverdue", "billedOverdue")
-        .replace("billedpaid", "billedPaid")
+        .replace("billed", "billed")
         .replace("inqueue", "inqueue");
       totalsObj[`total${key.charAt(0).toUpperCase()}${key.slice(1)}`] = cnt;
     });
