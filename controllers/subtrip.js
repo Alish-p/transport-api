@@ -838,34 +838,6 @@ const resolveLR = asyncHandler(async (req, res) => {
   res.status(200).json(subtrip);
 });
 
-const closeSubtrip = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const subtrip = await populateSubtrip(
-    Subtrip.findOne({ _id: id, tenant: req.tenant })
-  );
-
-  if (!subtrip) {
-    return res.status(404).json({ message: "Subtrip not found" });
-  }
-
-  // Update subtrip status
-  subtrip.subtripStatus = SUBTRIP_STATUS.CLOSED;
-
-  // Record closing event
-  await recordSubtripEvent(
-    subtrip._id,
-    SUBTRIP_EVENT_TYPES.CLOSED,
-    {},
-    req.user,
-    req.tenant
-  );
-
-  await subtrip.save();
-
-  res.status(200).json(subtrip);
-});
-
 // Update Subtrip
 const updateSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -945,11 +917,11 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
   }
 
   // ──────────────────────────────────────────────────────────
-  // OPTIONAL: Block deletion if subtrip is closed or has
+  // OPTIONAL: Block deletion if subtrip is Billed or has
   // financial references (invoiceId, driverSalaryId, transporterPaymentReceiptId)
   // ──────────────────────────────────────────────────────────
   if (
-    subtrip.subtripStatus === SUBTRIP_STATUS.CLOSED ||
+    subtrip.subtripStatus === SUBTRIP_STATUS.BILLED ||
     subtrip.invoiceId ||
     subtrip.driverSalaryId ||
     subtrip.transporterPaymentReceiptId
@@ -1069,7 +1041,7 @@ const closeEmptySubtrip = asyncHandler(async (req, res) => {
   // Update subtrip status and end details
   subtrip.endDate = endDate;
   subtrip.endKm = endKm;
-  subtrip.subtripStatus = SUBTRIP_STATUS.BILLED_PAID;
+  subtrip.subtripStatus = SUBTRIP_STATUS.BILLED;
 
   // Record closing event
   await recordSubtripEvent(
@@ -1104,12 +1076,7 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
         $lte: new Date(endDate),
       },
       subtripStatus: {
-        $in: [
-          SUBTRIP_STATUS.RECEIVED,
-          SUBTRIP_STATUS.BILLED_PENDING,
-          SUBTRIP_STATUS.BILLED_OVERDUE,
-          SUBTRIP_STATUS.BILLED_PAID,
-        ],
+        $in: [SUBTRIP_STATUS.RECEIVED, SUBTRIP_STATUS.BILLED],
       },
       isEmpty: false,
       transporterPaymentReceiptId: { $exists: false },
@@ -1184,7 +1151,6 @@ module.exports = {
   addMaterialInfo,
   receiveLR,
   resolveLR,
-  closeSubtrip,
   createEmptySubtrip,
   closeEmptySubtrip,
   fetchSubtripsByStatuses,

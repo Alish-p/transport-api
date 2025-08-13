@@ -12,9 +12,6 @@ exports.SUBTRIP_STATUS = {
   ERROR: "error",
   RECEIVED: "received",
   BILLED: "billed",
-  BILLED_PENDING: "billed-pending",
-  BILLED_OVERDUE: "billed-overdue",
-  BILLED_PAID: "billed-paid",
 };
 
 exports.SUBTRIP_EXPENSE_TYPES = {
