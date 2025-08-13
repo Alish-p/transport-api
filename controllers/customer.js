@@ -222,7 +222,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
           $match: {
             tenant: req.tenant,
             customerId,
-            invoiceStatus: INVOICE_STATUS.PAID,
+            invoiceStatus: INVOICE_STATUS.RECEIVED,
           },
         },
         {
