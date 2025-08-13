@@ -1071,20 +1071,37 @@ const getTransporterPaymentTotals = asyncHandler(async (req, res) => {
 // Get invoice amounts summary for dashboard
 const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
   try {
-    const [generatedAgg, receivedAgg, pendingAgg] = await Promise.all([
+    const [pendingAgg, receivedAgg, unbilledAgg] = await Promise.all([
       Invoice.aggregate([
         {
           $match: {
             tenant: req.tenant,
             invoiceStatus: {
-              $in: [INVOICE_STATUS.PENDING, INVOICE_STATUS.OVERDUE],
+              $in: [
+                INVOICE_STATUS.PENDING,
+                INVOICE_STATUS.PARTIAL_RECEIVED,
+                INVOICE_STATUS.OVERDUE,
+              ],
             },
           },
         },
         {
           $group: {
             _id: null,
-            total: { $sum: { $ifNull: ["$netTotal", 0] } },
+            total: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$invoiceStatus", INVOICE_STATUS.PARTIAL_RECEIVED] },
+                  {
+                    $subtract: [
+                      { $ifNull: ["$netTotal", 0] },
+                      { $ifNull: ["$totalReceived", 0] },
+                    ],
+                  },
+                  { $ifNull: ["$netTotal", 0] },
+                ],
+              },
+            },
           },
         },
       ]),
@@ -1092,11 +1109,19 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         {
           $match: {
             tenant: req.tenant,
-            invoiceStatus: INVOICE_STATUS.RECEIVED,
+            invoiceStatus: {
+              $in: [
+                INVOICE_STATUS.RECEIVED,
+                INVOICE_STATUS.PARTIAL_RECEIVED,
+              ],
+            },
           },
         },
         {
-          $group: { _id: null, total: { $sum: { $ifNull: ["$netTotal", 0] } } },
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ["$totalReceived", 0] } },
+          },
         },
       ]),
       Subtrip.aggregate([
@@ -1131,11 +1156,11 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
       ]),
     ]);
 
-    const generatedAmount = generatedAgg[0]?.total || 0;
-    const receivedAmount = receivedAgg[0]?.total || 0;
     const pendingAmount = pendingAgg[0]?.total || 0;
+    const receivedAmount = receivedAgg[0]?.total || 0;
+    const unbilledAmount = unbilledAgg[0]?.total || 0;
 
-    res.status(200).json({ generatedAmount, receivedAmount, pendingAmount });
+    res.status(200).json({ pendingAmount, receivedAmount, unbilledAmount });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error });
