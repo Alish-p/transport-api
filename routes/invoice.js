@@ -5,7 +5,8 @@ const {
   createInvoice,
   fetchInvoices,
   fetchInvoice,
-  updateInvoice,
+  cancelInvoice,
+  payInvoice,
   deleteInvoice,
 } = require("../controllers/invoice");
 
@@ -24,10 +25,16 @@ router.post(
 router.get("/", private, pagination, fetchInvoices);
 router.get("/:id", private, fetchInvoice);
 router.put(
-  "/:id",
+  "/:id/cancel",
   private,
   checkPermission("invoice", "update"),
-  updateInvoice
+  cancelInvoice
+);
+router.put(
+  "/:id/pay",
+  private,
+  checkPermission("invoice", "update"),
+  payInvoice
 );
 router.delete(
   "/:id",

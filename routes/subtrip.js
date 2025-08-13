@@ -59,12 +59,6 @@ router.put(
   checkPermission("subtrip", "update"),
   resolveLR
 );
-router.put(
-  "/:id/close",
-  private,
-  checkPermission("subtrip", "update"),
-  closeSubtrip
-);
 
 router.post(
   "/empty",

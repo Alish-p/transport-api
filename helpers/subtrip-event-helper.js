@@ -6,7 +6,8 @@ const recordSubtripEvent = async (
   eventType,
   details = {},
   user = null,
-  tenant = null
+  tenant = null,
+  session = null
 ) => {
   const subtripId =
     typeof subtrip === "object" && subtrip !== null && subtrip._id
@@ -31,7 +32,11 @@ const recordSubtripEvent = async (
         : undefined),
   };
 
-  await SubtripEvent.create(eventData);
+  if (session) {
+    await SubtripEvent.create(eventData, { session });
+  } else {
+    await SubtripEvent.create(eventData);
+  }
 };
 
 // Helper function to generate event message based on event type and details
@@ -69,9 +74,6 @@ const generateEventMessage = (event) => {
 
     case SUBTRIP_EVENT_TYPES.INVOICE_DELETED:
       return `Invoice deleted: ${details.invoiceNo} ${userInfo}`;
-
-    case SUBTRIP_EVENT_TYPES.INVOICE_PAID:
-      return `Invoice marked as paid ${userInfo}`;
 
     case SUBTRIP_EVENT_TYPES.DRIVER_SALARY_GENERATED:
       return `Driver salary processed ${userInfo}`;

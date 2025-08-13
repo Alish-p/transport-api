@@ -172,11 +172,7 @@ const getVehicleBillingSummary = asyncHandler(async (req, res) => {
 
   const matchStage = {
     subtripStatus: {
-      $in: [
-        SUBTRIP_STATUS.BILLED_PENDING,
-        SUBTRIP_STATUS.BILLED_OVERDUE,
-        SUBTRIP_STATUS.BILLED_PAID,
-      ],
+      $in: [SUBTRIP_STATUS.BILLED],
     },
     startDate: { $gte: start, $lte: end },
   };

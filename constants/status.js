@@ -1,7 +1,9 @@
 exports.INVOICE_STATUS = {
-  PENDING: "pending",
-  PAID: "paid",
-  OVERDUE: "overdue",
+  PENDING: "Pending",
+  PARTIAL_RECEIVED: "Partial Received",
+  RECEIVED: "Received",
+  OVERDUE: "Overdue",
+  CANCELLED: "Cancelled",
 };
 
 exports.SUBTRIP_STATUS = {
@@ -9,9 +11,7 @@ exports.SUBTRIP_STATUS = {
   LOADED: "loaded",
   ERROR: "error",
   RECEIVED: "received",
-  BILLED_PENDING: "billed-pending",
-  BILLED_OVERDUE: "billed-overdue",
-  BILLED_PAID: "billed-paid",
+  BILLED: "billed",
 };
 
 exports.SUBTRIP_EXPENSE_TYPES = {
