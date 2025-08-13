@@ -11,6 +11,7 @@ exports.SUBTRIP_STATUS = {
   LOADED: "loaded",
   ERROR: "error",
   RECEIVED: "received",
+  BILLED: "billed",
   BILLED_PENDING: "billed-pending",
   BILLED_OVERDUE: "billed-overdue",
   BILLED_PAID: "billed-paid",

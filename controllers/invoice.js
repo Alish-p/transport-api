@@ -138,7 +138,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     // 8. Update subtrips
     for (const subtrip of subtrips) {
       subtrip.invoiceId = savedInvoice._id;
-      subtrip.subtripStatus = SUBTRIP_STATUS.BILLED_PENDING;
+      subtrip.subtripStatus = SUBTRIP_STATUS.BILLED;
 
       await recordSubtripEvent(
         subtrip._id,
@@ -448,36 +448,6 @@ const payInvoice = asyncHandler(async (req, res) => {
       },
       { new: true, session }
     );
-
-    const subtripStatus =
-      updatedInvoice.invoiceStatus === INVOICE_STATUS.RECEIVED
-        ? SUBTRIP_STATUS.BILLED_PAID
-        : SUBTRIP_STATUS.BILLED_PENDING;
-
-    const subtrips = await Subtrip.find({
-      invoiceId: req.params.id,
-      tenant: req.tenant,
-    }).session(session);
-
-    for (const subtrip of subtrips) {
-      subtrip.subtripStatus = subtripStatus;
-
-      if (updatedInvoice.invoiceStatus === INVOICE_STATUS.RECEIVED) {
-        await recordSubtripEvent(
-          subtrip._id,
-          SUBTRIP_EVENT_TYPES.INVOICE_PAID,
-          {
-            invoiceNo: updatedInvoice.invoiceNo,
-            amount: updatedInvoice.netTotal,
-          },
-          req.user,
-          req.tenant,
-          session
-        );
-      }
-
-      await subtrip.save({ session });
-    }
 
     await session.commitTransaction();
     session.endSession();
