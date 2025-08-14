@@ -832,7 +832,7 @@ const getInvoiceStatusSummary = asyncHandler(async (req, res) => {
 
     const series = [
       { label: "Pending", value: statusMap[INVOICE_STATUS.PENDING] },
-      { label: "RECEIVED", value: statusMap[INVOICE_STATUS.RECEIVED] },
+      { label: "Received", value: statusMap[INVOICE_STATUS.RECEIVED] },
       {
         label: "Partial Received",
         value: statusMap[INVOICE_STATUS.PARTIAL_RECEIVED],
@@ -1110,10 +1110,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
           $match: {
             tenant: req.tenant,
             invoiceStatus: {
-              $in: [
-                INVOICE_STATUS.RECEIVED,
-                INVOICE_STATUS.PARTIAL_RECEIVED,
-              ],
+              $in: [INVOICE_STATUS.RECEIVED, INVOICE_STATUS.PARTIAL_RECEIVED],
             },
           },
         },
