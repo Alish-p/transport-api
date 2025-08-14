@@ -405,49 +405,53 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
     });
 
     if (search) {
-      const regex = new RegExp(search, "i");
+      if (search.startsWith("st-")) {
+        query._id = search;
+      } else {
+        const regex = new RegExp(search, "i");
 
-      const [drivers, vehicles] = await Promise.all([
-        Driver.find({
-          driverName: { $regex: regex },
+        const [drivers, vehicles] = await Promise.all([
+          Driver.find({
+            driverName: { $regex: regex },
+            tenant: req.tenant,
+          }).select("_id"),
+          Vehicle.find({
+            vehicleNo: { $regex: regex },
+            tenant: req.tenant,
+          }).select("_id"),
+        ]);
+
+        const driverIds = drivers.map((d) => d._id);
+        const vehicleIds = vehicles.map((v) => v._id);
+
+        if (!driverIds.length && !vehicleIds.length) {
+          return res.status(200).json({
+            results: [],
+            total: 0,
+            startRange: 0,
+            endRange: 0,
+          });
+        }
+
+        const trips = await Trip.find({
           tenant: req.tenant,
-        }).select("_id"),
-        Vehicle.find({
-          vehicleNo: { $regex: regex },
-          tenant: req.tenant,
-        }).select("_id"),
-      ]);
+          $or: [
+            driverIds.length ? { driverId: { $in: driverIds } } : null,
+            vehicleIds.length ? { vehicleId: { $in: vehicleIds } } : null,
+          ].filter(Boolean),
+        }).select("_id");
 
-      const driverIds = drivers.map((d) => d._id);
-      const vehicleIds = vehicles.map((v) => v._id);
+        if (!trips.length) {
+          return res.status(200).json({
+            results: [],
+            total: 0,
+            startRange: 0,
+            endRange: 0,
+          });
+        }
 
-      if (!driverIds.length && !vehicleIds.length) {
-        return res.status(200).json({
-          results: [],
-          total: 0,
-          startRange: 0,
-          endRange: 0,
-        });
+        query.tripId = { $in: trips.map((t) => t._id) };
       }
-
-      const trips = await Trip.find({
-        tenant: req.tenant,
-        $or: [
-          driverIds.length ? { driverId: { $in: driverIds } } : null,
-          vehicleIds.length ? { vehicleId: { $in: vehicleIds } } : null,
-        ].filter(Boolean),
-      }).select("_id");
-
-      if (!trips.length) {
-        return res.status(200).json({
-          results: [],
-          total: 0,
-          startRange: 0,
-          endRange: 0,
-        });
-      }
-
-      query.tripId = { $in: trips.map((t) => t._id) };
     }
 
     const [subtrips, total] = await Promise.all([
