@@ -243,11 +243,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
               },
               {
                 subtripStatus: {
-                  $in: [
-                    SUBTRIP_STATUS.LOADED,
-                    SUBTRIP_STATUS.ERROR,
-                    SUBTRIP_STATUS.RECEIVED,
-                  ],
+                  $in: [SUBTRIP_STATUS.RECEIVED],
                 },
               },
             ],
