@@ -199,7 +199,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const customerId = new mongoose.Types.ObjectId(id);
 
-    const [generatedAgg, paidAgg, pendingAgg] = await Promise.all([
+    const [pendingAgg, receivedAgg, unbilledAgg] = await Promise.all([
       Invoice.aggregate([
         {
           $match: {
@@ -269,11 +269,11 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
       ]),
     ]);
 
-    const generatedAmount = generatedAgg[0]?.total || 0;
-    const paidAmount = paidAgg[0]?.total || 0;
     const pendingAmount = pendingAgg[0]?.total || 0;
+    const receivedAmount = receivedAgg[0]?.total || 0;
+    const unbilledAmount = unbilledAgg[0]?.total || 0;
 
-    res.status(200).json({ generatedAmount, paidAmount, pendingAmount });
+    res.status(200).json({ pendingAmount, receivedAmount, unbilledAmount });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error });
