@@ -400,7 +400,7 @@ const cancelInvoice = asyncHandler(async (req, res) => {
 
 // Record payment for an invoice
 const payInvoice = asyncHandler(async (req, res) => {
-  const { amount } = req.body;
+  const { amount, referenceNumber, receivedDate } = req.body;
 
   if (typeof amount !== "number" || amount <= 0) {
     return res
@@ -441,7 +441,12 @@ const payInvoice = asyncHandler(async (req, res) => {
       { _id: req.params.id, tenant: req.tenant },
       {
         $push: {
-          payments: { amount, paidBy: req.user?._id, paidAt: new Date() },
+          payments: {
+            amount,
+            paidBy: req.user?._id,
+            paidAt: receivedDate || new Date(),
+            referenceNumber,
+          },
         },
         $inc: { totalReceived: amount },
         $set: { invoiceStatus: newStatus },

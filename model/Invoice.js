@@ -45,6 +45,7 @@ const paymentSchema = new Schema(
     amount: { type: Number, required: true },
     paidAt: { type: Date, default: Date.now },
     paidBy: { type: Schema.Types.ObjectId, ref: "User" },
+    referenceNumber: { type: String, requied: true },
   },
   { _id: false }
 );
