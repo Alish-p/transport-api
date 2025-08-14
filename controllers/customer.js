@@ -193,13 +193,20 @@ const getCustomerRoutes = asyncHandler(async (req, res) => {
   }
 });
 
-// Get invoice amount summary for a specific customer
+// Get invoice amount summary for a specific customer [TODO -  Improve efficiency]
 const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
     const customerId = new mongoose.Types.ObjectId(id);
 
-    const [pendingAgg, receivedAgg, unbilledAgg] = await Promise.all([
+    const [
+      pendingAgg,
+      receivedAgg,
+      unbilledAgg,
+      pendingInvoices,
+      receivedInvoices,
+      unbilledSubtrips,
+    ] = await Promise.all([
       Invoice.aggregate([
         {
           $match: {
@@ -263,13 +270,38 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
           },
         },
       ]),
+      Invoice.find({
+        tenant: req.tenant,
+        customerId,
+        invoiceStatus: {
+          $in: [INVOICE_STATUS.PENDING, INVOICE_STATUS.OVERDUE],
+        },
+      }).select("_id invoiceNo issueDate dueDate netTotal"),
+      Invoice.find({
+        tenant: req.tenant,
+        customerId,
+        invoiceStatus: INVOICE_STATUS.RECEIVED,
+      }).select("_id invoiceNo issueDate dueDate netTotal"),
+      Subtrip.find({
+        tenant: req.tenant,
+        customerId,
+        $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }],
+        subtripStatus: SUBTRIP_STATUS.RECEIVED,
+      }).select("_id loadingPoint unloadingPoint startDate loadingWeight rate"),
     ]);
 
     const pendingAmount = pendingAgg[0]?.total || 0;
     const receivedAmount = receivedAgg[0]?.total || 0;
     const unbilledAmount = unbilledAgg[0]?.total || 0;
 
-    res.status(200).json({ pendingAmount, receivedAmount, unbilledAmount });
+    res.status(200).json({
+      pendingAmount,
+      pendingInvoices,
+      receivedAmount,
+      receivedInvoices,
+      unbilledAmount,
+      unbilledSubtrips,
+    });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error });
