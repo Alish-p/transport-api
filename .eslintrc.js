@@ -14,12 +14,24 @@ module.exports = {
     'no-console': 0,
     'prefer-destructuring': ['warn', { object: true, array: false }],
     'unused-imports/no-unused-imports': 'warn',
-    'perfectionist/sort-exports': ['warn', { order: 'asc', type: 'line-length' }],
     'perfectionist/sort-imports': [
       'warn',
-      { order: 'asc', type: 'line-length', 'newlines-between': 'always' },
+      {
+        type: 'line-length',
+        order: 'asc',
+        groups: [
+          ['builtin', 'external'],
+          'internal',
+          ['parent', 'sibling', 'index'],
+          'object',
+          'type',
+        ],
+        'newlines-between': 'always',
+      },
     ],
-    'consistent-return':0,
-    'no-underscore-dangle':0,
+    'perfectionist/sort-named-imports': ['warn', { type: 'line-length', order: 'asc' }],
+    'perfectionist/sort-exports': ['warn', { type: 'line-length', order: 'asc' }],
+    'consistent-return': 0,
+    'no-underscore-dangle': 0,
   },
 };
