@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
-import Trip from '../model/Trip.js';
+import Trip from '../entities/trip/trip.model.js';
 import Subtrip from '../model/Subtrip.js';
 import Expense from '../entities/expense/expense.model.js';
 import Vehicle from '../entities/vehicle/vehicle.model.js';
@@ -9,7 +9,7 @@ import { recordSubtripEvent } from '../helpers/subtrip-event-helper.js';
 import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../constants/status.js';
 import { SUBTRIP_EVENT_TYPES } from '../constants/event-types.js';
 import Route from '../entities/route/route.model.js';
-import { TRIP_STATUS } from '../constants/trip-constants.js';
+import { TRIP_STATUS } from '../entities/trip/trip.constants.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 // helper function to Poppulate Subtrip

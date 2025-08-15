@@ -1,5 +1,5 @@
 import Driver from './driver.model.js';
-import Trip from '../../model/Trip.js';
+import Trip from '../trip/trip.model.js';
 import Subtrip from '../../model/Subtrip.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
 

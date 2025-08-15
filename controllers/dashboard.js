@@ -6,7 +6,7 @@ import Vehicle from '../entities/vehicle/vehicle.model.js';
 import Invoice from '../entities/invoice/invoice.model.js';
 import DriverSalary from '../entities/driverSalary/driverSalary.model.js';
 import TransporterPayment from '../entities/transporterPayment/transporterPayment.model.js';
-import Trip from '../model/Trip.js';
+import Trip from '../entities/trip/trip.model.js';
 import Subtrip from '../model/Subtrip.js';
 import Loan from '../entities/loan/loan.model.js';
 import Expense from '../entities/expense/expense.model.js';
