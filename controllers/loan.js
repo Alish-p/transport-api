@@ -1,7 +1,7 @@
 // controllers/loanController.js
 const asyncHandler = require("express-async-handler");
 const Loan = require("../model/Loan");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 /**
  * @route   GET /api/loans

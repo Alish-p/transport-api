@@ -1,6 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const SubtripEvent = require("../model/SubtripEvent");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 const fetchSubtripEvents = asyncHandler(async (req, res) => {
   const { subtripId } = req.params;

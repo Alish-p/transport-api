@@ -4,7 +4,7 @@ const Expense = require("../model/Expense");
 const Subtrip = require("../model/Subtrip");
 const Vehicle = require("../model/Vehicle");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 const {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,

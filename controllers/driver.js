@@ -2,7 +2,7 @@ const asyncHandler = require("express-async-handler");
 const Driver = require("../model/Driver");
 const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 // Create Driver
 const createDriver = asyncHandler(async (req, res) => {

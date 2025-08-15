@@ -1,7 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 const Vehicle = require("../model/Vehicle");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");

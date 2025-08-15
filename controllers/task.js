@@ -1,6 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Task = require("../model/Task");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 // @desc    Create a new task
 // @route   POST /api/tasks
@@ -30,7 +30,10 @@ exports.createTask = asyncHandler(async (req, res) => {
 exports.updateTask = asyncHandler(async (req, res) => {
   const { status, assignees } = req.body;
 
-  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
+  const task = await Task.findOne({
+    _id: req.params.taskId,
+    tenant: req.tenant,
+  });
 
   if (!task) {
     res.status(404);
@@ -73,7 +76,10 @@ exports.updateTask = asyncHandler(async (req, res) => {
 // @route   GET /api/tasks/:taskId
 // @access  Private
 exports.getTask = asyncHandler(async (req, res) => {
-  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant })
+  const task = await Task.findOne({
+    _id: req.params.taskId,
+    tenant: req.tenant,
+  })
     .populate("reporter", "name email")
     .populate("assignees", "name email")
     .populate("activities.user", "name email");
@@ -93,7 +99,10 @@ exports.getTask = asyncHandler(async (req, res) => {
 // @route   DELETE /api/tasks/:taskId
 // @access  Private
 exports.deleteTask = asyncHandler(async (req, res) => {
-  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
+  const task = await Task.findOne({
+    _id: req.params.taskId,
+    tenant: req.tenant,
+  });
 
   if (!task) {
     res.status(404);
@@ -112,7 +121,10 @@ exports.deleteTask = asyncHandler(async (req, res) => {
 // @route   POST /api/tasks/:taskId/activity
 // @access  Private
 exports.addActivityToTask = asyncHandler(async (req, res) => {
-  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
+  const task = await Task.findOne({
+    _id: req.params.taskId,
+    tenant: req.tenant,
+  });
 
   if (!task) {
     res.status(404);
@@ -208,7 +220,10 @@ exports.fetchAllTasks = asyncHandler(async (req, res) => {
 // @route   POST /api/tasks/:taskId/subtasks
 // @access  Private
 exports.addSubtask = asyncHandler(async (req, res) => {
-  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
+  const task = await Task.findOne({
+    _id: req.params.taskId,
+    tenant: req.tenant,
+  });
 
   if (!task) {
     res.status(404);
@@ -240,7 +255,10 @@ exports.addSubtask = asyncHandler(async (req, res) => {
 // @route   PATCH /api/tasks/:taskId/subtasks/:subtaskId
 // @access  Private
 exports.toggleSubtaskComplete = asyncHandler(async (req, res) => {
-  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
+  const task = await Task.findOne({
+    _id: req.params.taskId,
+    tenant: req.tenant,
+  });
 
   if (!task) {
     res.status(404);
@@ -260,8 +278,9 @@ exports.toggleSubtaskComplete = asyncHandler(async (req, res) => {
   task.activities.push({
     user: req.user._id,
     action: "subtask_status_changed",
-    message: `Marked subtask "${subtask.text}" as ${subtask.completed ? "completed" : "incomplete"
-      }`,
+    message: `Marked subtask "${subtask.text}" as ${
+      subtask.completed ? "completed" : "incomplete"
+    }`,
   });
 
   await task.save();
@@ -273,7 +292,10 @@ exports.toggleSubtaskComplete = asyncHandler(async (req, res) => {
 // @route   DELETE /api/tasks/:taskId/subtasks/:subtaskId
 // @access  Private
 exports.deleteSubtask = asyncHandler(async (req, res) => {
-  const task = await Task.findOne({ _id: req.params.taskId, tenant: req.tenant });
+  const task = await Task.findOne({
+    _id: req.params.taskId,
+    tenant: req.tenant,
+  });
 
   if (!task) {
     res.status(404);

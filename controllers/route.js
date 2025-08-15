@@ -1,7 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const Route = require("../model/Route");
 const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 // Create Route
 const createRoute = asyncHandler(async (req, res) => {

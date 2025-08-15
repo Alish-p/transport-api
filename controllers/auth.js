@@ -1,6 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const UserModel = require("../model/User");
-const { generateToken } = require("../Utils/generateToken");
+const { generateToken } = require("../utills/generate-token");
 const Tenant = require("../model/Tenant");
 
 // Auth

@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { toTitleCase } = require("../Utils/format-string");
+const { toTitleCase } = require("../utills/format-string");
 
 const userSchema = new mongoose.Schema(
   {

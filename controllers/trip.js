@@ -4,7 +4,7 @@ const Trip = require("../model/Trip");
 const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const { TRIP_STATUS } = require("../constants/trip-constants");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 const createTrip = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();

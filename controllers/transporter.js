@@ -2,7 +2,7 @@ const asyncHandler = require("express-async-handler");
 const Transporter = require("../model/Transporter");
 const Vehicle = require("../model/Vehicle");
 const TransporterPayment = require("../model/TransporterPayment");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 // Create Transporter
 const createTransporter = asyncHandler(async (req, res) => {

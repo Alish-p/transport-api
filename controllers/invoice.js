@@ -4,7 +4,7 @@ const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
 const Customer = require("../model/Customer");
 const Tenant = require("../model/Tenant");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 const { INVOICE_STATUS, SUBTRIP_STATUS } = require("../constants/status");
 
@@ -13,7 +13,7 @@ const {
   SUBTRIP_EVENT_TYPES,
 } = require("../helpers/subtrip-event-helper");
 
-const { calculateInvoiceSummary } = require("../Utils/invoice-utils");
+const { calculateInvoiceSummary } = require("../utills/invoice-utils");
 
 const createInvoice = asyncHandler(async (req, res) => {
   const {

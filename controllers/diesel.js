@@ -1,7 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const Pump = require("../model/Pump");
 const DieselPrice = require("../model/Diesel");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 const createDieselPrice = asyncHandler(async (req, res) => {
   const { pump, price, startDate, endDate } = req.body;

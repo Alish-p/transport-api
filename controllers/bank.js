@@ -1,6 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Bank = require("../model/Bank");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 // Create Bank
 const createBank = asyncHandler(async (req, res) => {
@@ -20,17 +20,14 @@ const fetchBanks = asyncHandler(async (req, res) => {
 
     if (search) {
       query.$or = [
-        { ifsc: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } },
-        { branch: { $regex: search, $options: 'i' } },
+        { ifsc: { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } },
+        { branch: { $regex: search, $options: "i" } },
       ];
     }
 
     const [banks, total] = await Promise.all([
-      Bank.find(query)
-        .sort({ name: 1 })
-        .skip(skip)
-        .limit(limit),
+      Bank.find(query).sort({ name: 1 }).skip(skip).limit(limit),
       Bank.countDocuments(query),
     ]);
 
@@ -42,7 +39,7 @@ const fetchBanks = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: 'An error occurred while fetching paginated banks',
+      message: "An error occurred while fetching paginated banks",
       error: error.message,
     });
   }

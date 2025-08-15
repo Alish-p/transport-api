@@ -1,6 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Pump = require("../model/Pump");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 // Create Pump
 const createPump = asyncHandler(async (req, res) => {
@@ -33,16 +33,13 @@ const fetchPumps = asyncHandler(async (req, res) => {
 
     if (search) {
       query.$or = [
-        { pumpName: { $regex: search, $options: 'i' } },
-        { placeName: { $regex: search, $options: 'i' } },
+        { pumpName: { $regex: search, $options: "i" } },
+        { placeName: { $regex: search, $options: "i" } },
       ];
     }
 
     const [pumps, total] = await Promise.all([
-      Pump.find(query)
-        .sort({ pumpName: 1 })
-        .skip(skip)
-        .limit(limit),
+      Pump.find(query).sort({ pumpName: 1 }).skip(skip).limit(limit),
       Pump.countDocuments(query),
     ]);
 
@@ -54,7 +51,7 @@ const fetchPumps = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: 'An error occurred while fetching paginated pumps',
+      message: "An error occurred while fetching paginated pumps",
       error: error.message,
     });
   }

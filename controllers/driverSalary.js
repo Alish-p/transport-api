@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 const DriverSalary = require("../model/DriverSalary");
 const Driver = require("../model/Driver");
 const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 const {
   recordSubtripEvent,
@@ -17,7 +17,7 @@ const {
 const {
   calculateDriverSalary,
   calculateDriverSalarySummary,
-} = require("../Utils/driver-salary-utils");
+} = require("../utills/driver-salary-utils");
 
 // 💰 Create Driver Salary Receipt
 const createDriverSalary = asyncHandler(async (req, res) => {
@@ -356,7 +356,10 @@ const deleteDriverSalary = asyncHandler(async (req, res) => {
     { $unset: { driverSalaryReceiptId: "" } }
   );
 
-  await DriverSalary.findOneAndDelete({ _id: req.params.id, tenant: req.tenant });
+  await DriverSalary.findOneAndDelete({
+    _id: req.params.id,
+    tenant: req.tenant,
+  });
   res.status(200).json({ message: "Driver Salary deleted successfully." });
 });
 

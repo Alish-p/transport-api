@@ -11,13 +11,13 @@ const Subtrip = require("../model/Subtrip");
 const Expense = require("../model/Expense");
 const Loan = require("../model/Loan");
 const { EXPENSE_CATEGORIES } = require("../constants/status");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 const { SUBTRIP_STATUS, INVOICE_STATUS } = require("../constants/status");
 const {
   calculateTransporterPayment,
-} = require("../Utils/transporter-payment-utils");
-const { calculateDriverSalary } = require("../Utils/driver-salary-utils");
+} = require("../utills/transporter-payment-utils");
+const { calculateDriverSalary } = require("../utills/driver-salary-utils");
 
 // Get Dashboard Highlights
 const getDashboardHighlights = asyncHandler(async (req, res) => {

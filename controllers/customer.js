@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const Customer = require("../model/Customer");
 const Invoice = require("../model/Invoice");
 const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 const { INVOICE_STATUS, SUBTRIP_STATUS } = require("../constants/status");
 
 // Create Customer

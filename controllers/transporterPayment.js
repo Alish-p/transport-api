@@ -5,7 +5,7 @@ const TransporterPayment = require("../model/TransporterPayment");
 
 const Transporter = require("../model/Transporter");
 const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 const Tenant = require("../model/Tenant");
 const {
   recordSubtripEvent,
@@ -14,7 +14,7 @@ const {
 const {
   calculateTransporterPayment,
   calculateTransporterPaymentSummary,
-} = require("../Utils/transporter-payment-utils");
+} = require("../utills/transporter-payment-utils");
 
 // 💰 Create Transporter Payment Receipt
 const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
@@ -107,8 +107,8 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     });
 
     // 4. Calculate final summary and tax
-    const tenant = await Tenant.findById(req.tenant).select('address.state');
-    const tenantState = tenant?.address?.state || '';
+    const tenant = await Tenant.findById(req.tenant).select("address.state");
+    const tenantState = tenant?.address?.state || "";
     const summary = calculateTransporterPaymentSummary(
       { associatedSubtrips: subtrips },
       transporter,
@@ -198,13 +198,15 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       }
 
       // 2. Fetch transporter
-      const transporter =
-        await Transporter.findById(transporterId).session(session);
+      const transporter = await Transporter.findById(transporterId).session(
+        session
+      );
       if (!transporter) {
         await session.abortTransaction();
         return res.status(404).json({
-          message: `Payload #${idx + 1
-            }: Transporter not found (${transporterId}).`,
+          message: `Payload #${
+            idx + 1
+          }: Transporter not found (${transporterId}).`,
           index: idx,
         });
       }
@@ -234,8 +236,9 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         // eslint-disable-next-line no-await-in-loop
         await session.abortTransaction();
         return res.status(400).json({
-          message: `Payload #${idx + 1
-            }: Some subtrips invalid, belong to another tenant, or already linked.`,
+          message: `Payload #${
+            idx + 1
+          }: Some subtrips invalid, belong to another tenant, or already linked.`,
           failedSubtrips: failed,
           index: idx,
         });
@@ -276,8 +279,8 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       });
 
       // 5. Calculate summary & tax
-      const tenant = await Tenant.findById(req.tenant).select('address.state');
-      const tenantState = tenant?.address?.state || '';
+      const tenant = await Tenant.findById(req.tenant).select("address.state");
+      const tenantState = tenant?.address?.state || "";
       const summary = calculateTransporterPaymentSummary(
         { associatedSubtrips: subtrips },
         transporter,
@@ -353,7 +356,9 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
     const query = addTenantToQuery(req);
 
     if (transporterId) {
-      const ids = Array.isArray(transporterId) ? transporterId : [transporterId];
+      const ids = Array.isArray(transporterId)
+        ? transporterId
+        : [transporterId];
       query.transporterId = { $in: ids };
     }
 
@@ -378,15 +383,14 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
     }
 
     if (typeof hasTds !== "undefined") {
-      const boolVal =
-        hasTds === true || hasTds === "true" || hasTds === "1";
+      const boolVal = hasTds === true || hasTds === "true" || hasTds === "1";
       query["taxBreakup.tds.amount"] = boolVal ? { $gt: 0 } : { $lte: 0 };
     }
 
     const aggMatch = { ...query };
     if (aggMatch.transporterId && aggMatch.transporterId.$in) {
-      aggMatch.transporterId.$in = aggMatch.transporterId.$in.map((id) =>
-        new mongoose.Types.ObjectId(id)
+      aggMatch.transporterId.$in = aggMatch.transporterId.$in.map(
+        (id) => new mongoose.Types.ObjectId(id)
       );
     }
 

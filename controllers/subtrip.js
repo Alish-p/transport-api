@@ -10,7 +10,7 @@ const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
 const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
 const Route = require("../model/Route");
 const { TRIP_STATUS } = require("../constants/trip-constants");
-const { addTenantToQuery } = require("../Utils/tenant-utils");
+const { addTenantToQuery } = require("../utills/tenant-utils");
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>

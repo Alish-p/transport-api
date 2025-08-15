@@ -1,5 +1,5 @@
 const { Schema, model } = require("mongoose");
-const { toTitleCase } = require("../Utils/format-string");
+const { toTitleCase } = require("../utills/format-string");
 
 const driverSchema = new Schema({
   driverName: { type: String, required: true, trim: true, set: toTitleCase },
