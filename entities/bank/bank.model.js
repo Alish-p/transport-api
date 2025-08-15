@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { toTitleCase } from '../../utills/format-string.js';
+import { toTitleCase } from '../../utils/format-string.js';
 
 // Bank Master Schema
 const bankSchema = new Schema({

@@ -4,7 +4,7 @@ import Trip from './trip.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
 import { TRIP_STATUS } from './trip.constants.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 
 const createTrip = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();

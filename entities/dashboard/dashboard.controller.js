@@ -6,7 +6,7 @@ import Vehicle from '../vehicle/vehicle.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import Customer from '../customer/customer.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import DriverSalary from '../driverSalary/driverSalary.model.js';

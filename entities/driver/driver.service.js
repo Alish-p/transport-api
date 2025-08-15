@@ -1,7 +1,7 @@
 import Driver from './driver.model.js';
 import Trip from '../trip/trip.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 
 const createDriver = async (data, tenant) => {
   const driver = new Driver({

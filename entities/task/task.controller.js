@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import Task from './task.model.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 
 // @desc    Create a new task
 // @route   POST /api/tasks

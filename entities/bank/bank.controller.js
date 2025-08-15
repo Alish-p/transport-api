@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import Bank from './bank.model.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { BANK_SEARCHABLE_FIELDS } from './bank.constants.js';
 
 const createBank = asyncHandler(async (req, res) => {

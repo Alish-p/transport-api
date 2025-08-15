@@ -3,7 +3,7 @@ import asyncHandler from 'express-async-handler';
 import Vehicle from './vehicle.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 

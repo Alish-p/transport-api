@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { toTitleCase } from '../../utills/format-string.js';
+import { toTitleCase } from '../../utils/format-string.js';
 
 const driverSchema = new Schema({
   driverName: { type: String, required: true, trim: true, set: toTitleCase },

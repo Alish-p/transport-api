@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import Pump from './pump.model.js';
 import { PUMP_SEARCH_FIELDS } from './pump.constants.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 
 // Create Pump
 const createPump = asyncHandler(async (req, res) => {

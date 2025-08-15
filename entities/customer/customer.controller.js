@@ -3,7 +3,7 @@ import asyncHandler from 'express-async-handler';
 import Customer from './customer.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 

@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import Transporter from './transporter.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 
 // Create Transporter
 const createTransporter = asyncHandler(async (req, res) => {
