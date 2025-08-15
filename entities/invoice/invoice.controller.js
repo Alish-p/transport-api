@@ -1,8 +1,9 @@
+/* eslint-disable no-await-in-loop */
 import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import Invoice from './invoice.model.js';
 import Subtrip from '../../model/Subtrip.js';
-import Customer from '../../model/Customer.js';
+import Customer from '../customer/customer.model.js';
 import Tenant from '../../model/Tenant.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
 

@@ -1,7 +1,6 @@
 // controllers/loanController.js
 import asyncHandler from 'express-async-handler';
-import Loan from '../model/Loan.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
+import Loan from './loan.model.js';
 
 /**
  * @route   GET /api/loans
