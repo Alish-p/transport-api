@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import Driver from '../entities/driver/driver.model.js';
-import Transporter from '../model/Transporter.js';
+import Transporter from '../entities/transporter/transporter.model.js';
 import Customer from '../entities/customer/customer.model.js';
 import Vehicle from '../entities/vehicle/vehicle.model.js';
 import Invoice from '../entities/invoice/invoice.model.js';

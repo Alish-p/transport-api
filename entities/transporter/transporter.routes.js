@@ -1,14 +1,16 @@
 import { Router } from 'express';
+import validateZod from '../../middlewares/validate.js';
+import { transporterSchema } from './transporter.validation.js';
 import { createTransporter,
   fetchTransporters,
   deleteTransporter,
   updateTransporter,
   fetchTransporterById,
   fetchTransporterVehicles,
-  fetchTransporterPayments, } from '../controllers/transporter.js';
+  fetchTransporterPayments, } from './transporter.controller.js';
 
-import { authenticate, checkPermission } from '../middlewares/Auth.js';
-import pagination from '../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 
@@ -20,6 +22,7 @@ router.post(
   "/",
   authenticate,
   checkPermission("transporter", "create"),
+  validateZod(transporterSchema),
   createTransporter
 );
 router.delete(

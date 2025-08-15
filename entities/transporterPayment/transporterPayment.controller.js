@@ -3,7 +3,7 @@ import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import TransporterPayment from './transporterPayment.model.js';
 
-import Transporter from '../../model/Transporter.js';
+import Transporter from '../transporter/transporter.model.js';
 import Subtrip from '../../model/Subtrip.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
 import Tenant from '../../model/Tenant.js';
