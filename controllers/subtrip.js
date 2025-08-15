@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import Trip from '../model/Trip.js';
 import Subtrip from '../model/Subtrip.js';
 import Expense from '../entities/expense/expense.model.js';
-import Vehicle from '../model/Vehicle.js';
+import Vehicle from '../entities/vehicle/vehicle.model.js';
 import Driver from '../entities/driver/driver.model.js';
 import { recordSubtripEvent } from '../helpers/subtrip-event-helper.js';
 import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../constants/status.js';
