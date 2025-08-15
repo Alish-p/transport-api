@@ -8,7 +8,7 @@ import connectDB from './config/db.js';
 
 import { errorHandler } from './middlewares/ErrorHandler.js';
 import dashboardRouter from './routes/dashboard.js';
-import vehicleRouter from './routes/vehicle.js';
+import vehicleRouter from './entities/vehicle/vehicle.routes.js';
 import transporterRouter from './routes/transporter.js';
 import driverRouter from './entities/driver/driver.routes.js';
 import customerRouter from './entities/customer/customer.routes.js';

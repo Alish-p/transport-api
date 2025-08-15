@@ -1,14 +1,16 @@
 import { Router } from 'express';
-import { createVehicle,
+import {
+  createVehicle,
   quickCreateVehicle,
   fetchVehicles,
   fetchVehiclesSummary,
   getVehicleBillingSummary,
   fetchVehicleById,
   updateVehicle,
-  deleteVehicle, } from '../controllers/vehicle.js';
-import { authenticate, checkPermission } from '../middlewares/Auth.js';
-import pagination from '../middlewares/pagination.js';
+  deleteVehicle,
+} from './vehicle.controller.js';
+import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 
