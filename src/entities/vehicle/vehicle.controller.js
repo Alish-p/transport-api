@@ -1,10 +1,10 @@
 import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
-import Vehicle from '../model/Vehicle.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
-import Subtrip from '../model/Subtrip.js';
-import Expense from '../model/Expense.js';
-import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../constants/status.js';
+import Vehicle from './vehicle.model.js';
+import { addTenantToQuery } from '../../../utills/tenant-utils.js';
+import Subtrip from '../../../model/Subtrip.js';
+import Expense from '../../../model/Expense.js';
+import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../../../constants/status.js';
 
 // Create Vehicle
 const createVehicle = asyncHandler(async (req, res) => {

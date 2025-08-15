@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import Driver from '../model/Driver.js';
 import Transporter from '../model/Transporter.js';
 import Customer from '../model/Customer.js';
-import Vehicle from '../model/Vehicle.js';
+import Vehicle from '../src/entities/vehicle/vehicle.model.js';
 import Invoice from '../model/Invoice.js';
 import DriverSalary from '../model/DriverSalary.js';
 import TransporterPayment from '../src/entities/transporterPayment/transporterPayment.model.js';
