@@ -1,4 +1,4 @@
-import { CONFIG } from '../constants/CONFIG.js';
+import { CONFIG } from '../../constants/CONFIG.js';
 
 const calculateTransporterPayment = (subtrip) => {
   if (!subtrip) return null;

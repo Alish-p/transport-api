@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { toTitleCase } from '../utills/format-string.js';
+import { toTitleCase } from '../../utills/format-string.js';
 
 const driverSchema = new Schema({
   driverName: { type: String, required: true, trim: true, set: toTitleCase },
@@ -27,10 +27,10 @@ const driverSchema = new Schema({
   },
   tenant: {
     type: Schema.Types.ObjectId,
-    ref: "Tenant",
+    ref: 'Tenant',
     required: true,
     index: true,
   },
 });
 
-export default model("Driver", driverSchema);
+export default model('Driver', driverSchema);

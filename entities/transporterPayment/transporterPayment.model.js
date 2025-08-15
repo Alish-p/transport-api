@@ -1,5 +1,6 @@
 import { Schema, model } from 'mongoose';
-import CounterModel from './Counter.js';
+import CounterModel from '../../model/Counter.js';
+import { TRANSPORTER_PAYMENT_STATUS } from './transporterPayment.constants.js';
 
 //
 // 📦 Tax Breakup Schema — Captures GST details for audit compliance
@@ -92,8 +93,8 @@ const transporterPaymentReceiptSchema = new Schema(
     // Status of the payment
     status: {
       type: String,
-      enum: ["generated", "paid"],
-      default: "generated",
+      enum: Object.values(TRANSPORTER_PAYMENT_STATUS),
+      default: TRANSPORTER_PAYMENT_STATUS.GENERATED,
     },
 
     // Timestamp fields

@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import Transporter from '../model/Transporter.js';
 import Vehicle from '../model/Vehicle.js';
-import TransporterPayment from '../model/TransporterPayment.js';
+import TransporterPayment from '../entities/transporterPayment/transporterPayment.model.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 // Create Transporter
