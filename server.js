@@ -14,7 +14,7 @@ import loanRouter from './entities/loan/loan.routes.js';
 import userRouter from './entities/user/user.routes.js';
 import authRouter from './entities/user/auth.routes.js';
 import taskRouter from './entities/task/task.routes.js';
-import subtripEventRouter from './routes/subtripEvent.js';
+import subtripEventRouter from './entities/subtripEvent/subtripEvent.routes.js';
 import routeRouter from './entities/route/route.routes.js';
 import { errorHandler } from './middlewares/ErrorHandler.js';
 import driverRouter from './entities/driver/driver.routes.js';
