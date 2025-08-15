@@ -8,7 +8,7 @@ import Driver from '../entities/driver/driver.model.js';
 import { recordSubtripEvent } from '../helpers/subtrip-event-helper.js';
 import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../constants/status.js';
 import { SUBTRIP_EVENT_TYPES } from '../constants/event-types.js';
-import Route from '../model/Route.js';
+import Route from '../entities/route/route.model.js';
 import { TRIP_STATUS } from '../constants/trip-constants.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 

@@ -15,7 +15,7 @@ import customerRouter from './routes/customer.js';
 import bankRouter from './entities/bank/bank.routes.js';
 import pumpRouter from './routes/pump.js';
 import dieselPriceRouter from './routes/diesel.js';
-import routeRouter from './routes/route.js';
+import routeRouter from './entities/route/route.routes.js';
 import tripRouter from './routes/trip.js';
 import expenseRouter from './routes/expense.js';
 import invoiceRouter from './entities/invoice/invoice.routes.js';
