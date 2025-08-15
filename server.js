@@ -1,97 +1,76 @@
 /* eslint-disable no-unused-vars */
-import cors from 'cors';
-import helmet from 'helmet';
-import dotenv from 'dotenv';
-import express from 'express';
-import rateLimit from 'express-rate-limit';
-import connectDB from './config/db.js';
-import gpsRouter from './entities/gps/gps.routes.js';
-import dashboardRouter from './entities/dashboard/dashboard.routes.js';
-import bankRouter from './entities/bank/bank.routes.js';
-import pumpRouter from './entities/pump/pump.routes.js';
-import tripRouter from './entities/trip/trip.routes.js';
-import loanRouter from './entities/loan/loan.routes.js';
-import userRouter from './entities/user/user.routes.js';
-import authRouter from './entities/user/auth.routes.js';
-import taskRouter from './entities/task/task.routes.js';
-import subtripEventRouter from './entities/subtripEvent/subtripEvent.routes.js';
-import routeRouter from './entities/route/route.routes.js';
-import { errorHandler } from './middlewares/ErrorHandler.js';
-import driverRouter from './entities/driver/driver.routes.js';
-import tenantRouter from './entities/tenant/tenant.routes.js';
-import vehicleRouter from './entities/vehicle/vehicle.routes.js';
-import expenseRouter from './entities/expense/expense.routes.js';
-import invoiceRouter from './entities/invoice/invoice.routes.js';
-import subtripRouter from './entities/subtrip/subtrip.routes.js';
-import dieselPriceRouter from './entities/diesel/diesel.routes.js';
-import customerRouter from './entities/customer/customer.routes.js';
-import transporterRouter from './entities/transporter/transporter.routes.js';
-import driverSalaryRouter from './entities/driverSalary/driverSalary.routes.js';
-import transporterPaymentRouter from './entities/transporterPayment/transporterPayment.routes.js';
+import dotenv from "dotenv";
+import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
+
+import connectDB from "./config/db.js";
+import routes from "./routes/index.js";
+import { errorHandler } from "./middlewares/ErrorHandler.js";
 
 dotenv.config();
 
-const port = process.env.PORT || 5001;
+// -----------------------------------------------------------------------------
+// Constants
+// -----------------------------------------------------------------------------
 const app = express();
+const port = process.env.PORT || 5001;
 
-// Add CORS options
+// -----------------------------------------------------------------------------
+// Security & Core Middleware
+// -----------------------------------------------------------------------------
+app.use(helmet());
+
 const corsOptions = {
   origin: ["https://transport-rewrite.onrender.com", "http://localhost:3031"],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
-
 app.use(cors(corsOptions));
-app.use(helmet());
+
 app.set("query parser", "extended");
-
 // app.use(compression());
-
-
-connectDB();
-
 app.use(express.json());
 
-// ratelimits
+// -----------------------------------------------------------------------------
+// Database
+// -----------------------------------------------------------------------------
+connectDB();
+
+// -----------------------------------------------------------------------------
+// Rate Limiting
+// -----------------------------------------------------------------------------
 const limiter = rateLimit({
-  windowMs: 2 * 60 * 1000, //  100 reqs in 2 minutes only
-  max: 200,
-  message: "Too many requests from this Devices, please try again later.",
+  windowMs: 2 * 60 * 1000, // 2 minutes
+  max: 200, // 200 requests per window
+  message: "Too many requests from this device, please try again later.",
   headers: true,
 });
-
 app.use(limiter);
 
-// Routers
-app.use("/api/dashboard", dashboardRouter);
+// -----------------------------------------------------------------------------
+// Routes
+// -----------------------------------------------------------------------------
+app.use("/api", routes);
 
-app.use("/api/vehicles", vehicleRouter);
-app.use("/api/transporters", transporterRouter);
-app.use("/api/drivers", driverRouter);
-app.use("/api/customers", customerRouter);
-app.use("/api/banks", bankRouter);
-app.use("/api/pumps", pumpRouter);
-app.use("/api/diesel-prices", dieselPriceRouter);
-app.use("/api/routes", routeRouter);
-app.use("/api/trips", tripRouter);
-app.use("/api/subtrips", subtripRouter);
-app.use("/api/expenses", expenseRouter);
-app.use("/api/invoices", invoiceRouter);
-app.use("/api/driverPayroll", driverSalaryRouter);
-app.use("/api/loans", loanRouter);
-app.use("/api/transporter-payments", transporterPaymentRouter);
-app.use("/api/subtrip-events", subtripEventRouter);
-app.use("/api/tenants", tenantRouter);
-app.use("/api/users", userRouter);
-app.use("/api/tasks", taskRouter);
-app.use("/api/gps", gpsRouter);
+// 404 for unknown API routes (keeps error shape consistent)
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({ message: "Route not found" });
+  }
+  next();
+});
 
-// authentication
-app.use("/api/account", authRouter);
-
+// -----------------------------------------------------------------------------
+// Error Handling
+// -----------------------------------------------------------------------------
 app.use(errorHandler);
 
+// -----------------------------------------------------------------------------
+// Start Server
+// -----------------------------------------------------------------------------
 app.listen(port, () => {
   console.log(`Server started on port ${port}`);
 });
