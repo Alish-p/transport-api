@@ -6,7 +6,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import connectDB from './config/db.js';
 import gpsRouter from './entities/gps/gps.routes.js';
-import dashboardRouter from './routes/dashboard.js';
+import dashboardRouter from './entities/dashboard/dashboard.routes.js';
 import bankRouter from './entities/bank/bank.routes.js';
 import pumpRouter from './entities/pump/pump.routes.js';
 import tripRouter from './entities/trip/trip.routes.js';

@@ -16,9 +16,9 @@ import { getDashboardHighlights,
   getInvoiceStatusSummary,
   getTopRoutes,
   getTransporterPaymentTotals,
-  getInvoiceAmountSummary, } from '../controllers/dashboard.js';
+  getInvoiceAmountSummary, } from './dashboard.controller.js';
 
-import { authenticate } from '../middlewares/Auth.js';
+import { authenticate } from '../../middlewares/Auth.js';
 
 const router = Router();
 

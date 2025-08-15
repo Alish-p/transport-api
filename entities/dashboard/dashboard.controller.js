@@ -1,23 +1,23 @@
 import asyncHandler from 'express-async-handler';
-import Trip from '../entities/trip/trip.model.js';
-import Loan from '../entities/loan/loan.model.js';
-import Driver from '../entities/driver/driver.model.js';
-import Vehicle from '../entities/vehicle/vehicle.model.js';
-import Invoice from '../entities/invoice/invoice.model.js';
-import Subtrip from '../entities/subtrip/subtrip.model.js';
-import Expense from '../entities/expense/expense.model.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
-import Customer from '../entities/customer/customer.model.js';
-import Transporter from '../entities/transporter/transporter.model.js';
-import DriverSalary from '../entities/driverSalary/driverSalary.model.js';
-import { calculateDriverSalary } from '../entities/driverSalary/driverSalary.utils.js';
-import TransporterPayment from '../entities/transporterPayment/transporterPayment.model.js';
+import Trip from '../trip/trip.model.js';
+import Loan from '../loan/loan.model.js';
+import Driver from '../driver/driver.model.js';
+import Vehicle from '../vehicle/vehicle.model.js';
+import Invoice from '../invoice/invoice.model.js';
+import Subtrip from '../subtrip/subtrip.model.js';
+import Expense from '../expense/expense.model.js';
+import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import Customer from '../customer/customer.model.js';
+import Transporter from '../transporter/transporter.model.js';
+import DriverSalary from '../driverSalary/driverSalary.model.js';
+import { calculateDriverSalary } from '../driverSalary/driverSalary.utils.js';
+import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 import {
   EXPENSE_CATEGORIES,
   INVOICE_STATUS,
   SUBTRIP_STATUS,
-} from '../constants/status.js';
-import { calculateTransporterPayment } from '../entities/transporterPayment/transporterPayment.utils.js';
+} from '../../constants/status.js';
+import { calculateTransporterPayment } from '../transporterPayment/transporterPayment.utils.js';
 
 // Get Dashboard Highlights
 const getDashboardHighlights = asyncHandler(async (req, res) => {
