@@ -1,5 +1,8 @@
 import { Router } from 'express';
-import { createCustomer,
+import validateZod from '../../middlewares/validate.js';
+import { customerSchema } from './customer.validation.js';
+import {
+  createCustomer,
   fetchCustomers,
   fetchCustomer,
   updateCustomer,
@@ -9,10 +12,11 @@ import { createCustomer,
   getCustomerSubtripMonthlyData,
   getCustomerRoutes,
   getCustomerInvoiceAmountSummary,
-  getCustomerInvoices, } from '../controllers/customer.js';
+  getCustomerInvoices,
+} from './customer.controller.js';
 
-import { authenticate, checkPermission } from '../middlewares/Auth.js';
-import pagination from '../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 
@@ -20,6 +24,7 @@ router.post(
   "/",
   authenticate,
   checkPermission("customer", "create"),
+  validateZod(customerSchema),
   createCustomer
 );
 router.get("/", authenticate, pagination, fetchCustomers);

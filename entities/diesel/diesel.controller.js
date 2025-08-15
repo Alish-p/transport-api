@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
-import Pump from '../model/Pump.js';
-import DieselPrice from '../model/Diesel.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
+import Pump from '../../model/Pump.js';
+import DieselPrice from './diesel.model.js';
+import { addTenantToQuery } from '../../utills/tenant-utils.js';
 
 const createDieselPrice = asyncHandler(async (req, res) => {
   const { pump, price, startDate, endDate } = req.body;

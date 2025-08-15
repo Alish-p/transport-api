@@ -1,10 +1,10 @@
 import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
-import Customer from '../model/Customer.js';
-import Invoice from '../entities/invoice/invoice.model.js';
-import Subtrip from '../model/Subtrip.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
-import { INVOICE_STATUS, SUBTRIP_STATUS } from '../constants/status.js';
+import Customer from './customer.model.js';
+import Invoice from '../invoice/invoice.model.js';
+import Subtrip from '../../model/Subtrip.js';
+import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { INVOICE_STATUS, SUBTRIP_STATUS } from '../../constants/status.js';
 
 // Create Customer
 const createCustomer = asyncHandler(async (req, res) => {
