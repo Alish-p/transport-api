@@ -25,7 +25,7 @@ import transporterPaymentRouter from './entities/transporterPayment/transporterP
 import subtripEventRouter from './routes/subtripEvent.js';
 import subtripRouter from './routes/subtrip.js';
 import userRouter from './entities/user/user.routes.js';
-import tenantRouter from './routes/tenant.js';
+import tenantRouter from './entities/tenant/tenant.routes.js';
 import authRouter from './entities/user/auth.routes.js';
 import taskRouter from './routes/task.js';
 import gpsRouter from './routes/gps.js';

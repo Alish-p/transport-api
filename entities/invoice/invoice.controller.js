@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import Invoice from './invoice.model.js';
 import Subtrip from '../../model/Subtrip.js';
 import Customer from '../customer/customer.model.js';
-import Tenant from '../../model/Tenant.js';
+import Tenant from '../tenant/tenant.model.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
 
 import { INVOICE_STATUS, SUBTRIP_STATUS } from '../../constants/status.js';

@@ -1,5 +1,5 @@
 import asyncHandler from 'express-async-handler';
-import Tenant from '../model/Tenant.js';
+import Tenant from './tenant.model.js';
 
 // Create Tenant
 const createTenant = asyncHandler(async (req, res) => {

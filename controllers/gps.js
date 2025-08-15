@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import { GPS_PROVIDERS } from '../constants/gps-providers.js';
 import { getFleetxVehicleData } from '../helpers/fleetx.js';
-import Tenant from '../model/Tenant.js';
+import Tenant from '../entities/tenant/tenant.model.js';
 
 const getVehicleGpsData = asyncHandler(async (req, res) => {
   const { vehicleNo } = req.params;

@@ -1,5 +1,5 @@
 import asyncHandler from 'express-async-handler';
-import Tenant from '../../model/Tenant.js';
+import Tenant from '../tenant/tenant.model.js';
 import { generateToken } from '../../utills/generate-token.js';
 import UserModel from './user.model.js';
 
