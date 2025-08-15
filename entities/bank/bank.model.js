@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { toTitleCase } from '../utills/format-string.js';
+import { toTitleCase } from '../../utills/format-string.js';
 
 // Bank Master Schema
 const bankSchema = new Schema({
@@ -9,10 +9,10 @@ const bankSchema = new Schema({
   place: { type: String, required: true },
   tenant: {
     type: Schema.Types.ObjectId,
-    ref: "Tenant",
+    ref: 'Tenant',
     required: true,
     index: true,
   },
 });
 
-export default model("Bank", bankSchema);
+export default model('Bank', bankSchema);
