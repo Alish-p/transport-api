@@ -3,7 +3,7 @@ import Driver from '../model/Driver.js';
 import Transporter from '../model/Transporter.js';
 import Customer from '../model/Customer.js';
 import Vehicle from '../model/Vehicle.js';
-import Invoice from '../model/Invoice.js';
+import Invoice from '../entities/invoice/invoice.model.js';
 import DriverSalary from '../model/DriverSalary.js';
 import TransporterPayment from '../model/TransporterPayment.js';
 import Trip from '../model/Trip.js';

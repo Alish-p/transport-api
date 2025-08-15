@@ -18,7 +18,7 @@ import dieselPriceRouter from './routes/diesel.js';
 import routeRouter from './routes/route.js';
 import tripRouter from './routes/trip.js';
 import expenseRouter from './routes/expense.js';
-import invoiceRouter from './routes/invoice.js';
+import invoiceRouter from './entities/invoice/invoice.routes.js';
 import driverSalaryRouter from './routes/driverSalary.js';
 import loanRouter from './routes/loan.js';
 import transporterPaymentRouter from './routes/transporterPayment.js';

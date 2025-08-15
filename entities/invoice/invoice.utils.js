@@ -1,4 +1,4 @@
-import { CONFIG } from '../constants/CONFIG.js';
+import { CONFIG } from '../../constants/CONFIG.js';
 
 // 🛠 Calculate totals for a single subtrip
 const calculateInvoicePerSubtrip = (subtrip) => {
