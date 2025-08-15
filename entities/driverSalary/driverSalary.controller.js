@@ -3,17 +3,19 @@
 import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 
-import DriverSalary from '../model/DriverSalary.js';
-import Driver from '../model/Driver.js';
-import Subtrip from '../model/Subtrip.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
+import DriverSalary from './driverSalary.model.js';
+import Driver from '../../model/Driver.js';
+import Subtrip from '../../model/Subtrip.js';
 
-import { recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES, } from '../helpers/subtrip-event-helper.js';
+import {
+  recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES,
+} from '../../helpers/subtrip-event-helper.js';
 
-// stubbed utils—implement these in ../utils/driver-salary-utils.js
-import { calculateDriverSalary,
-  calculateDriverSalarySummary, } from '../utills/driver-salary-utils.js';
+import {
+  calculateDriverSalary,
+  calculateDriverSalarySummary,
+} from './driverSalary.utils.js';
 
 // 💰 Create Driver Salary Receipt
 const createDriverSalary = asyncHandler(async (req, res) => {

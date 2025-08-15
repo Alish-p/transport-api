@@ -4,7 +4,7 @@ import Transporter from '../model/Transporter.js';
 import Customer from '../model/Customer.js';
 import Vehicle from '../model/Vehicle.js';
 import Invoice from '../entities/invoice/invoice.model.js';
-import DriverSalary from '../model/DriverSalary.js';
+import DriverSalary from '../entities/driverSalary/driverSalary.model.js';
 import TransporterPayment from '../model/TransporterPayment.js';
 import Trip from '../model/Trip.js';
 import Subtrip from '../model/Subtrip.js';
@@ -14,8 +14,8 @@ import { EXPENSE_CATEGORIES } from '../constants/status.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 import { SUBTRIP_STATUS, INVOICE_STATUS } from '../constants/status.js';
-import { calculateTransporterPayment, } from '../utills/transporter-payment-utils.js';
-import { calculateDriverSalary } from '../utills/driver-salary-utils.js';
+import { calculateTransporterPayment } from '../utills/transporter-payment-utils.js';
+import { calculateDriverSalary } from '../entities/driverSalary/driverSalary.utils.js';
 
 // Get Dashboard Highlights
 const getDashboardHighlights = asyncHandler(async (req, res) => {
