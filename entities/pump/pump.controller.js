@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
-import Pump from '../model/Pump.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
+import Pump from './pump.model.js';
+import { PUMP_SEARCH_FIELDS } from './pump.constants.js';
+import { addTenantToQuery } from '../../utills/tenant-utils.js';
 
 // Create Pump
 const createPump = asyncHandler(async (req, res) => {
@@ -32,10 +33,9 @@ const fetchPumps = asyncHandler(async (req, res) => {
     const query = addTenantToQuery(req);
 
     if (search) {
-      query.$or = [
-        { pumpName: { $regex: search, $options: "i" } },
-        { placeName: { $regex: search, $options: "i" } },
-      ];
+      query.$or = PUMP_SEARCH_FIELDS.map((field) => ({
+        [field]: { $regex: search, $options: 'i' },
+      }));
     }
 
     const [pumps, total] = await Promise.all([
