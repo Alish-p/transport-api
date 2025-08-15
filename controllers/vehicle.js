@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import Vehicle from '../model/Vehicle.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 import Subtrip from '../model/Subtrip.js';
-import Expense from '../model/Expense.js';
+import Expense from '../entities/expense/expense.model.js';
 import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../constants/status.js';
 
 // Create Vehicle
