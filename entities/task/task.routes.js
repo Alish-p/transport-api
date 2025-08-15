@@ -1,7 +1,6 @@
-import express from 'express';
-
-const router = express.Router();
-import { createTask,
+import { Router } from 'express';
+import {
+  createTask,
   updateTask,
   getTask,
   deleteTask,
@@ -10,8 +9,11 @@ import { createTask,
   fetchAllTasks,
   addSubtask,
   toggleSubtaskComplete,
-  deleteSubtask, } from '../controllers/task.js';
-import { authenticate } from '../middlewares/Auth.js';
+  deleteSubtask,
+} from './task.controller.js';
+import { authenticate } from '../../middlewares/Auth.js';
+
+const router = Router();
 
 // Task routes
 router.get("/", authenticate, fetchAllTasks);

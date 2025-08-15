@@ -27,7 +27,7 @@ import subtripRouter from './routes/subtrip.js';
 import userRouter from './entities/user/user.routes.js';
 import tenantRouter from './entities/tenant/tenant.routes.js';
 import authRouter from './entities/user/auth.routes.js';
-import taskRouter from './routes/task.js';
+import taskRouter from './entities/task/task.routes.js';
 import gpsRouter from './routes/gps.js';
 
 dotenv.config();
