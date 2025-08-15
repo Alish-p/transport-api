@@ -5,16 +5,19 @@ import Customer from '../model/Customer.js';
 import Vehicle from '../model/Vehicle.js';
 import Invoice from '../model/Invoice.js';
 import DriverSalary from '../model/DriverSalary.js';
-import TransporterPayment from '../model/TransporterPayment.js';
+import TransporterPayment from '../src/entities/transporterPayment/transporterPayment.model.js';
 import Trip from '../model/Trip.js';
 import Subtrip from '../model/Subtrip.js';
 import Expense from '../model/Expense.js';
 import Loan from '../model/Loan.js';
-import { EXPENSE_CATEGORIES } from '../constants/status.js';
+import {
+  EXPENSE_CATEGORIES,
+  INVOICE_STATUS,
+  SUBTRIP_STATUS,
+} from '../constants/status.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 
-import { SUBTRIP_STATUS, INVOICE_STATUS } from '../constants/status.js';
-import { calculateTransporterPayment, } from '../utills/transporter-payment-utils.js';
+import { calculateTransporterPayment } from '../src/entities/transporterPayment/transporterPayment.utils.js';
 import { calculateDriverSalary } from '../utills/driver-salary-utils.js';
 
 // Get Dashboard Highlights
