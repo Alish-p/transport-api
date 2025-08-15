@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
-import SubtripEvent from '../model/SubtripEvent.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
+import SubtripEvent from './subtripEvent.model.js';
+import { addTenantToQuery } from '../../../utills/tenant-utils.js';
 
 const fetchSubtripEvents = asyncHandler(async (req, res) => {
   const { subtripId } = req.params;
@@ -10,4 +10,4 @@ const fetchSubtripEvents = asyncHandler(async (req, res) => {
   res.status(200).json(events);
 });
 
-export { fetchSubtripEvents, };
+export { fetchSubtripEvents };

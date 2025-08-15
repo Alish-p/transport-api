@@ -8,8 +8,8 @@ import Driver from '../model/Driver.js';
 import Subtrip from '../model/Subtrip.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 
-import { recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES, } from '../helpers/subtrip-event-helper.js';
+import { recordSubtripEvent } from '../src/entities/subtripEvent/subtripEvent.utils.js';
+import { SUBTRIP_EVENT_TYPES } from '../src/entities/subtripEvent/subtripEvent.constants.js';
 
 // stubbed utils—implement these in ../utils/driver-salary-utils.js
 import { calculateDriverSalary,

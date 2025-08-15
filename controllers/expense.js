@@ -5,8 +5,8 @@ import Subtrip from '../model/Subtrip.js';
 import Vehicle from '../model/Vehicle.js';
 import { EXPENSE_CATEGORIES } from '../constants/status.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
-import { recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES, } from '../helpers/subtrip-event-helper.js';
+import { recordSubtripEvent } from '../src/entities/subtripEvent/subtripEvent.utils.js';
+import { SUBTRIP_EVENT_TYPES } from '../src/entities/subtripEvent/subtripEvent.constants.js';
 
 // Create Expense
 const createExpense = asyncHandler(async (req, res) => {

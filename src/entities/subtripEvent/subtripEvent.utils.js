@@ -1,5 +1,5 @@
-import { SUBTRIP_EVENT_TYPES } from '../constants/event-types.js';
-import SubtripEvent from '../model/SubtripEvent.js';
+import { SUBTRIP_EVENT_TYPES } from './subtripEvent.constants.js';
+import SubtripEvent from './subtripEvent.model.js';
 
 const recordSubtripEvent = async (
   subtrip,
@@ -84,17 +84,16 @@ const generateEventMessage = (event) => {
     case SUBTRIP_EVENT_TYPES.STATUS_CHANGED:
       return `Status changed to ${details.newStatus} ${userInfo}`;
 
-    case SUBTRIP_EVENT_TYPES.UPDATED:
+    case SUBTRIP_EVENT_TYPES.UPDATED: {
       const changedFieldsList = Object.keys(details.changedFields || {}).join(
         ", "
       );
       return `Updated subtrip fields: ${changedFieldsList} ${userInfo}`;
+    }
 
     default:
       return `${eventType} ${userInfo}`;
   }
 };
 
-export { recordSubtripEvent,
-  generateEventMessage,
-  SUBTRIP_EVENT_TYPES, };
+export { recordSubtripEvent, generateEventMessage };
