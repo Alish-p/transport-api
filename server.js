@@ -21,7 +21,7 @@ import expenseRouter from './routes/expense.js';
 import invoiceRouter from './routes/invoice.js';
 import driverSalaryRouter from './routes/driverSalary.js';
 import loanRouter from './routes/loan.js';
-import transporterPaymentRouter from './src/entities/transporterPayment/transporterPayment.routes.js';
+import transporterPaymentRouter from './routes/transporterPayment.js';
 import subtripEventRouter from './routes/subtripEvent.js';
 import subtripRouter from './routes/subtrip.js';
 import userRouter from './routes/user.js';

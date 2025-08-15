@@ -1,15 +1,13 @@
 import { Router } from 'express';
-import {
-  createTransporterPaymentReceipt,
+import { createTransporterPaymentReceipt,
   fetchTransporterPaymentReceipts,
   fetchTransporterPaymentReceipt,
   updateTransporterPaymentReceipt,
   deleteTransporterPaymentReceipt,
-  createBulkTransporterPaymentReceipts,
-} from './transporterPayment.controller.js';
+  createBulkTransporterPaymentReceipts, } from '../controllers/transporterPayment.js';
 
-import { authenticate, checkPermission } from '../../../middlewares/Auth.js';
-import pagination from '../../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
