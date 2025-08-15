@@ -1,209 +1,22 @@
-import asyncHandler from 'express-async-handler';
-import Trip from '../trip/trip.model.js';
 import Loan from '../loan/loan.model.js';
 import Driver from '../driver/driver.model.js';
+import asyncHandler from 'express-async-handler';
 import Vehicle from '../vehicle/vehicle.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import Customer from '../customer/customer.model.js';
 import Transporter from '../transporter/transporter.model.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import DriverSalary from '../driverSalary/driverSalary.model.js';
-import { calculateDriverSalary } from '../driverSalary/driverSalary.utils.js';
-import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
+import { calculateDriverSalary } from '../driverSalary/driverSalary.utils.js';
+import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 import { calculateTransporterPayment } from '../transporterPayment/transporterPayment.utils.js';
 
-// Get Dashboard Highlights
-const getDashboardHighlights = asyncHandler(async (req, res) => {
-  try {
-    const tenantMatch = { tenant: req.tenant };
 
-    const weightByCustomerPromise = Subtrip.aggregate([
-      { $match: { ...tenantMatch, customerId: { $ne: null } } },
-      {
-        $group: {
-          _id: "$customerId",
-          totalWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
-        },
-      },
-      {
-        $lookup: {
-          from: "customers",
-          localField: "_id",
-          foreignField: "_id",
-          as: "customer",
-        },
-      },
-      { $unwind: "$customer" },
-      {
-        $project: {
-          _id: 0,
-          customerId: "$_id",
-          customerName: "$customer.customerName",
-          totalWeight: 1,
-        },
-      },
-    ]);
-
-    const paymentsByCustomerPromise = Invoice.aggregate([
-      { $match: tenantMatch },
-      {
-        $group: {
-          _id: "$customerId",
-          totalAmount: { $sum: { $ifNull: ["$netTotal", 0] } },
-        },
-      },
-      {
-        $lookup: {
-          from: "customers",
-          localField: "_id",
-          foreignField: "_id",
-          as: "customer",
-        },
-      },
-      { $unwind: "$customer" },
-      {
-        $project: {
-          _id: 0,
-          customerId: "$_id",
-          customerName: "$customer.customerName",
-          totalAmount: 1,
-        },
-      },
-    ]);
-
-    const vehicleTonnagePromise = Subtrip.aggregate([
-      { $match: tenantMatch },
-      {
-        $lookup: {
-          from: "trips",
-          localField: "tripId",
-          foreignField: "_id",
-          as: "trip",
-        },
-      },
-      { $unwind: "$trip" },
-      {
-        $lookup: {
-          from: "vehicles",
-          localField: "trip.vehicleId",
-          foreignField: "_id",
-          as: "vehicle",
-        },
-      },
-      { $unwind: "$vehicle" },
-      {
-        $group: {
-          _id: "$vehicle.isOwn",
-          totalWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
-        },
-      },
-    ]);
-
-    const loanAggPromise = Loan.aggregate([
-      { $match: tenantMatch },
-      {
-        $group: {
-          _id: null,
-          totalGiven: { $sum: { $ifNull: ["$principalAmount", 0] } },
-          outstanding: { $sum: { $ifNull: ["$outstandingBalance", 0] } },
-        },
-      },
-    ]);
-
-    const [
-      inQueueCount,
-      loadedCount,
-      errorCount,
-      receivedCount,
-      billedCount,
-      totalVehicles,
-      totalDrivers,
-      totalCustomers,
-      pendingInvoices,
-      overdueInvoices,
-      paidInvoices,
-      weightByCustomer,
-      paymentsByCustomer,
-      vehicleTonnageAgg,
-      loanAgg,
-    ] = await Promise.all([
-      Subtrip.countDocuments(
-        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.IN_QUEUE })
-      ),
-      Subtrip.countDocuments(
-        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.LOADED })
-      ),
-      Subtrip.countDocuments(
-        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.ERROR })
-      ),
-      Subtrip.countDocuments(
-        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.RECEIVED })
-      ),
-      Subtrip.countDocuments(
-        addTenantToQuery(req, { subtripStatus: SUBTRIP_STATUS.BILLED })
-      ),
-      Vehicle.countDocuments(addTenantToQuery(req)),
-      Driver.countDocuments(addTenantToQuery(req)),
-      Customer.countDocuments(addTenantToQuery(req)),
-      Invoice.countDocuments(
-        addTenantToQuery(req, { invoiceStatus: INVOICE_STATUS.PENDING })
-      ),
-      Invoice.countDocuments(
-        addTenantToQuery(req, { invoiceStatus: INVOICE_STATUS.OVERDUE })
-      ),
-      Invoice.countDocuments(
-        addTenantToQuery(req, { invoiceStatus: INVOICE_STATUS.RECEIVED })
-      ),
-      weightByCustomerPromise,
-      paymentsByCustomerPromise,
-      vehicleTonnagePromise,
-      loanAggPromise,
-    ]);
-
-    const vehicleTonnage = vehicleTonnageAgg.reduce(
-      (acc, cur) => {
-        if (cur._id) acc.own = cur.totalWeight;
-        else acc.market = cur.totalWeight;
-        return acc;
-      },
-      { own: 0, market: 0 }
-    );
-
-    const loans = loanAgg[0] || { totalGiven: 0, outstanding: 0 };
-
-    res.status(200).json({
-      subtripStatus: {
-        inQueue: inQueueCount,
-        loaded: loadedCount,
-        error: errorCount,
-        received: receivedCount,
-        billed: billedCount,
-      },
-      customerTonnage: weightByCustomer,
-      customerPayments: paymentsByCustomer,
-      vehicleTonnage,
-      loans,
-      totals: {
-        vehicles: totalVehicles,
-        drivers: totalDrivers,
-        customers: totalCustomers,
-        invoices: {
-          pending: pendingInvoices,
-          overdue: overdueInvoices,
-          paid: paidInvoices,
-        },
-      },
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error });
-  }
-});
 
 // Get basic entity counts
 const getTotalCounts = asyncHandler(async (req, res) => {
@@ -682,134 +495,6 @@ const getSubtripStatusSummary = asyncHandler(async (req, res) => {
   }
 });
 
-// Get total EMI amounts due by month and overall loan totals
-const getLoanSchedule = asyncHandler(async (req, res) => {
-  const yearParam = parseInt(req.query.year, 10);
-  const year = Number.isNaN(yearParam)
-    ? new Date().getUTCFullYear()
-    : yearParam;
-
-  const startOfYear = new Date(Date.UTC(year, 0, 1));
-  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
-
-  try {
-    const monthlyAgg = await Loan.aggregate([
-      { $match: { tenant: req.tenant } },
-      { $unwind: "$installments" },
-      {
-        $match: {
-          "installments.status": "pending",
-          "installments.dueDate": { $gte: startOfYear, $lt: endOfYear },
-        },
-      },
-      {
-        $group: {
-          _id: { month: { $month: "$installments.dueDate" } },
-          totalEmi: { $sum: "$installments.totalDue" },
-        },
-      },
-      { $sort: { "_id.month": 1 } },
-    ]);
-
-    const schedule = Array(12).fill(0);
-    monthlyAgg.forEach((r) => {
-      schedule[r._id.month - 1] = r.totalEmi;
-    });
-
-    const loanTotalsAgg = await Loan.aggregate([
-      { $match: { tenant: req.tenant } },
-      {
-        $group: {
-          _id: null,
-          totalGiven: { $sum: { $ifNull: ["$principalAmount", 0] } },
-          outstanding: { $sum: { $ifNull: ["$outstandingBalance", 0] } },
-        },
-      },
-    ]);
-
-    const totals = loanTotalsAgg[0] || { totalGiven: 0, outstanding: 0 };
-
-    res.status(200).json({ year, schedule, totals });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error });
-  }
-});
-
-// Get overall vehicle utilization and empty trip distance for a year
-const getVehicleUtilization = asyncHandler(async (req, res) => {
-  const yearParam = parseInt(req.query.year, 10);
-  const year = Number.isNaN(yearParam)
-    ? new Date().getUTCFullYear()
-    : yearParam;
-
-  const startOfYear = new Date(Date.UTC(year, 0, 1));
-  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
-  const daysInYear = (endOfYear - startOfYear) / (1000 * 60 * 60 * 24);
-
-  try {
-    const [vehicleCount, trips, distanceAgg] = await Promise.all([
-      Vehicle.countDocuments(addTenantToQuery(req)),
-      Trip.find(
-        addTenantToQuery(req, {
-          fromDate: { $lt: endOfYear },
-          $or: [{ toDate: { $gte: startOfYear } }, { toDate: null }],
-        })
-      ).lean(),
-      Subtrip.aggregate([
-        { $match: { tenant: req.tenant } },
-        {
-          $match: {
-            startDate: { $gte: startOfYear, $lt: endOfYear },
-            startKm: { $ne: null },
-            endKm: { $ne: null },
-          },
-        },
-        {
-          $group: {
-            _id: "$isEmpty",
-            distance: { $sum: { $abs: { $subtract: ["$endKm", "$startKm"] } } },
-          },
-        },
-      ]),
-    ]);
-
-    let totalTripDays = 0;
-    trips.forEach((t) => {
-      const start = t.fromDate > startOfYear ? t.fromDate : startOfYear;
-      const end = t.toDate && t.toDate < endOfYear ? t.toDate : endOfYear;
-      const diff = (end - start) / (1000 * 60 * 60 * 24);
-      if (diff > 0) totalTripDays += diff;
-    });
-
-    const utilization =
-      vehicleCount && daysInYear
-        ? (totalTripDays / (vehicleCount * daysInYear)) * 100
-        : 0;
-
-    let totalKm = 0;
-    let emptyKm = 0;
-    distanceAgg.forEach((d) => {
-      totalKm += d.distance || 0;
-      if (d._id) emptyKm += d.distance || 0;
-    });
-
-    const emptyPercent = totalKm ? (emptyKm / totalKm) * 100 : 0;
-
-    res.status(200).json({
-      year,
-      utilization: Math.round(utilization * 100) / 100,
-      distance: {
-        total: totalKm,
-        empty: emptyKm,
-        emptyPercent: Math.round(emptyPercent * 100) / 100,
-      },
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error });
-  }
-});
 
 // Get invoice status counts
 const getInvoiceStatusSummary = asyncHandler(async (req, res) => {
@@ -1577,12 +1262,10 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
   }
 });
 
-export { getTotalCounts,
-  getLoanSchedule,
+export {
+  getTotalCounts,
   getExpiringSubtrips,
-  getVehicleUtilization,
   getSubtripMonthlyData,
-  getDashboardHighlights,
   getFinancialMonthlyData,
   getInvoiceStatusSummary,
   getTopRoutes,
@@ -1594,4 +1277,5 @@ export { getTotalCounts,
   getInvoiceAmountSummary,
   getMonthlyDriverSummary,
   getMonthlyTransporterSummary,
-  getMonthlyVehicleSubtripSummary, };
+  getMonthlyVehicleSubtripSummary,
+};

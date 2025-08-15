@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { getDashboardHighlights,
+import { authenticate } from '../../middlewares/Auth.js';
+import {
   getCustomerMonthlyFreight,
   getExpiringSubtrips,
   getTotalCounts,
@@ -10,23 +11,17 @@ import { getDashboardHighlights,
   getMonthlyDriverSummary,
   getMonthlyTransporterSummary,
   getSubtripStatusSummary,
-  getLoanSchedule,
-  getVehicleUtilization,
   getFinancialMonthlyData,
   getInvoiceStatusSummary,
   getTopRoutes,
   getTransporterPaymentTotals,
-  getInvoiceAmountSummary, } from './dashboard.controller.js';
-
-import { authenticate } from '../../middlewares/Auth.js';
+  getInvoiceAmountSummary,
+} from './dashboard.controller.js';
 
 const router = Router();
 
 router.get("/counts", authenticate, getTotalCounts);
-router.get("/loan-schedule", authenticate, getLoanSchedule);
-router.get("/highlights", authenticate, getDashboardHighlights);
 router.get("/subtrips-expiry", authenticate, getExpiringSubtrips);
-router.get("/vehicle-utilization", authenticate, getVehicleUtilization);
 router.get("/subtrip-monthly-data", authenticate, getSubtripMonthlyData);
 router.get("/subtrip-status-summary", authenticate, getSubtripStatusSummary);
 router.get("/invoice-status-summary", authenticate, getInvoiceStatusSummary);
