@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
-import Trip from '../model/Trip.js';
-import Subtrip from '../model/Subtrip.js';
-import Expense from '../entities/expense/expense.model.js';
-import { TRIP_STATUS } from '../constants/trip-constants.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
+import Trip from './trip.model.js';
+import Subtrip from '../../model/Subtrip.js';
+import Expense from '../expense/expense.model.js';
+import { TRIP_STATUS } from './trip.constants.js';
+import { addTenantToQuery } from '../../utills/tenant-utils.js';
 
 const createTrip = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
