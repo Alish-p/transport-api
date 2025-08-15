@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import Driver from '../entities/driver/driver.model.js';
 import Transporter from '../model/Transporter.js';
-import Customer from '../model/Customer.js';
+import Customer from '../entities/customer/customer.model.js';
 import Vehicle from '../model/Vehicle.js';
 import Invoice from '../entities/invoice/invoice.model.js';
 import DriverSalary from '../entities/driverSalary/driverSalary.model.js';
@@ -10,10 +10,12 @@ import Trip from '../model/Trip.js';
 import Subtrip from '../model/Subtrip.js';
 import Expense from '../model/Expense.js';
 import Loan from '../model/Loan.js';
-import { EXPENSE_CATEGORIES } from '../constants/status.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
-
-import { SUBTRIP_STATUS, INVOICE_STATUS } from '../constants/status.js';
+import {
+  EXPENSE_CATEGORIES,
+  INVOICE_STATUS,
+  SUBTRIP_STATUS,
+} from '../constants/status.js';
 import { calculateTransporterPayment } from '../entities/transporterPayment/transporterPayment.utils.js';
 import { calculateDriverSalary } from '../entities/driverSalary/driverSalary.utils.js';
 
