@@ -12,11 +12,9 @@ import Transporter from '../transporter/transporter.model.js';
 import DriverSalary from '../driverSalary/driverSalary.model.js';
 import { calculateDriverSalary } from '../driverSalary/driverSalary.utils.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
-import {
-  EXPENSE_CATEGORIES,
-  INVOICE_STATUS,
-  SUBTRIP_STATUS,
-} from '../../constants/status.js';
+import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
+import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
+import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import { calculateTransporterPayment } from '../transporterPayment/transporterPayment.utils.js';
 
 // Get Dashboard Highlights

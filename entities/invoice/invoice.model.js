@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { INVOICE_STATUS } from '../../constants/status.js';
+import { INVOICE_STATUS } from './invoice.constants.js';
 
 const taxBreakupSchema = new Schema(
   {

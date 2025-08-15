@@ -4,7 +4,8 @@ import Customer from './customer.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
-import { INVOICE_STATUS, SUBTRIP_STATUS } from '../../constants/status.js';
+import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
+import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 
 // Create Customer
 const createCustomer = asyncHandler(async (req, res) => {

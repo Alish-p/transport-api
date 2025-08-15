@@ -4,7 +4,8 @@ import Vehicle from './vehicle.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
-import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../../constants/status.js';
+import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
+import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 
 // Create Vehicle
 const createVehicle = asyncHandler(async (req, res) => {

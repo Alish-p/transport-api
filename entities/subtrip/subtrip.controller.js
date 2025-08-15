@@ -10,7 +10,8 @@ import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
 import { SUBTRIP_EVENT_TYPES } from '../../constants/event-types.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
-import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../../constants/status.js';
+import { SUBTRIP_STATUS } from './subtrip.constants.js';
+import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>

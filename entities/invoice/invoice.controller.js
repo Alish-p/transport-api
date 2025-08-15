@@ -7,7 +7,8 @@ import Subtrip from '../subtrip/subtrip.model.js';
 import Customer from '../customer/customer.model.js';
 import { calculateInvoiceSummary } from './invoice.utils.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
-import { INVOICE_STATUS, SUBTRIP_STATUS } from '../../constants/status.js';
+import { INVOICE_STATUS } from './invoice.constants.js';
+import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,

@@ -1,3 +1,5 @@
-import { EXPENSE_CATEGORIES } from '../../constants/status.js';
+export const EXPENSE_CATEGORIES = {
+  VEHICLE: 'vehicle',
+  SUBTRIP: 'subtrip',
+};
 
-export { EXPENSE_CATEGORIES };
