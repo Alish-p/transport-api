@@ -8,8 +8,8 @@ import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 import { INVOICE_STATUS, SUBTRIP_STATUS } from '../constants/status.js';
 
-import { recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES, } from '../helpers/subtrip-event-helper.js';
+import { recordSubtripEvent } from '../src/entities/subtripEvent/subtripEvent.utils.js';
+import { SUBTRIP_EVENT_TYPES } from '../src/entities/subtripEvent/subtripEvent.constants.js';
 
 import { calculateInvoiceSummary } from '../utills/invoice-utils.js';
 

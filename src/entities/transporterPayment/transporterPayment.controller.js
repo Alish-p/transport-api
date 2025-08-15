@@ -7,10 +7,8 @@ import Transporter from '../../../model/Transporter.js';
 import Subtrip from '../../../model/Subtrip.js';
 import Tenant from '../../../model/Tenant.js';
 import { addTenantToQuery } from '../../../utills/tenant-utils.js';
-import {
-  recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES,
-} from '../../../helpers/subtrip-event-helper.js';
+import { recordSubtripEvent } from '../subtripEvent/subtripEvent.utils.js';
+import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import {
   calculateTransporterPayment,
   calculateTransporterPaymentSummary,
