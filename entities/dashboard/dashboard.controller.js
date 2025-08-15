@@ -12,7 +12,6 @@ import DriverSalary from '../driverSalary/driverSalary.model.js';
 import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
-import { calculateDriverSalary } from '../driverSalary/driverSalary.utils.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 import { calculateTransporterPayment } from '../transporterPayment/transporterPayment.utils.js';
 
@@ -27,8 +26,6 @@ const getTotalCounts = asyncHandler(async (req, res) => {
     customerCount,
     invoiceCount,
     subtripCount,
-    transporterSubtrips,
-    salarySubtrips,
   ] = await Promise.all([
     Vehicle.countDocuments(addTenantToQuery(req)),
     Driver.countDocuments(addTenantToQuery(req)),
@@ -36,46 +33,8 @@ const getTotalCounts = asyncHandler(async (req, res) => {
     Customer.countDocuments(addTenantToQuery(req)),
     Invoice.countDocuments(addTenantToQuery(req)),
     Subtrip.countDocuments(addTenantToQuery(req)),
-    Subtrip.find(
-      addTenantToQuery(req, {
-        subtripStatus: SUBTRIP_STATUS.RECEIVED,
-        transporterPaymentReceiptId: { $exists: false },
-      })
-    )
-      .populate({
-        path: "tripId",
-        populate: { path: "vehicleId", select: "isOwn" },
-      })
-      .populate("expenses")
-      .lean(),
-    Subtrip.find(
-      addTenantToQuery(req, {
-        subtripStatus: SUBTRIP_STATUS.RECEIVED,
-        driverSalaryReceiptId: { $exists: false },
-      })
-    )
-      .populate({
-        path: "tripId",
-        populate: { path: "vehicleId", select: "isOwn" },
-      })
-      .populate("expenses")
-      .lean(),
   ]);
 
-  let totalPendingTransporterPayment = 0;
-  transporterSubtrips.forEach((st) => {
-    if (st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn) {
-      const { totalTransporterPayment } = calculateTransporterPayment(st);
-      totalPendingTransporterPayment += totalTransporterPayment;
-    }
-  });
-
-  let totalPendingSalary = 0;
-  salarySubtrips.forEach((st) => {
-    if (st.tripId?.vehicleId && st.tripId.vehicleId.isOwn) {
-      totalPendingSalary += calculateDriverSalary(st);
-    }
-  });
 
   res.status(200).json({
     vehicles: vehicleCount,
@@ -84,8 +43,6 @@ const getTotalCounts = asyncHandler(async (req, res) => {
     customers: customerCount,
     invoices: invoiceCount,
     subtrips: subtripCount,
-    totalPendingTransporterPayment,
-    totalPendingSalary,
   });
 });
 
