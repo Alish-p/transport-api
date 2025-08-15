@@ -1,20 +1,17 @@
 /* eslint-disable no-await-in-loop */
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
 import Invoice from './invoice.model.js';
-import Subtrip from '../../model/Subtrip.js';
-import Customer from '../customer/customer.model.js';
 import Tenant from '../tenant/tenant.model.js';
+import Subtrip from '../subtrip/subtrip.model.js';
+import Customer from '../customer/customer.model.js';
+import { calculateInvoiceSummary } from './invoice.utils.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
-
 import { INVOICE_STATUS, SUBTRIP_STATUS } from '../../constants/status.js';
-
 import {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,
 } from '../../helpers/subtrip-event-helper.js';
-
-import { calculateInvoiceSummary } from './invoice.utils.js';
 
 const createInvoice = asyncHandler(async (req, res) => {
   const {

@@ -1,16 +1,16 @@
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
-import Trip from '../entities/trip/trip.model.js';
-import Subtrip from '../model/Subtrip.js';
-import Expense from '../entities/expense/expense.model.js';
-import Vehicle from '../entities/vehicle/vehicle.model.js';
-import Driver from '../entities/driver/driver.model.js';
-import { recordSubtripEvent } from '../helpers/subtrip-event-helper.js';
-import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../constants/status.js';
-import { SUBTRIP_EVENT_TYPES } from '../constants/event-types.js';
-import Route from '../entities/route/route.model.js';
-import { TRIP_STATUS } from '../entities/trip/trip.constants.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
+import asyncHandler from 'express-async-handler';
+import Trip from '../trip/trip.model.js';
+import Subtrip from './subtrip.model.js';
+import Route from '../route/route.model.js';
+import Driver from '../driver/driver.model.js';
+import Expense from '../expense/expense.model.js';
+import Vehicle from '../vehicle/vehicle.model.js';
+import { TRIP_STATUS } from '../trip/trip.constants.js';
+import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import { SUBTRIP_EVENT_TYPES } from '../../constants/event-types.js';
+import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
+import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../../constants/status.js';
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>

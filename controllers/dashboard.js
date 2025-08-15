@@ -1,23 +1,23 @@
 import asyncHandler from 'express-async-handler';
+import Trip from '../entities/trip/trip.model.js';
+import Loan from '../entities/loan/loan.model.js';
 import Driver from '../entities/driver/driver.model.js';
-import Transporter from '../entities/transporter/transporter.model.js';
-import Customer from '../entities/customer/customer.model.js';
 import Vehicle from '../entities/vehicle/vehicle.model.js';
 import Invoice from '../entities/invoice/invoice.model.js';
-import DriverSalary from '../entities/driverSalary/driverSalary.model.js';
-import TransporterPayment from '../entities/transporterPayment/transporterPayment.model.js';
-import Trip from '../entities/trip/trip.model.js';
-import Subtrip from '../model/Subtrip.js';
-import Loan from '../entities/loan/loan.model.js';
+import Subtrip from '../entities/subtrip/subtrip.model.js';
 import Expense from '../entities/expense/expense.model.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
+import Customer from '../entities/customer/customer.model.js';
+import Transporter from '../entities/transporter/transporter.model.js';
+import DriverSalary from '../entities/driverSalary/driverSalary.model.js';
+import { calculateDriverSalary } from '../entities/driverSalary/driverSalary.utils.js';
+import TransporterPayment from '../entities/transporterPayment/transporterPayment.model.js';
 import {
   EXPENSE_CATEGORIES,
   INVOICE_STATUS,
   SUBTRIP_STATUS,
 } from '../constants/status.js';
 import { calculateTransporterPayment } from '../entities/transporterPayment/transporterPayment.utils.js';
-import { calculateDriverSalary } from '../entities/driverSalary/driverSalary.utils.js';
 
 // Get Dashboard Highlights
 const getDashboardHighlights = asyncHandler(async (req, res) => {

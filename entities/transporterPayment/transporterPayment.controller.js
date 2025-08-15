@@ -1,12 +1,11 @@
 /* eslint-disable no-await-in-loop */
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
-import TransporterPayment from './transporterPayment.model.js';
-
-import Transporter from '../transporter/transporter.model.js';
-import Subtrip from '../../model/Subtrip.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
+import asyncHandler from 'express-async-handler';
 import Tenant from '../tenant/tenant.model.js';
+import Subtrip from '../subtrip/subtrip.model.js';
+import Transporter from '../transporter/transporter.model.js';
+import TransporterPayment from './transporterPayment.model.js';
+import { addTenantToQuery } from '../../utills/tenant-utils.js';
 import { recordSubtripEvent,
   SUBTRIP_EVENT_TYPES, } from '../../helpers/subtrip-event-helper.js';
 import { calculateTransporterPayment,

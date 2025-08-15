@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import Route from './route.model.js';
-import Subtrip from '../../model/Subtrip.js';
+import Subtrip from '../subtrip/subtrip.model.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
 
 // Create Route

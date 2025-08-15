@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Trip from './trip.model.js';
-import Subtrip from '../../model/Subtrip.js';
+import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
 import { TRIP_STATUS } from './trip.constants.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';

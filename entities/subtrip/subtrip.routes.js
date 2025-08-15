@@ -1,5 +1,8 @@
 import { Router } from 'express';
-import { createSubtrip,
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import {
+  createSubtrip,
   fetchSubtrips,
   fetchSubtrip,
   updateSubtrip,
@@ -11,10 +14,8 @@ import { createSubtrip,
   closeEmptySubtrip,
   fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
-  fetchPaginatedSubtrips, } from '../controllers/subtrip.js';
-
-import { authenticate, checkPermission } from '../middlewares/Auth.js';
-import pagination from '../middlewares/pagination.js';
+  fetchPaginatedSubtrips,
+} from './subtrip.controller.js';
 
 const router = Router();
 

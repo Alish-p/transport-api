@@ -1,7 +1,7 @@
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
 import Expense from './expense.model.js';
-import Subtrip from '../../model/Subtrip.js';
+import Subtrip from '../subtrip/subtrip.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import { EXPENSE_CATEGORIES } from './expense.constants.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';

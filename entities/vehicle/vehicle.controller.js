@@ -1,9 +1,9 @@
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
 import Vehicle from './vehicle.model.js';
-import { addTenantToQuery } from '../../utills/tenant-utils.js';
-import Subtrip from '../../model/Subtrip.js';
+import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
+import { addTenantToQuery } from '../../utills/tenant-utils.js';
 import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../../constants/status.js';
 
 // Create Vehicle

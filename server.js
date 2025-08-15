@@ -1,34 +1,33 @@
 /* eslint-disable no-unused-vars */
-import express from 'express';
+import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import cors from 'cors';
+import express from 'express';
 import rateLimit from 'express-rate-limit';
 import connectDB from './config/db.js';
-
-import { errorHandler } from './middlewares/ErrorHandler.js';
+import gpsRouter from './routes/gps.js';
 import dashboardRouter from './routes/dashboard.js';
-import vehicleRouter from './entities/vehicle/vehicle.routes.js';
-import transporterRouter from './entities/transporter/transporter.routes.js';
-import driverRouter from './entities/driver/driver.routes.js';
-import customerRouter from './entities/customer/customer.routes.js';
 import bankRouter from './entities/bank/bank.routes.js';
 import pumpRouter from './entities/pump/pump.routes.js';
-import dieselPriceRouter from './entities/diesel/diesel.routes.js';
-import routeRouter from './entities/route/route.routes.js';
 import tripRouter from './entities/trip/trip.routes.js';
-import expenseRouter from './entities/expense/expense.routes.js';
-import invoiceRouter from './entities/invoice/invoice.routes.js';
-import driverSalaryRouter from './entities/driverSalary/driverSalary.routes.js';
 import loanRouter from './entities/loan/loan.routes.js';
-import transporterPaymentRouter from './entities/transporterPayment/transporterPayment.routes.js';
-import subtripEventRouter from './routes/subtripEvent.js';
-import subtripRouter from './routes/subtrip.js';
 import userRouter from './entities/user/user.routes.js';
-import tenantRouter from './entities/tenant/tenant.routes.js';
 import authRouter from './entities/user/auth.routes.js';
 import taskRouter from './entities/task/task.routes.js';
-import gpsRouter from './routes/gps.js';
+import subtripEventRouter from './routes/subtripEvent.js';
+import routeRouter from './entities/route/route.routes.js';
+import { errorHandler } from './middlewares/ErrorHandler.js';
+import driverRouter from './entities/driver/driver.routes.js';
+import tenantRouter from './entities/tenant/tenant.routes.js';
+import vehicleRouter from './entities/vehicle/vehicle.routes.js';
+import expenseRouter from './entities/expense/expense.routes.js';
+import invoiceRouter from './entities/invoice/invoice.routes.js';
+import subtripRouter from './entities/subtrip/subtrip.routes.js';
+import dieselPriceRouter from './entities/diesel/diesel.routes.js';
+import customerRouter from './entities/customer/customer.routes.js';
+import transporterRouter from './entities/transporter/transporter.routes.js';
+import driverSalaryRouter from './entities/driverSalary/driverSalary.routes.js';
+import transporterPaymentRouter from './entities/transporterPayment/transporterPayment.routes.js';
 
 dotenv.config();
 

@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import CounterModel from './Counter.js';
+import CounterModel from '../../model/Counter.js';
 
 // subtrip Schema
 const subtripSchema = new Schema({

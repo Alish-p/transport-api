@@ -1,8 +1,8 @@
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
 import Customer from './customer.model.js';
 import Invoice from '../invoice/invoice.model.js';
-import Subtrip from '../../model/Subtrip.js';
+import Subtrip from '../subtrip/subtrip.model.js';
 import { addTenantToQuery } from '../../utills/tenant-utils.js';
 import { INVOICE_STATUS, SUBTRIP_STATUS } from '../../constants/status.js';
 
