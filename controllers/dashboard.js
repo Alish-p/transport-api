@@ -8,14 +8,8 @@ import DriverSalary from '../entities/driverSalary/driverSalary.model.js';
 import TransporterPayment from '../entities/transporterPayment/transporterPayment.model.js';
 import Trip from '../model/Trip.js';
 import Subtrip from '../model/Subtrip.js';
-<<<<<<< HEAD
-import Expense from '../model/Expense.js';
 import Loan from '../entities/loan/loan.model.js';
-import { EXPENSE_CATEGORIES } from '../constants/status.js';
-=======
 import Expense from '../entities/expense/expense.model.js';
-import Loan from '../model/Loan.js';
->>>>>>> code-refractoring
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 import {
   EXPENSE_CATEGORIES,
