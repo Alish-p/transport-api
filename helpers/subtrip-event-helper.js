@@ -1,5 +1,5 @@
 import { SUBTRIP_EVENT_TYPES } from '../constants/event-types.js';
-import SubtripEvent from '../model/SubtripEvent.js';
+import SubtripEvent from '../entities/subtripEvent/subtripEvent.model.js';
 
 const recordSubtripEvent = async (
   subtrip,
