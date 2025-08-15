@@ -20,7 +20,7 @@ import tripRouter from './routes/trip.js';
 import expenseRouter from './routes/expense.js';
 import invoiceRouter from './entities/invoice/invoice.routes.js';
 import driverSalaryRouter from './entities/driverSalary/driverSalary.routes.js';
-import loanRouter from './routes/loan.js';
+import loanRouter from './entities/loan/loan.routes.js';
 import transporterPaymentRouter from './entities/transporterPayment/transporterPayment.routes.js';
 import subtripEventRouter from './routes/subtripEvent.js';
 import subtripRouter from './routes/subtrip.js';

@@ -9,7 +9,7 @@ import TransporterPayment from '../entities/transporterPayment/transporterPaymen
 import Trip from '../model/Trip.js';
 import Subtrip from '../model/Subtrip.js';
 import Expense from '../model/Expense.js';
-import Loan from '../model/Loan.js';
+import Loan from '../entities/loan/loan.model.js';
 import { EXPENSE_CATEGORIES } from '../constants/status.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 
