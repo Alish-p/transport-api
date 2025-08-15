@@ -1,6 +1,6 @@
-const asyncHandler = require("express-async-handler");
-const Bank = require("../model/Bank");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import Bank from '../model/Bank.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 // Create Bank
 const createBank = asyncHandler(async (req, res) => {
@@ -81,10 +81,8 @@ const deleteBank = asyncHandler(async (req, res) => {
   res.status(200).json(bank);
 });
 
-module.exports = {
-  createBank,
+export { createBank,
   fetchBanks,
   updateBank,
   deleteBank,
-  fetchBankDetails,
-};
+  fetchBankDetails, };

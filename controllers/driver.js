@@ -1,8 +1,8 @@
-const asyncHandler = require("express-async-handler");
-const Driver = require("../model/Driver");
-const Trip = require("../model/Trip");
-const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import Driver from '../model/Driver.js';
+import Trip from '../model/Trip.js';
+import Subtrip from '../model/Subtrip.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 // Create Driver
 const createDriver = asyncHandler(async (req, res) => {
@@ -180,13 +180,11 @@ const fetchDriverSubtrips = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = {
-  createDriver,
+export { createDriver,
   quickCreateDriver,
   fetchDrivers,
   fetchDriversSummary,
   fetchDriverById,
   updateDriver,
   deleteDriver,
-  fetchDriverSubtrips,
-};
+  fetchDriverSubtrips, };

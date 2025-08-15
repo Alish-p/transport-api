@@ -68,7 +68,5 @@ function calculateDriverSalarySummary(
   };
 }
 
-module.exports = {
-  calculateDriverSalary,
-  calculateDriverSalarySummary,
-};
+export { calculateDriverSalary,
+  calculateDriverSalarySummary, };

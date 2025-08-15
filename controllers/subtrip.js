@@ -1,16 +1,16 @@
-const asyncHandler = require("express-async-handler");
-const mongoose = require("mongoose");
-const Trip = require("../model/Trip");
-const Subtrip = require("../model/Subtrip");
-const Expense = require("../model/Expense");
-const Vehicle = require("../model/Vehicle");
-const Driver = require("../model/Driver");
-const { recordSubtripEvent } = require("../helpers/subtrip-event-helper");
-const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
-const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
-const Route = require("../model/Route");
-const { TRIP_STATUS } = require("../constants/trip-constants");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
+import Trip from '../model/Trip.js';
+import Subtrip from '../model/Subtrip.js';
+import Expense from '../model/Expense.js';
+import Vehicle from '../model/Vehicle.js';
+import Driver from '../model/Driver.js';
+import { recordSubtripEvent } from '../helpers/subtrip-event-helper.js';
+import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../constants/status.js';
+import { SUBTRIP_EVENT_TYPES } from '../constants/event-types.js';
+import Route from '../model/Route.js';
+import { TRIP_STATUS } from '../constants/trip-constants.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>
@@ -1143,8 +1143,7 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = {
-  createSubtrip,
+export { createSubtrip,
   fetchSubtrips,
   fetchSubtrip,
   fetchPaginatedSubtrips,
@@ -1156,5 +1155,4 @@ module.exports = {
   createEmptySubtrip,
   closeEmptySubtrip,
   fetchSubtripsByStatuses,
-  fetchSubtripsByTransporter,
-};
+  fetchSubtripsByTransporter, };

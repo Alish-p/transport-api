@@ -1,5 +1,5 @@
-const { Schema, model } = require("mongoose");
-const CounterModel = require("./Counter");
+import { Schema, model } from 'mongoose';
+import CounterModel from './Counter.js';
 
 // subtrip Schema
 const subtripSchema = new Schema({
@@ -116,4 +116,4 @@ subtripSchema.pre("save", function (next) {
   next(); // Allow other modifications
 });
 
-module.exports = model("Subtrip", subtripSchema);
+export default model("Subtrip", subtripSchema);

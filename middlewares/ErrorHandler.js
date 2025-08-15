@@ -49,4 +49,4 @@ const errorHandler = (err, req, res, next) => {
   res.status(status || 500).json({ message, stack, handled: true });
 };
 
-module.exports = { notFound, errorHandler };
+export { notFound, errorHandler };

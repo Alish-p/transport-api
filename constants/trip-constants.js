@@ -1,4 +1,4 @@
-exports.TRIP_STATUS = {
+export const TRIP_STATUS = {
   CLOSED: "closed",
   OPEN: "open",
 };

@@ -1,4 +1,4 @@
-const { CONFIG } = require("../constants/CONFIG");
+import { CONFIG } from '../constants/CONFIG.js';
 
 const calculateTransporterPayment = (subtrip) => {
   if (!subtrip) return null;
@@ -154,8 +154,6 @@ const calculateTransporterPaymentSummary = (
   };
 };
 
-module.exports = {
-  calculateTransporterPayment,
+export { calculateTransporterPayment,
   calculateTaxBreakup,
-  calculateTransporterPaymentSummary,
-};
+  calculateTransporterPaymentSummary, };

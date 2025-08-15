@@ -1,31 +1,29 @@
-const { Router } = require("express");
-const {
-  createExpense,
+import { Router } from 'express';
+import { createExpense,
   fetchPaginatedExpenses,
   fetchExpense,
   updateExpense,
-  deleteExpense,
-} = require("../controllers/expense");
+  deleteExpense, } from '../controllers/expense.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
-router.post("/", private, checkPermission("expense", "create"), createExpense);
-router.get("/pagination", private, pagination, fetchPaginatedExpenses);
-router.get("/:id", private, fetchExpense);
+router.post("/", authenticate, checkPermission("expense", "create"), createExpense);
+router.get("/pagination", authenticate, pagination, fetchPaginatedExpenses);
+router.get("/:id", authenticate, fetchExpense);
 router.put(
   "/:id",
-  private,
+  authenticate,
   checkPermission("expense", "update"),
   updateExpense
 );
 router.delete(
   "/:id",
-  private,
+  authenticate,
   checkPermission("expense", "delete"),
   deleteExpense
 );
 
-module.exports = router;
+export default router;

@@ -1,14 +1,36 @@
 /* eslint-disable no-unused-vars */
-const express = require("express");
-const helmet = require("helmet");
+import express from 'express';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import connectDB from './config/db.js';
 
-const dotenv = require("dotenv").config();
+import { errorHandler } from './middlewares/ErrorHandler.js';
+import dashboardRouter from './routes/dashboard.js';
+import vehicleRouter from './routes/vehicle.js';
+import transporterRouter from './routes/transporter.js';
+import driverRouter from './routes/driver.js';
+import customerRouter from './routes/customer.js';
+import bankRouter from './routes/bank.js';
+import pumpRouter from './routes/pump.js';
+import dieselPriceRouter from './routes/diesel.js';
+import routeRouter from './routes/route.js';
+import tripRouter from './routes/trip.js';
+import expenseRouter from './routes/expense.js';
+import invoiceRouter from './routes/invoice.js';
+import driverSalaryRouter from './routes/driverSalary.js';
+import loanRouter from './routes/loan.js';
+import transporterPaymentRouter from './routes/transporterPayment.js';
+import subtripEventRouter from './routes/subtripEvent.js';
+import subtripRouter from './routes/subtrip.js';
+import userRouter from './routes/user.js';
+import tenantRouter from './routes/tenant.js';
+import authRouter from './routes/auth.js';
+import taskRouter from './routes/task.js';
+import gpsRouter from './routes/gps.js';
 
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const connectDB = require("./config/db");
-
-const { errorHandler } = require("./middlewares/ErrorHandler");
+dotenv.config();
 
 const port = process.env.PORT || 5001;
 const app = express();
@@ -27,28 +49,6 @@ app.set("query parser", "extended");
 
 // app.use(compression());
 
-const dashboardRouter = require("./routes/dashboard");
-const vehicleRouter = require("./routes/vehicle");
-const transporterRouter = require("./routes/transporter");
-const driverRouter = require("./routes/driver");
-const customerRouter = require("./routes/customer");
-const bankRouter = require("./routes/bank");
-const pumpRouter = require("./routes/pump");
-const dieselPriceRouter = require("./routes/diesel");
-const routeRouter = require("./routes/route");
-const tripRouter = require("./routes/trip");
-const expenseRouter = require("./routes/expense");
-const invoiceRouter = require("./routes/invoice");
-const driverSalaryRouter = require("./routes/driverSalary");
-const loanRouter = require("./routes/loan");
-const transporterPaymentRouter = require("./routes/transporterPayment");
-const subtripEventRouter = require("./routes/subtripEvent");
-const subtripRouter = require("./routes/subtrip");
-const userRouter = require("./routes/user");
-const tenantRouter = require("./routes/tenant");
-const authRouter = require("./routes/auth");
-const taskRouter = require("./routes/task");
-const gpsRouter = require("./routes/gps");
 
 connectDB();
 

@@ -1,37 +1,35 @@
-const { Router } = require("express");
-const {
-  createDriver,
+import { Router } from 'express';
+import { createDriver,
   quickCreateDriver,
   fetchDrivers,
   deleteDriver,
   updateDriver,
   fetchDriverById,
   fetchDriversSummary,
-  fetchDriverSubtrips,
-} = require("../controllers/driver");
+  fetchDriverSubtrips, } from '../controllers/driver.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
-router.post("/", private, checkPermission("driver", "create"), createDriver);
+router.post("/", authenticate, checkPermission("driver", "create"), createDriver);
 router.post(
   "/quick",
-  private,
+  authenticate,
   checkPermission("driver", "create"),
   quickCreateDriver
 );
-router.get("/", private, pagination, fetchDrivers);
-router.get("/summary", private, fetchDriversSummary);
-router.get("/:id/subtrips", private, fetchDriverSubtrips);
-router.get("/:id", private, fetchDriverById);
+router.get("/", authenticate, pagination, fetchDrivers);
+router.get("/summary", authenticate, fetchDriversSummary);
+router.get("/:id/subtrips", authenticate, fetchDriverSubtrips);
+router.get("/:id", authenticate, fetchDriverById);
 router.delete(
   "/:id",
-  private,
+  authenticate,
   checkPermission("driver", "delete"),
   deleteDriver
 );
-router.put("/:id", private, checkPermission("driver", "update"), updateDriver);
+router.put("/:id", authenticate, checkPermission("driver", "update"), updateDriver);
 
-module.exports = router;
+export default router;

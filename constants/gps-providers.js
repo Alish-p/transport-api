@@ -2,4 +2,4 @@ const GPS_PROVIDERS = {
   FLEETX: 'fleetx',
 };
 
-module.exports = { GPS_PROVIDERS };
+export { GPS_PROVIDERS };

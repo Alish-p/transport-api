@@ -1,23 +1,19 @@
 // controllers/driverSalaryController.js
 
-const asyncHandler = require("express-async-handler");
-const mongoose = require("mongoose");
+import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 
-const DriverSalary = require("../model/DriverSalary");
-const Driver = require("../model/Driver");
-const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import DriverSalary from '../model/DriverSalary.js';
+import Driver from '../model/Driver.js';
+import Subtrip from '../model/Subtrip.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
-const {
-  recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES,
-} = require("../helpers/subtrip-event-helper");
+import { recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES, } from '../helpers/subtrip-event-helper.js';
 
 // stubbed utils—implement these in ../utils/driver-salary-utils.js
-const {
-  calculateDriverSalary,
-  calculateDriverSalarySummary,
-} = require("../utills/driver-salary-utils");
+import { calculateDriverSalary,
+  calculateDriverSalarySummary, } from '../utills/driver-salary-utils.js';
 
 // 💰 Create Driver Salary Receipt
 const createDriverSalary = asyncHandler(async (req, res) => {
@@ -363,11 +359,9 @@ const deleteDriverSalary = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Driver Salary deleted successfully." });
 });
 
-module.exports = {
-  createDriverSalary,
+export { createDriverSalary,
   createBulkDriverSalaries,
   fetchDriverSalaries,
   fetchDriverSalary,
   updateDriverSalary,
-  deleteDriverSalary,
-};
+  deleteDriverSalary, };

@@ -1,5 +1,5 @@
-const { SUBTRIP_EVENT_TYPES } = require("../constants/event-types");
-const SubtripEvent = require("../model/SubtripEvent");
+import { SUBTRIP_EVENT_TYPES } from '../constants/event-types.js';
+import SubtripEvent from '../model/SubtripEvent.js';
 
 const recordSubtripEvent = async (
   subtrip,
@@ -95,8 +95,6 @@ const generateEventMessage = (event) => {
   }
 };
 
-module.exports = {
-  recordSubtripEvent,
+export { recordSubtripEvent,
   generateEventMessage,
-  SUBTRIP_EVENT_TYPES,
-};
+  SUBTRIP_EVENT_TYPES, };

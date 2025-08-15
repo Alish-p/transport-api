@@ -1,23 +1,21 @@
-const asyncHandler = require("express-async-handler");
-const Driver = require("../model/Driver");
-const Transporter = require("../model/Transporter");
-const Customer = require("../model/Customer");
-const Vehicle = require("../model/Vehicle");
-const Invoice = require("../model/Invoice");
-const DriverSalary = require("../model/DriverSalary");
-const TransporterPayment = require("../model/TransporterPayment");
-const Trip = require("../model/Trip");
-const Subtrip = require("../model/Subtrip");
-const Expense = require("../model/Expense");
-const Loan = require("../model/Loan");
-const { EXPENSE_CATEGORIES } = require("../constants/status");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import Driver from '../model/Driver.js';
+import Transporter from '../model/Transporter.js';
+import Customer from '../model/Customer.js';
+import Vehicle from '../model/Vehicle.js';
+import Invoice from '../model/Invoice.js';
+import DriverSalary from '../model/DriverSalary.js';
+import TransporterPayment from '../model/TransporterPayment.js';
+import Trip from '../model/Trip.js';
+import Subtrip from '../model/Subtrip.js';
+import Expense from '../model/Expense.js';
+import Loan from '../model/Loan.js';
+import { EXPENSE_CATEGORIES } from '../constants/status.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
-const { SUBTRIP_STATUS, INVOICE_STATUS } = require("../constants/status");
-const {
-  calculateTransporterPayment,
-} = require("../utills/transporter-payment-utils");
-const { calculateDriverSalary } = require("../utills/driver-salary-utils");
+import { SUBTRIP_STATUS, INVOICE_STATUS } from '../constants/status.js';
+import { calculateTransporterPayment, } from '../utills/transporter-payment-utils.js';
+import { calculateDriverSalary } from '../utills/driver-salary-utils.js';
 
 // Get Dashboard Highlights
 const getDashboardHighlights = asyncHandler(async (req, res) => {
@@ -1579,8 +1577,7 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = {
-  getTotalCounts,
+export { getTotalCounts,
   getLoanSchedule,
   getExpiringSubtrips,
   getVehicleUtilization,
@@ -1597,5 +1594,4 @@ module.exports = {
   getInvoiceAmountSummary,
   getMonthlyDriverSummary,
   getMonthlyTransporterSummary,
-  getMonthlyVehicleSubtripSummary,
-};
+  getMonthlyVehicleSubtripSummary, };

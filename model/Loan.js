@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from 'mongoose';
 
 const { Schema, model, Types } = mongoose;
 
@@ -195,4 +195,4 @@ loanSchema.methods.applyRepayment = function ({ amount, paidDate }) {
   }
 };
 
-module.exports = model("Loan", loanSchema);
+export default model("Loan", loanSchema);

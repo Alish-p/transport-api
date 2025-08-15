@@ -1,10 +1,10 @@
-const mongoose = require("mongoose");
-const asyncHandler = require("express-async-handler");
-const Trip = require("../model/Trip");
-const Subtrip = require("../model/Subtrip");
-const Expense = require("../model/Expense");
-const { TRIP_STATUS } = require("../constants/trip-constants");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
+import Trip from '../model/Trip.js';
+import Subtrip from '../model/Subtrip.js';
+import Expense from '../model/Expense.js';
+import { TRIP_STATUS } from '../constants/trip-constants.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 const createTrip = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
@@ -316,12 +316,10 @@ const deleteTrip = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Trip deleted successfully" });
 });
 
-module.exports = {
-  createTrip,
+export { createTrip,
   fetchTrips,
   fetchTripsPreview,
   fetchTrip,
   closeTrip,
   updateTrip,
-  deleteTrip,
-};
+  deleteTrip, };

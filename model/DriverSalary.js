@@ -1,5 +1,5 @@
-const { Schema, model } = require("mongoose");
-const CounterModel = require("./Counter");
+import { Schema, model } from 'mongoose';
+import CounterModel from './Counter.js';
 
 const subtripPaymentSnapshotSchema = new Schema(
   {
@@ -117,4 +117,4 @@ driverSalarySchema.pre("save", async function (next) {
   }
 });
 
-module.exports = model("DriverSalary", driverSalarySchema);
+export default model("DriverSalary", driverSalarySchema);

@@ -64,4 +64,4 @@ const getFleetxVehicleData = async (vehicleNo) => {
     };
 };
 
-module.exports = { getFleetxVehicleData };
+export { getFleetxVehicleData };

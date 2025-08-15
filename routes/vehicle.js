@@ -1,40 +1,38 @@
-const { Router } = require("express");
-const {
-  createVehicle,
+import { Router } from 'express';
+import { createVehicle,
   quickCreateVehicle,
   fetchVehicles,
   fetchVehiclesSummary,
   getVehicleBillingSummary,
   fetchVehicleById,
   updateVehicle,
-  deleteVehicle,
-} = require("../controllers/vehicle");
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+  deleteVehicle, } from '../controllers/vehicle.js';
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
 // ─── CREATE ─────────────────────────────────────────────────────────
-router.post("/", private, checkPermission("vehicle", "create"), createVehicle);
+router.post("/", authenticate, checkPermission("vehicle", "create"), createVehicle);
 router.post(
   "/quick",
-  private,
+  authenticate,
   checkPermission("vehicle", "create"),
   quickCreateVehicle
 );
 
 // ─── READ (LIST & SUMMARY) ──────────────────────────────────────────
-router.get("/", private, pagination, fetchVehicles);
-router.get("/summary", private, fetchVehiclesSummary);
+router.get("/", authenticate, pagination, fetchVehicles);
+router.get("/summary", authenticate, fetchVehiclesSummary);
 
 // ─── READ (SINGLE & BILLING) ────────────────────────────────────────
-router.get("/:id/billing-summary", private, getVehicleBillingSummary);
-router.get("/:id", private, fetchVehicleById);
+router.get("/:id/billing-summary", authenticate, getVehicleBillingSummary);
+router.get("/:id", authenticate, fetchVehicleById);
 
 // ─── UPDATE ─────────────────────────────────────────────────────────
 router.put(
   "/:id",
-  private,
+  authenticate,
   checkPermission("vehicle", "update"),
   updateVehicle
 );
@@ -42,9 +40,9 @@ router.put(
 // ─── DELETE ─────────────────────────────────────────────────────────
 router.delete(
   "/:id",
-  private,
+  authenticate,
   checkPermission("vehicle", "delete"),
   deleteVehicle
 );
 
-module.exports = router;
+export default router;

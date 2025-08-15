@@ -1,4 +1,4 @@
-const httpStatus = require("http-status");
+import httpStatus from 'http-status';
 
 class ApiError extends Error {
   constructor(statusCode, message, isOperational = true, stack = "") {
@@ -34,4 +34,4 @@ const validateZod = (schema) => (req, res, next) => {
   }
 };
 
-module.exports = validateZod;
+export default validateZod;

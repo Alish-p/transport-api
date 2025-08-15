@@ -1,6 +1,5 @@
-const { Router } = require("express");
-const {
-  getDashboardHighlights,
+import { Router } from 'express';
+import { getDashboardHighlights,
   getCustomerMonthlyFreight,
   getExpiringSubtrips,
   getTotalCounts,
@@ -17,54 +16,53 @@ const {
   getInvoiceStatusSummary,
   getTopRoutes,
   getTransporterPaymentTotals,
-  getInvoiceAmountSummary,
-} = require("../controllers/dashboard");
+  getInvoiceAmountSummary, } from '../controllers/dashboard.js';
 
-const { private } = require("../middlewares/Auth");
+import { authenticate } from '../middlewares/Auth.js';
 
 const router = Router();
 
-router.get("/counts", private, getTotalCounts);
-router.get("/loan-schedule", private, getLoanSchedule);
-router.get("/highlights", private, getDashboardHighlights);
-router.get("/subtrips-expiry", private, getExpiringSubtrips);
-router.get("/vehicle-utilization", private, getVehicleUtilization);
-router.get("/subtrip-monthly-data", private, getSubtripMonthlyData);
-router.get("/subtrip-status-summary", private, getSubtripStatusSummary);
-router.get("/invoice-status-summary", private, getInvoiceStatusSummary);
-router.get("/financial-monthly-data", private, getFinancialMonthlyData);
-router.get("/customer-monthly-freight", private, getCustomerMonthlyFreight);
-router.get("/top-routes", private, getTopRoutes);
+router.get("/counts", authenticate, getTotalCounts);
+router.get("/loan-schedule", authenticate, getLoanSchedule);
+router.get("/highlights", authenticate, getDashboardHighlights);
+router.get("/subtrips-expiry", authenticate, getExpiringSubtrips);
+router.get("/vehicle-utilization", authenticate, getVehicleUtilization);
+router.get("/subtrip-monthly-data", authenticate, getSubtripMonthlyData);
+router.get("/subtrip-status-summary", authenticate, getSubtripStatusSummary);
+router.get("/invoice-status-summary", authenticate, getInvoiceStatusSummary);
+router.get("/financial-monthly-data", authenticate, getFinancialMonthlyData);
+router.get("/customer-monthly-freight", authenticate, getCustomerMonthlyFreight);
+router.get("/top-routes", authenticate, getTopRoutes);
 router.get(
   "/grouped/monthly-expense",
-  private,
+  authenticate,
   getMonthlySubtripExpenseSummary
 );
 router.get(
   "/grouped/monthly-material-weight",
-  private,
+  authenticate,
   getMonthlyMaterialWeightSummary
 );
 router.get(
   "/grouped/monthly-vehicle-subtrips",
-  private,
+  authenticate,
   getMonthlyVehicleSubtripSummary
 );
 router.get(
   "/grouped/monthly-driver-subtrips",
-  private,
+  authenticate,
   getMonthlyDriverSummary
 );
 router.get(
   "/grouped/monthly-transporter-subtrips",
-  private,
+  authenticate,
   getMonthlyTransporterSummary
 );
-router.get("/invoice-amount-summary", private, getInvoiceAmountSummary);
+router.get("/invoice-amount-summary", authenticate, getInvoiceAmountSummary);
 router.get(
   "/transporter-payment-summary",
-  private,
+  authenticate,
   getTransporterPaymentTotals
 );
 
-module.exports = router;
+export default router;

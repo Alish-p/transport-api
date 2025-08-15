@@ -1,4 +1,4 @@
-const { Schema, model } = require("mongoose");
+import { Schema, model } from 'mongoose';
 
 // Expense Schema
 const expenseSchema = new Schema({
@@ -58,4 +58,4 @@ expenseSchema.pre("validate", function (next) {
   next();
 });
 
-module.exports = model("Expense", expenseSchema);
+export default model("Expense", expenseSchema);

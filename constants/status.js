@@ -1,4 +1,4 @@
-exports.INVOICE_STATUS = {
+export const INVOICE_STATUS = {
   PENDING: "Pending",
   PARTIAL_RECEIVED: "Partial Received",
   RECEIVED: "Received",
@@ -6,7 +6,7 @@ exports.INVOICE_STATUS = {
   CANCELLED: "Cancelled",
 };
 
-exports.SUBTRIP_STATUS = {
+export const SUBTRIP_STATUS = {
   IN_QUEUE: "in-queue",
   LOADED: "loaded",
   ERROR: "error",
@@ -14,7 +14,7 @@ exports.SUBTRIP_STATUS = {
   BILLED: "billed",
 };
 
-exports.SUBTRIP_EXPENSE_TYPES = {
+export const SUBTRIP_EXPENSE_TYPES = {
   DIESEL: "diesel",
   ADBLUE: "adblue",
   DRIVER_SALARY: "driver-salary",
@@ -29,7 +29,7 @@ exports.SUBTRIP_EXPENSE_TYPES = {
   OTHER: "other",
 };
 
-exports.VEHICLE_EXPENSE_TYPES = {
+export const VEHICLE_EXPENSE_TYPES = {
   INSURANCE: "insurance",
   PERMIT: "permit",
   PASSING: "passing",
@@ -40,7 +40,7 @@ exports.VEHICLE_EXPENSE_TYPES = {
   OTHER: "other",
 };
 
-exports.EXPENSE_CATEGORIES = {
+export const EXPENSE_CATEGORIES = {
   VEHICLE: "vehicle",
   SUBTRIP: "subtrip",
 };

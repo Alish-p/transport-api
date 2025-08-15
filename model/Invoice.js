@@ -1,5 +1,5 @@
-const { Schema, model } = require("mongoose");
-const { INVOICE_STATUS } = require("../constants/status");
+import { Schema, model } from 'mongoose';
+import { INVOICE_STATUS } from '../constants/status.js';
 
 const taxBreakupSchema = new Schema(
   {
@@ -137,4 +137,4 @@ invoiceSchema.pre("save", function (next) {
   next();
 });
 
-module.exports = model("Invoice", invoiceSchema);
+export default model("Invoice", invoiceSchema);

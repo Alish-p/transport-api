@@ -1,6 +1,5 @@
-const express = require("express");
-const {
-  createLoan,
+import express from 'express';
+import { createLoan,
   deleteLoan,
   fetchAllLoans,
   fetchLoanById,
@@ -8,22 +7,21 @@ const {
   updateLoan,
   fetchPendingLoans,
   deferAllInstallments,
-  deferNextInstallment,
-} = require("../controllers/loan");
+  deferNextInstallment, } from '../controllers/loan.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
 
 const router = express.Router();
 
-router.post("/", private, checkPermission("loan", "create"), createLoan);
-router.post("/:id/repay", private, repayLoan);
-router.get("/", private, fetchAllLoans);
-router.get("/pending/:borrowerType/:id", private, fetchPendingLoans);
-router.get("/:id", private, fetchLoanById);
-router.put("/:id", private, checkPermission("loan", "update"), updateLoan);
-router.delete("/:id", private, checkPermission("loan", "delete"), deleteLoan);
+router.post("/", authenticate, checkPermission("loan", "create"), createLoan);
+router.post("/:id/repay", authenticate, repayLoan);
+router.get("/", authenticate, fetchAllLoans);
+router.get("/pending/:borrowerType/:id", authenticate, fetchPendingLoans);
+router.get("/:id", authenticate, fetchLoanById);
+router.put("/:id", authenticate, checkPermission("loan", "update"), updateLoan);
+router.delete("/:id", authenticate, checkPermission("loan", "delete"), deleteLoan);
 
-router.post("/:id/defer-next", private, deferNextInstallment);
-router.post("/:id/defer-all", private, deferAllInstallments);
+router.post("/:id/defer-next", authenticate, deferNextInstallment);
+router.post("/:id/defer-all", authenticate, deferAllInstallments);
 
-module.exports = router;
+export default router;

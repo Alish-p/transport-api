@@ -17,4 +17,4 @@ const addDays = (date, days) => {
   return result;
 };
 
-module.exports = { addMonths, addDays };
+export { addMonths, addDays };

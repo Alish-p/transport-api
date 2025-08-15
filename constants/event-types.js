@@ -14,6 +14,4 @@ const SUBTRIP_EVENT_TYPES = {
   UPDATED: "UPDATED",
 };
 
-module.exports = {
-  SUBTRIP_EVENT_TYPES,
-};
+export { SUBTRIP_EVENT_TYPES, };

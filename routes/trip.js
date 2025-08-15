@@ -1,27 +1,25 @@
-const { Router } = require("express");
-const {
-  createTrip,
+import { Router } from 'express';
+import { createTrip,
   fetchTrips,
   fetchTripsPreview,
   fetchTrip,
   updateTrip,
   deleteTrip,
-  closeTrip,
-} = require("../controllers/trip");
+  closeTrip, } from '../controllers/trip.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
-router.get("/", private, pagination, fetchTrips);
-router.get("/preview", private, pagination, fetchTripsPreview);
+router.get("/", authenticate, pagination, fetchTrips);
+router.get("/preview", authenticate, pagination, fetchTripsPreview);
 
-router.post("/", private, checkPermission("trip", "create"), createTrip);
-router.get("/:id", private, fetchTrip);
-router.put("/:id", private, checkPermission("trip", "update"), updateTrip);
-router.delete("/:id", private, checkPermission("trip", "delete"), deleteTrip);
+router.post("/", authenticate, checkPermission("trip", "create"), createTrip);
+router.get("/:id", authenticate, fetchTrip);
+router.put("/:id", authenticate, checkPermission("trip", "update"), updateTrip);
+router.delete("/:id", authenticate, checkPermission("trip", "delete"), deleteTrip);
 
-router.put("/:id/close", private, closeTrip);
+router.put("/:id/close", authenticate, closeTrip);
 
-module.exports = router;
+export default router;

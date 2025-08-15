@@ -1,6 +1,6 @@
-const asyncHandler = require("express-async-handler");
-const Pump = require("../model/Pump");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import Pump from '../model/Pump.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 // Create Pump
 const createPump = asyncHandler(async (req, res) => {
@@ -77,10 +77,8 @@ const deletePump = asyncHandler(async (req, res) => {
   res.status(200).json(pump);
 });
 
-module.exports = {
-  createPump,
+export { createPump,
   fetchPumps,
   fetchPumpById,
   updatePump,
-  deletePump,
-};
+  deletePump, };

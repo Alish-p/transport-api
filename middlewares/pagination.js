@@ -10,4 +10,4 @@ const pagination = (req, res, next) => {
   next();
 };
 
-module.exports = pagination;
+export default pagination;

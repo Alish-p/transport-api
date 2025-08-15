@@ -1,5 +1,5 @@
-const { Schema, model } = require("mongoose");
-const CounterModel = require("./Counter");
+import { Schema, model } from 'mongoose';
+import CounterModel from './Counter.js';
 
 // Trip Schema
 const tripSchema = new Schema({
@@ -38,4 +38,4 @@ tripSchema.pre("save", async function (next) {
   }
 });
 
-module.exports = model("Trip", tripSchema);
+export default model("Trip", tripSchema);

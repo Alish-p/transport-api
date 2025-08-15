@@ -1,7 +1,7 @@
-const asyncHandler = require("express-async-handler");
-const { GPS_PROVIDERS } = require("../constants/gps-providers");
-const { getFleetxVehicleData } = require("../helpers/fleetx");
-const Tenant = require("../model/Tenant");
+import asyncHandler from 'express-async-handler';
+import { GPS_PROVIDERS } from '../constants/gps-providers.js';
+import { getFleetxVehicleData } from '../helpers/fleetx.js';
+import Tenant from '../model/Tenant.js';
 
 const getVehicleGpsData = asyncHandler(async (req, res) => {
   const { vehicleNo } = req.params;
@@ -36,4 +36,4 @@ const getVehicleGpsData = asyncHandler(async (req, res) => {
   res.status(200).json(data);
 });
 
-module.exports = { getVehicleGpsData };
+export { getVehicleGpsData };

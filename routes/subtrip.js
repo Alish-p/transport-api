@@ -1,6 +1,5 @@
-const { Router } = require("express");
-const {
-  createSubtrip,
+import { Router } from 'express';
+import { createSubtrip,
   fetchSubtrips,
   fetchSubtrip,
   updateSubtrip,
@@ -13,64 +12,63 @@ const {
   closeEmptySubtrip,
   fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
-  fetchPaginatedSubtrips,
-} = require("../controllers/subtrip");
+  fetchPaginatedSubtrips, } from '../controllers/subtrip.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
-router.post("/", private, checkPermission("subtrip", "create"), createSubtrip);
-router.get("/pagination", private, pagination, fetchPaginatedSubtrips);
-router.get("/status", private, pagination, fetchSubtripsByStatuses);
-router.get("/", private, fetchSubtrips);
-router.post("/by-transporter", private, fetchSubtripsByTransporter);
-router.get("/:id", private, fetchSubtrip);
+router.post("/", authenticate, checkPermission("subtrip", "create"), createSubtrip);
+router.get("/pagination", authenticate, pagination, fetchPaginatedSubtrips);
+router.get("/status", authenticate, pagination, fetchSubtripsByStatuses);
+router.get("/", authenticate, fetchSubtrips);
+router.post("/by-transporter", authenticate, fetchSubtripsByTransporter);
+router.get("/:id", authenticate, fetchSubtrip);
 
 router.put(
   "/:id",
-  private,
+  authenticate,
   checkPermission("subtrip", "update"),
   updateSubtrip
 );
 router.delete(
   "/:id",
-  private,
+  authenticate,
   checkPermission("subtrip", "delete"),
   deleteSubtrip
 );
 
 router.put(
   "/:id/material-info",
-  private,
+  authenticate,
   checkPermission("subtrip", "update"),
   addMaterialInfo
 );
 router.put(
   "/:id/receive",
-  private,
+  authenticate,
   checkPermission("subtrip", "update"),
   receiveLR
 );
 router.put(
   "/:id/resolve",
-  private,
+  authenticate,
   checkPermission("subtrip", "update"),
   resolveLR
 );
 
 router.post(
   "/empty",
-  private,
+  authenticate,
   checkPermission("subtrip", "create"),
   createEmptySubtrip
 );
 router.put(
   "/:id/close-empty",
-  private,
+  authenticate,
   checkPermission("subtrip", "update"),
   closeEmptySubtrip
 );
 
-module.exports = router;
+export default router;

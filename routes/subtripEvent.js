@@ -1,9 +1,9 @@
-const { Router } = require("express");
-const { fetchSubtripEvents } = require("../controllers/subtripEvent");
-const { private } = require("../middlewares/Auth");
+import { Router } from 'express';
+import { fetchSubtripEvents } from '../controllers/subtripEvent.js';
+import { authenticate } from '../middlewares/Auth.js';
 
 const router = Router();
 
-router.get("/:subtripId", private, fetchSubtripEvents);
+router.get("/:subtripId", authenticate, fetchSubtripEvents);
 
-module.exports = router;
+export default router;

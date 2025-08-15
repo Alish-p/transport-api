@@ -1,35 +1,33 @@
-const { Router } = require("express");
-const {
-  createDriverSalary,
+import { Router } from 'express';
+import { createDriverSalary,
   fetchDriverSalaries,
   fetchDriverSalary,
   updateDriverSalary,
-  deleteDriverSalary,
-} = require("../controllers/driverSalary");
+  deleteDriverSalary, } from '../controllers/driverSalary.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
 
 const router = Router();
 
 router.post(
   "/",
-  private,
+  authenticate,
   checkPermission("driverSalary", "create"),
   createDriverSalary
 );
-router.get("/", private, fetchDriverSalaries);
-router.get("/:id", private, fetchDriverSalary);
+router.get("/", authenticate, fetchDriverSalaries);
+router.get("/:id", authenticate, fetchDriverSalary);
 router.put(
   "/:id",
-  private,
+  authenticate,
   checkPermission("driverSalary", "update"),
   updateDriverSalary
 );
 router.delete(
   "/:id",
-  private,
+  authenticate,
   checkPermission("driverSalary", "delete"),
   deleteDriverSalary
 );
 
-module.exports = router;
+export default router;

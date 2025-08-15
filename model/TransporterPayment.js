@@ -1,5 +1,5 @@
-const { Schema, model } = require("mongoose");
-const CounterModel = require("./Counter");
+import { Schema, model } from 'mongoose';
+import CounterModel from './Counter.js';
 
 //
 // 📦 Tax Breakup Schema — Captures GST details for audit compliance
@@ -162,4 +162,4 @@ transporterPaymentReceiptSchema.pre("save", async function (next) {
   next();
 });
 
-module.exports = model("TransporterPayment", transporterPaymentReceiptSchema);
+export default model("TransporterPayment", transporterPaymentReceiptSchema);

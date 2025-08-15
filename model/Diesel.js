@@ -1,4 +1,4 @@
-const { Schema, model } = require("mongoose");
+import { Schema, model } from 'mongoose';
 
 const dieselPriceSchema = new Schema({
   pump: { type: Schema.Types.ObjectId, ref: "Pump", required: true },
@@ -8,4 +8,4 @@ const dieselPriceSchema = new Schema({
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
-module.exports = model("DieselPrice", dieselPriceSchema);
+export default model("DieselPrice", dieselPriceSchema);

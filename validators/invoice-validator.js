@@ -1,4 +1,4 @@
-const { z } = require("zod");
+import { z } from 'zod';
 
 const invoiceSchema = z.object({
   body: z.object({
@@ -19,6 +19,4 @@ const invoiceSchema = z.object({
   }),
 });
 
-module.exports = {
-  invoiceSchema,
-};
+export { invoiceSchema, };

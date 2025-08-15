@@ -1,20 +1,16 @@
 /* eslint-disable no-await-in-loop */
-const asyncHandler = require("express-async-handler");
-const mongoose = require("mongoose");
-const TransporterPayment = require("../model/TransporterPayment");
+import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
+import TransporterPayment from '../model/TransporterPayment.js';
 
-const Transporter = require("../model/Transporter");
-const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../utills/tenant-utils");
-const Tenant = require("../model/Tenant");
-const {
-  recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES,
-} = require("../helpers/subtrip-event-helper");
-const {
-  calculateTransporterPayment,
-  calculateTransporterPaymentSummary,
-} = require("../utills/transporter-payment-utils");
+import Transporter from '../model/Transporter.js';
+import Subtrip from '../model/Subtrip.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
+import Tenant from '../model/Tenant.js';
+import { recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES, } from '../helpers/subtrip-event-helper.js';
+import { calculateTransporterPayment,
+  calculateTransporterPaymentSummary, } from '../utills/transporter-payment-utils.js';
 
 // 💰 Create Transporter Payment Receipt
 const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
@@ -506,11 +502,9 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = {
-  createTransporterPaymentReceipt,
+export { createTransporterPaymentReceipt,
   createBulkTransporterPaymentReceipts,
   fetchTransporterPaymentReceipts,
   fetchTransporterPaymentReceipt,
   updateTransporterPaymentReceipt,
-  deleteTransporterPaymentReceipt,
-};
+  deleteTransporterPaymentReceipt, };

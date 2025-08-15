@@ -1,5 +1,5 @@
-const asyncHandler = require("express-async-handler");
-const UserModel = require("../model/User");
+import asyncHandler from 'express-async-handler';
+import UserModel from '../model/User.js';
 
 // Create User
 const createUser = asyncHandler(async (req, res) => {
@@ -52,11 +52,9 @@ const updateUser = asyncHandler(async (req, res) => {
   res.status(200).json(user);
 });
 
-module.exports = {
-  createUser,
+export { createUser,
   fetchUsers,
   fetchUsersLastSeen,
   fetchUser,
   deleteUser,
-  updateUser,
-};
+  updateUser, };

@@ -1,21 +1,19 @@
-const { Router } = require("express");
-const {
-  createUser,
+import { Router } from 'express';
+import { createUser,
   fetchUsers,
   fetchUsersLastSeen,
   deleteUser,
   updateUser,
-  fetchUser,
-} = require("../controllers/user");
+  fetchUser, } from '../controllers/user.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
 
 const router = Router();
 
-router.post("/", private, checkPermission("user", "create"), createUser);
-router.get("/", private, fetchUsers);
-router.get("/last-seen", private, fetchUsersLastSeen);
-router.delete("/:id", private, checkPermission("user", "delete"), deleteUser);
-router.put("/:id", private, checkPermission("user", "update"), updateUser);
-router.get("/:id", private, fetchUser);
-module.exports = router;
+router.post("/", authenticate, checkPermission("user", "create"), createUser);
+router.get("/", authenticate, fetchUsers);
+router.get("/last-seen", authenticate, fetchUsersLastSeen);
+router.delete("/:id", authenticate, checkPermission("user", "delete"), deleteUser);
+router.put("/:id", authenticate, checkPermission("user", "update"), updateUser);
+router.get("/:id", authenticate, fetchUser);
+export default router;

@@ -1,5 +1,5 @@
-const asyncHandler = require("express-async-handler");
-const Tenant = require("../model/Tenant");
+import asyncHandler from 'express-async-handler';
+import Tenant from '../model/Tenant.js';
 
 // Create Tenant
 const createTenant = asyncHandler(async (req, res) => {
@@ -68,10 +68,8 @@ const deleteTenant = asyncHandler(async (req, res) => {
   res.status(200).json(tenant);
 });
 
-module.exports = {
-  createTenant,
+export { createTenant,
   fetchTenants,
   fetchTenantById,
   updateTenant,
-  deleteTenant,
-};
+  deleteTenant, };

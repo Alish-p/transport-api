@@ -1,8 +1,8 @@
-const asyncHandler = require("express-async-handler");
-const Transporter = require("../model/Transporter");
-const Vehicle = require("../model/Vehicle");
-const TransporterPayment = require("../model/TransporterPayment");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import Transporter from '../model/Transporter.js';
+import Vehicle from '../model/Vehicle.js';
+import TransporterPayment from '../model/TransporterPayment.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 // Create Transporter
 const createTransporter = asyncHandler(async (req, res) => {
@@ -109,12 +109,10 @@ const deleteTransporter = asyncHandler(async (req, res) => {
   res.status(200).json(transporter);
 });
 
-module.exports = {
-  createTransporter,
+export { createTransporter,
   fetchTransporters,
   fetchTransporterById,
   fetchTransporterVehicles,
   fetchTransporterPayments,
   updateTransporter,
-  deleteTransporter,
-};
+  deleteTransporter, };

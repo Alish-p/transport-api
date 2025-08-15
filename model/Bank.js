@@ -1,5 +1,5 @@
-const { Schema, model } = require("mongoose");
-const { toTitleCase } = require("../utills/format-string");
+import { Schema, model } from 'mongoose';
+import { toTitleCase } from '../utills/format-string.js';
 
 // Bank Master Schema
 const bankSchema = new Schema({
@@ -15,4 +15,4 @@ const bankSchema = new Schema({
   },
 });
 
-module.exports = model("Bank", bankSchema);
+export default model("Bank", bankSchema);

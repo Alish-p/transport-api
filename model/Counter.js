@@ -1,4 +1,4 @@
-const { Schema, model } = require("mongoose");
+import { Schema, model } from 'mongoose';
 
 const CounterSchema = Schema({
   model: { type: String, required: true },
@@ -8,4 +8,4 @@ const CounterSchema = Schema({
 
 CounterSchema.index({ model: 1, tenant: 1 }, { unique: true });
 
-module.exports = model("counter", CounterSchema);
+export default model("counter", CounterSchema);

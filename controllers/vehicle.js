@@ -1,10 +1,10 @@
-const asyncHandler = require("express-async-handler");
-const mongoose = require("mongoose");
-const Vehicle = require("../model/Vehicle");
-const { addTenantToQuery } = require("../utills/tenant-utils");
-const Subtrip = require("../model/Subtrip");
-const Expense = require("../model/Expense");
-const { SUBTRIP_STATUS, EXPENSE_CATEGORIES } = require("../constants/status");
+import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
+import Vehicle from '../model/Vehicle.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
+import Subtrip from '../model/Subtrip.js';
+import Expense from '../model/Expense.js';
+import { SUBTRIP_STATUS, EXPENSE_CATEGORIES } from '../constants/status.js';
 
 // Create Vehicle
 const createVehicle = asyncHandler(async (req, res) => {
@@ -295,13 +295,11 @@ const getVehicleBillingSummary = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = {
-  createVehicle,
+export { createVehicle,
   quickCreateVehicle,
   fetchVehicles,
   fetchVehiclesSummary,
   fetchVehicleById,
   updateVehicle,
   deleteVehicle,
-  getVehicleBillingSummary,
-};
+  getVehicleBillingSummary, };

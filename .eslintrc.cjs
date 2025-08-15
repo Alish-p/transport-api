@@ -8,7 +8,7 @@ module.exports = {
   plugins: ['perfectionist', 'unused-imports', 'prettier'],
   parserOptions: {
     ecmaVersion: 'latest',
-    sourceType: 'script',
+    sourceType: 'module',
   },
   rules: {
     'no-console': 0,
@@ -21,5 +21,9 @@ module.exports = {
     ],
     'consistent-return':0,
     'no-underscore-dangle':0,
+    'import/extensions':0,
+    'import/prefer-default-export':0,
+    'no-else-return':0,
+    'no-restricted-syntax':0,
   },
 };

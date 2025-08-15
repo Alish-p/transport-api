@@ -1,9 +1,9 @@
-const { Router } = require("express");
-const { getVehicleGpsData } = require("../controllers/gps");
+import { Router } from 'express';
+import { getVehicleGpsData } from '../controllers/gps.js';
 
 const router = Router();
-const { private } = require("../middlewares/Auth");
+import { authenticate } from '../middlewares/Auth.js';
 
-router.get("/:vehicleNo", private, getVehicleGpsData);
+router.get("/:vehicleNo", authenticate, getVehicleGpsData);
 
-module.exports = router;
+export default router;

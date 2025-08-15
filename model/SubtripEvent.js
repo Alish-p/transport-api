@@ -1,4 +1,4 @@
-const { Schema, model } = require("mongoose");
+import { Schema, model } from 'mongoose';
 
 const subtripEventSchema = new Schema({
   subtripId: { type: String, ref: "Subtrip", required: true, index: true },
@@ -12,4 +12,4 @@ const subtripEventSchema = new Schema({
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
-module.exports = model("SubtripEvent", subtripEventSchema);
+export default model("SubtripEvent", subtripEventSchema);

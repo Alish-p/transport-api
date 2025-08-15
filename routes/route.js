@@ -1,23 +1,21 @@
-const { Router } = require("express");
-const {
-  createRoute,
+import { Router } from 'express';
+import { createRoute,
   fetchRoutes,
   deleteRoute,
   updateRoute,
   fetchSingleRoute,
-  fetchRouteSubtrips,
-} = require("../controllers/route");
+  fetchRouteSubtrips, } from '../controllers/route.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
-router.post("/", private, checkPermission("route", "create"), createRoute);
-router.get("/", private, pagination, fetchRoutes);
-router.get("/:id/subtrips", private, fetchRouteSubtrips);
-router.get("/:id", private, fetchSingleRoute);
-router.delete("/:id", private, checkPermission("route", "delete"), deleteRoute);
-router.put("/:id", private, checkPermission("route", "update"), updateRoute);
+router.post("/", authenticate, checkPermission("route", "create"), createRoute);
+router.get("/", authenticate, pagination, fetchRoutes);
+router.get("/:id/subtrips", authenticate, fetchRouteSubtrips);
+router.get("/:id", authenticate, fetchSingleRoute);
+router.delete("/:id", authenticate, checkPermission("route", "delete"), deleteRoute);
+router.put("/:id", authenticate, checkPermission("route", "update"), updateRoute);
 
-module.exports = router;
+export default router;

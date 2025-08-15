@@ -1,21 +1,19 @@
-const { Router } = require("express");
-const {
-  createBank,
+import { Router } from 'express';
+import { createBank,
   fetchBanks,
   deleteBank,
   updateBank,
-  fetchBankDetails,
-} = require("../controllers/bank");
+  fetchBankDetails, } from '../controllers/bank.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
-router.post("/", private, checkPermission("bank", "create"), createBank);
-router.get("/", private, pagination, fetchBanks);
-router.get("/:id", private, fetchBankDetails);
-router.delete("/:id", private, checkPermission("bank", "delete"), deleteBank);
-router.put("/:id", private, checkPermission("bank", "update"), updateBank);
+router.post("/", authenticate, checkPermission("bank", "create"), createBank);
+router.get("/", authenticate, pagination, fetchBanks);
+router.get("/:id", authenticate, fetchBankDetails);
+router.delete("/:id", authenticate, checkPermission("bank", "delete"), deleteBank);
+router.put("/:id", authenticate, checkPermission("bank", "update"), updateBank);
 
-module.exports = router;
+export default router;

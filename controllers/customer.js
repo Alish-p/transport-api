@@ -1,10 +1,10 @@
-const asyncHandler = require("express-async-handler");
-const mongoose = require("mongoose");
-const Customer = require("../model/Customer");
-const Invoice = require("../model/Invoice");
-const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../utills/tenant-utils");
-const { INVOICE_STATUS, SUBTRIP_STATUS } = require("../constants/status");
+import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
+import Customer from '../model/Customer.js';
+import Invoice from '../model/Invoice.js';
+import Subtrip from '../model/Subtrip.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
+import { INVOICE_STATUS, SUBTRIP_STATUS } from '../constants/status.js';
 
 // Create Customer
 const createCustomer = asyncHandler(async (req, res) => {
@@ -472,8 +472,7 @@ const deleteCustomer = asyncHandler(async (req, res) => {
 
 //
 
-module.exports = {
-  createCustomer,
+export { createCustomer,
   fetchCustomers,
   fetchCustomersSummary,
   getCustomerMonthlyMaterialWeight,
@@ -483,5 +482,4 @@ module.exports = {
   getCustomerRoutes,
   getCustomerInvoiceAmountSummary,
   getCustomerInvoices,
-  getCustomerSubtripMonthlyData,
-};
+  getCustomerSubtripMonthlyData, };

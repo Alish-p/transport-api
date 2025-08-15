@@ -1,4 +1,4 @@
-const { Schema, model } = require("mongoose");
+import { Schema, model } from 'mongoose';
 
 // Route Schema
 const routeSchema = new Schema({
@@ -78,4 +78,4 @@ routeSchema.pre("findOneAndUpdate", function (next) {
   next();
 });
 
-module.exports = model("Route", routeSchema);
+export default model("Route", routeSchema);

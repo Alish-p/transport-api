@@ -1,4 +1,4 @@
-const { Schema, model } = require("mongoose");
+import { Schema, model } from 'mongoose';
 
 // Vehicle Schema
 const vehicleSchema = new Schema({
@@ -23,4 +23,4 @@ const vehicleSchema = new Schema({
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 
-module.exports = model("Vehicle", vehicleSchema);
+export default model("Vehicle", vehicleSchema);

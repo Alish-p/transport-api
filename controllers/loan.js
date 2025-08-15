@@ -1,7 +1,7 @@
 // controllers/loanController.js
-const asyncHandler = require("express-async-handler");
-const Loan = require("../model/Loan");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import Loan from '../model/Loan.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 /**
  * @route   GET /api/loans
@@ -239,8 +239,7 @@ const fetchPendingLoans = asyncHandler(async (req, res) => {
   res.status(200).json(loans);
 });
 
-module.exports = {
-  fetchAllLoans,
+export { fetchAllLoans,
   fetchLoanById,
   createLoan,
   updateLoan,
@@ -248,5 +247,4 @@ module.exports = {
   repayLoan,
   fetchPendingLoans,
   deferNextInstallment,
-  deferAllInstallments,
-};
+  deferAllInstallments, };

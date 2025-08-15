@@ -1,5 +1,5 @@
-const { Schema, model } = require("mongoose");
-const defaults = require("../constants/tenant-config-defaults");
+import { Schema, model } from 'mongoose';
+import defaults from '../constants/tenant-config-defaults.js';
 
 const paymentHistorySchema = new Schema(
   {
@@ -112,4 +112,4 @@ const tenantSchema = new Schema(
   { timestamps: true }
 );
 
-module.exports = model("Tenant", tenantSchema);
+export default model("Tenant", tenantSchema);

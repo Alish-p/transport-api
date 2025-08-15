@@ -1,14 +1,12 @@
-const asyncHandler = require("express-async-handler");
-const mongoose = require("mongoose");
-const Expense = require("../model/Expense");
-const Subtrip = require("../model/Subtrip");
-const Vehicle = require("../model/Vehicle");
-const { EXPENSE_CATEGORIES } = require("../constants/status");
-const { addTenantToQuery } = require("../utills/tenant-utils");
-const {
-  recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES,
-} = require("../helpers/subtrip-event-helper");
+import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
+import Expense from '../model/Expense.js';
+import Subtrip from '../model/Subtrip.js';
+import Vehicle from '../model/Vehicle.js';
+import { EXPENSE_CATEGORIES } from '../constants/status.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
+import { recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES, } from '../helpers/subtrip-event-helper.js';
 
 // Create Expense
 const createExpense = asyncHandler(async (req, res) => {
@@ -260,10 +258,8 @@ const deleteExpense = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Expense deleted successfully" });
 });
 
-module.exports = {
-  createExpense,
+export { createExpense,
   fetchPaginatedExpenses,
   fetchExpense,
   updateExpense,
-  deleteExpense,
-};
+  deleteExpense, };

@@ -4,4 +4,4 @@ const CONFIG = {
   transporterInvoiceTax: 6,
 };
 
-module.exports = { CONFIG };
+export { CONFIG };

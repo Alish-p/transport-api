@@ -1,7 +1,7 @@
-const asyncHandler = require("express-async-handler");
-const Route = require("../model/Route");
-const Subtrip = require("../model/Subtrip");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import Route from '../model/Route.js';
+import Subtrip from '../model/Subtrip.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 // Create Route
 const createRoute = asyncHandler(async (req, res) => {
@@ -193,11 +193,9 @@ const deleteRoute = asyncHandler(async (req, res) => {
   res.status(200).json(route);
 });
 
-module.exports = {
-  createRoute,
+export { createRoute,
   fetchRoutes,
   fetchSingleRoute,
   fetchRouteSubtrips,
   updateRoute,
-  deleteRoute,
-};
+  deleteRoute, };

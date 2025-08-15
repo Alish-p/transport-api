@@ -1,43 +1,41 @@
-const { Router } = require("express");
-const {
-  createTransporterPaymentReceipt,
+import { Router } from 'express';
+import { createTransporterPaymentReceipt,
   fetchTransporterPaymentReceipts,
   fetchTransporterPaymentReceipt,
   updateTransporterPaymentReceipt,
   deleteTransporterPaymentReceipt,
-  createBulkTransporterPaymentReceipts,
-} = require("../controllers/transporterPayment");
+  createBulkTransporterPaymentReceipts, } from '../controllers/transporterPayment.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
 router.post(
   "/",
-  private,
+  authenticate,
   checkPermission("transporterPayment", "create"),
   createTransporterPaymentReceipt
 );
 router.post(
   "/bulk-transporter-payment",
-  private,
+  authenticate,
   checkPermission("transporterPayment", "create"),
   createBulkTransporterPaymentReceipts
 );
-router.get("/", private, pagination, fetchTransporterPaymentReceipts);
-router.get("/:id", private, fetchTransporterPaymentReceipt);
+router.get("/", authenticate, pagination, fetchTransporterPaymentReceipts);
+router.get("/:id", authenticate, fetchTransporterPaymentReceipt);
 router.put(
   "/:id",
-  private,
+  authenticate,
   checkPermission("transporterPayment", "update"),
   updateTransporterPaymentReceipt
 );
 router.delete(
   "/:id",
-  private,
+  authenticate,
   checkPermission("transporterPayment", "delete"),
   deleteTransporterPaymentReceipt
 );
 
-module.exports = router;
+export default router;

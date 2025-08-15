@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const { toTitleCase } = require("../utills/format-string");
+import mongoose from 'mongoose';
+import { toTitleCase } from '../utills/format-string.js';
 
 const userSchema = new mongoose.Schema(
   {
@@ -134,4 +134,4 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return enteredPassword === this.password;
 };
 
-module.exports = mongoose.model("User", userSchema);
+export default mongoose.model("User", userSchema);

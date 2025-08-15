@@ -1,10 +1,10 @@
-const asyncHandler = require("express-async-handler");
-const jwt = require("jsonwebtoken");
-const mongoose = require("mongoose");
-const UserModel = require("../model/User");
+import asyncHandler from 'express-async-handler';
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import UserModel from '../model/User.js';
 
 // check if token exists
-const private = asyncHandler(async (req, res, next) => {
+const authenticate = asyncHandler(async (req, res, next) => {
   let token = req.headers.authorization;
 
   if (token && token.startsWith("Bearer")) {
@@ -66,4 +66,4 @@ function checkPermission(resource, action) {
   };
 }
 
-module.exports = { private, admin, checkPermission };
+export { authenticate, admin, checkPermission };

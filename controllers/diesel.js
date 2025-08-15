@@ -1,7 +1,7 @@
-const asyncHandler = require("express-async-handler");
-const Pump = require("../model/Pump");
-const DieselPrice = require("../model/Diesel");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import Pump from '../model/Pump.js';
+import DieselPrice from '../model/Diesel.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 const createDieselPrice = asyncHandler(async (req, res) => {
   const { pump, price, startDate, endDate } = req.body;
@@ -179,11 +179,9 @@ const deleteDieselPrice = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Diesel price deleted" });
 });
 
-module.exports = {
-  createDieselPrice,
+export { createDieselPrice,
   fetchDieselPrices,
   fetchDieselPriceOnDate,
   fetchDieselPrice,
   updateDieselPrice,
-  deleteDieselPrice,
-};
+  deleteDieselPrice, };

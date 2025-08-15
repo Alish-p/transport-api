@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   materialOptions: [
     { label: 'Cement', value: 'Cement' },
     { label: 'Sugar', value: 'Sugar' },

@@ -1,46 +1,44 @@
-const { Router } = require("express");
-const validateZod = require("../middlewares/validate");
-const { invoiceSchema } = require("../validators/invoice-validator");
-const {
-  createInvoice,
+import { Router } from 'express';
+import validateZod from '../middlewares/validate.js';
+import { invoiceSchema } from '../validators/invoice-validator.js';
+import { createInvoice,
   fetchInvoices,
   fetchInvoice,
   cancelInvoice,
   payInvoice,
-  deleteInvoice,
-} = require("../controllers/invoice");
+  deleteInvoice, } from '../controllers/invoice.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
 router.post(
   "/",
-  private,
+  authenticate,
   checkPermission("invoice", "create"),
   validateZod(invoiceSchema),
   createInvoice
 );
-router.get("/", private, pagination, fetchInvoices);
-router.get("/:id", private, fetchInvoice);
+router.get("/", authenticate, pagination, fetchInvoices);
+router.get("/:id", authenticate, fetchInvoice);
 router.put(
   "/:id/cancel",
-  private,
+  authenticate,
   checkPermission("invoice", "update"),
   cancelInvoice
 );
 router.put(
   "/:id/pay",
-  private,
+  authenticate,
   checkPermission("invoice", "update"),
   payInvoice
 );
 router.delete(
   "/:id",
-  private,
+  authenticate,
   checkPermission("invoice", "delete"),
   deleteInvoice
 );
 
-module.exports = router;
+export default router;

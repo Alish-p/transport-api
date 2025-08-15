@@ -1,21 +1,19 @@
-const { Router } = require("express");
-const {
-  createPump,
+import { Router } from 'express';
+import { createPump,
   fetchPumps,
   deletePump,
   fetchPumpById,
-  updatePump,
-} = require("../controllers/pump");
+  updatePump, } from '../controllers/pump.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
-router.post("/", private, checkPermission("pump", "create"), createPump);
-router.get("/", private, pagination, fetchPumps);
-router.get("/:id", private, fetchPumpById);
-router.delete("/:id", private, checkPermission("pump", "delete"), deletePump);
-router.put("/:id", private, checkPermission("pump", "update"), updatePump);
+router.post("/", authenticate, checkPermission("pump", "create"), createPump);
+router.get("/", authenticate, pagination, fetchPumps);
+router.get("/:id", authenticate, fetchPumpById);
+router.delete("/:id", authenticate, checkPermission("pump", "delete"), deletePump);
+router.put("/:id", authenticate, checkPermission("pump", "update"), updatePump);
 
-module.exports = router;
+export default router;

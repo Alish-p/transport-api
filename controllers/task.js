@@ -1,11 +1,11 @@
-const asyncHandler = require("express-async-handler");
-const Task = require("../model/Task");
-const { addTenantToQuery } = require("../utills/tenant-utils");
+import asyncHandler from 'express-async-handler';
+import Task from '../model/Task.js';
+import { addTenantToQuery } from '../utills/tenant-utils.js';
 
 // @desc    Create a new task
 // @route   POST /api/tasks
 // @access  Private
-exports.createTask = asyncHandler(async (req, res) => {
+export const createTask = asyncHandler(async (req, res) => {
   const task = await Task.create({
     ...req.body,
     reporter: req.user._id,
@@ -27,7 +27,7 @@ exports.createTask = asyncHandler(async (req, res) => {
 // @desc    Update a task
 // @route   PUT /api/tasks/:taskId
 // @access  Private
-exports.updateTask = asyncHandler(async (req, res) => {
+export const updateTask = asyncHandler(async (req, res) => {
   const { status, assignees } = req.body;
 
   const task = await Task.findOne({
@@ -75,7 +75,7 @@ exports.updateTask = asyncHandler(async (req, res) => {
 // @desc    Get a single task
 // @route   GET /api/tasks/:taskId
 // @access  Private
-exports.getTask = asyncHandler(async (req, res) => {
+export const getTask = asyncHandler(async (req, res) => {
   const task = await Task.findOne({
     _id: req.params.taskId,
     tenant: req.tenant,
@@ -98,7 +98,7 @@ exports.getTask = asyncHandler(async (req, res) => {
 // @desc    Delete a task
 // @route   DELETE /api/tasks/:taskId
 // @access  Private
-exports.deleteTask = asyncHandler(async (req, res) => {
+export const deleteTask = asyncHandler(async (req, res) => {
   const task = await Task.findOne({
     _id: req.params.taskId,
     tenant: req.tenant,
@@ -120,7 +120,7 @@ exports.deleteTask = asyncHandler(async (req, res) => {
 // @desc    Add activity to task
 // @route   POST /api/tasks/:taskId/activity
 // @access  Private
-exports.addActivityToTask = asyncHandler(async (req, res) => {
+export const addActivityToTask = asyncHandler(async (req, res) => {
   const task = await Task.findOne({
     _id: req.params.taskId,
     tenant: req.tenant,
@@ -149,7 +149,7 @@ exports.addActivityToTask = asyncHandler(async (req, res) => {
 // @desc    Fetch tasks grouped by status
 // @route   GET /api/tasks/grouped/status
 // @access  Private
-exports.fetchTasksByStatus = asyncHandler(async (req, res) => {
+export const fetchTasksByStatus = asyncHandler(async (req, res) => {
   const tasks = await Task.aggregate([
     {
       $match: { tenant: req.tenant },
@@ -184,7 +184,7 @@ exports.fetchTasksByStatus = asyncHandler(async (req, res) => {
 // @desc    Fetch all tasks with filters
 // @route   GET /api/tasks
 // @access  Private
-exports.fetchAllTasks = asyncHandler(async (req, res) => {
+export const fetchAllTasks = asyncHandler(async (req, res) => {
   const { status, priority, department, assignees } = req.query;
 
   // Build query
@@ -219,7 +219,7 @@ exports.fetchAllTasks = asyncHandler(async (req, res) => {
 // @desc    Add a subtask to a task
 // @route   POST /api/tasks/:taskId/subtasks
 // @access  Private
-exports.addSubtask = asyncHandler(async (req, res) => {
+export const addSubtask = asyncHandler(async (req, res) => {
   const task = await Task.findOne({
     _id: req.params.taskId,
     tenant: req.tenant,
@@ -254,7 +254,7 @@ exports.addSubtask = asyncHandler(async (req, res) => {
 // @desc    Mark subtask as complete/incomplete
 // @route   PATCH /api/tasks/:taskId/subtasks/:subtaskId
 // @access  Private
-exports.toggleSubtaskComplete = asyncHandler(async (req, res) => {
+export const toggleSubtaskComplete = asyncHandler(async (req, res) => {
   const task = await Task.findOne({
     _id: req.params.taskId,
     tenant: req.tenant,
@@ -291,7 +291,7 @@ exports.toggleSubtaskComplete = asyncHandler(async (req, res) => {
 // @desc    Delete a subtask
 // @route   DELETE /api/tasks/:taskId/subtasks/:subtaskId
 // @access  Private
-exports.deleteSubtask = asyncHandler(async (req, res) => {
+export const deleteSubtask = asyncHandler(async (req, res) => {
   const task = await Task.findOne({
     _id: req.params.taskId,
     tenant: req.tenant,

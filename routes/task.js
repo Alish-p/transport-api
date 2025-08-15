@@ -1,8 +1,7 @@
-const express = require("express");
+import express from 'express';
 
 const router = express.Router();
-const {
-  createTask,
+import { createTask,
   updateTask,
   getTask,
   deleteTask,
@@ -11,22 +10,21 @@ const {
   fetchAllTasks,
   addSubtask,
   toggleSubtaskComplete,
-  deleteSubtask,
-} = require("../controllers/task");
-const { private } = require("../middlewares/Auth");
+  deleteSubtask, } from '../controllers/task.js';
+import { authenticate } from '../middlewares/Auth.js';
 
 // Task routes
-router.get("/", private, fetchAllTasks);
-router.post("/", private, createTask);
-router.put("/:taskId", private, updateTask);
-router.get("/:taskId", private, getTask);
-router.delete("/:taskId", private, deleteTask);
-router.post("/:taskId/activity", private, addActivityToTask);
-router.get("/grouped/status", private, fetchTasksByStatus);
+router.get("/", authenticate, fetchAllTasks);
+router.post("/", authenticate, createTask);
+router.put("/:taskId", authenticate, updateTask);
+router.get("/:taskId", authenticate, getTask);
+router.delete("/:taskId", authenticate, deleteTask);
+router.post("/:taskId/activity", authenticate, addActivityToTask);
+router.get("/grouped/status", authenticate, fetchTasksByStatus);
 
 // Subtask routes
-router.post("/:taskId/subtasks", private, addSubtask);
-router.patch("/:taskId/subtasks/:subtaskId", private, toggleSubtaskComplete);
-router.delete("/:taskId/subtasks/:subtaskId", private, deleteSubtask);
+router.post("/:taskId/subtasks", authenticate, addSubtask);
+router.patch("/:taskId/subtasks/:subtaskId", authenticate, toggleSubtaskComplete);
+router.delete("/:taskId/subtasks/:subtaskId", authenticate, deleteSubtask);
 
-module.exports = router;
+export default router;

@@ -1,4 +1,4 @@
-const { CONFIG } = require("../constants/CONFIG");
+import { CONFIG } from '../constants/CONFIG.js';
 
 // 🛠 Calculate totals for a single subtrip
 const calculateInvoicePerSubtrip = (subtrip) => {
@@ -164,7 +164,5 @@ const calculateInvoiceSummary = (invoice, customer, tenantState) => {
   };
 };
 
-module.exports = {
-  calculateInvoiceSummary,
-  calculateTaxBreakup,
-};
+export { calculateInvoiceSummary,
+  calculateTaxBreakup, };

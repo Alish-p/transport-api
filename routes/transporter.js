@@ -1,40 +1,38 @@
-const { Router } = require("express");
-const {
-  createTransporter,
+import { Router } from 'express';
+import { createTransporter,
   fetchTransporters,
   deleteTransporter,
   updateTransporter,
   fetchTransporterById,
   fetchTransporterVehicles,
-  fetchTransporterPayments,
-} = require("../controllers/transporter");
+  fetchTransporterPayments, } from '../controllers/transporter.js';
 
-const { private, checkPermission } = require("../middlewares/Auth");
-const pagination = require("../middlewares/pagination");
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import pagination from '../middlewares/pagination.js';
 
 const router = Router();
 
-router.get("/", private, pagination, fetchTransporters);
-router.get("/:id/vehicles", private, fetchTransporterVehicles);
-router.get("/:id/payments", private, fetchTransporterPayments);
-router.get("/:id", private, fetchTransporterById);
+router.get("/", authenticate, pagination, fetchTransporters);
+router.get("/:id/vehicles", authenticate, fetchTransporterVehicles);
+router.get("/:id/payments", authenticate, fetchTransporterPayments);
+router.get("/:id", authenticate, fetchTransporterById);
 router.post(
   "/",
-  private,
+  authenticate,
   checkPermission("transporter", "create"),
   createTransporter
 );
 router.delete(
   "/:id",
-  private,
+  authenticate,
   checkPermission("transporter", "delete"),
   deleteTransporter
 );
 router.put(
   "/:id",
-  private,
+  authenticate,
   checkPermission("transporter", "update"),
   updateTransporter
 );
 
-module.exports = router;
+export default router;

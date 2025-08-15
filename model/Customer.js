@@ -1,5 +1,5 @@
-const { Schema, model } = require("mongoose");
-const { toTitleCase } = require("../utills/format-string");
+import { Schema, model } from 'mongoose';
+import { toTitleCase } from '../utills/format-string.js';
 
 // Define the customer schema
 const CustomerSchema = new Schema({
@@ -45,4 +45,4 @@ const CustomerSchema = new Schema({
   },
 });
 
-module.exports = model("Customer", CustomerSchema);
+export default model("Customer", CustomerSchema);
