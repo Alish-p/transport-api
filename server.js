@@ -14,7 +14,7 @@ import driverRouter from './entities/driver/driver.routes.js';
 import customerRouter from './routes/customer.js';
 import bankRouter from './entities/bank/bank.routes.js';
 import pumpRouter from './routes/pump.js';
-import dieselPriceRouter from './routes/diesel.js';
+import dieselPriceRouter from './entities/diesel/diesel.routes.js';
 import routeRouter from './routes/route.js';
 import tripRouter from './routes/trip.js';
 import expenseRouter from './routes/expense.js';

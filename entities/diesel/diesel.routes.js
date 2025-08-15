@@ -1,13 +1,15 @@
 import { Router } from 'express';
-import { createDieselPrice,
+import {
+  createDieselPrice,
   fetchDieselPrices,
   deleteDieselPrice,
   updateDieselPrice,
   fetchDieselPrice,
-  fetchDieselPriceOnDate, } from '../controllers/diesel.js';
+  fetchDieselPriceOnDate,
+} from './diesel.controller.js';
 
-import { authenticate, checkPermission } from '../middlewares/Auth.js';
-import pagination from '../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 
