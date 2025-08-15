@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import Trip from '../model/Trip.js';
 import Subtrip from '../model/Subtrip.js';
-import Expense from '../model/Expense.js';
+import Expense from '../entities/expense/expense.model.js';
 import Vehicle from '../model/Vehicle.js';
 import Driver from '../entities/driver/driver.model.js';
 import { recordSubtripEvent } from '../helpers/subtrip-event-helper.js';
