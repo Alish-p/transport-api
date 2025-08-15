@@ -11,7 +11,7 @@ import dashboardRouter from './routes/dashboard.js';
 import vehicleRouter from './routes/vehicle.js';
 import transporterRouter from './routes/transporter.js';
 import driverRouter from './entities/driver/driver.routes.js';
-import customerRouter from './routes/customer.js';
+import customerRouter from './entities/customer/customer.routes.js';
 import bankRouter from './entities/bank/bank.routes.js';
 import pumpRouter from './routes/pump.js';
 import dieselPriceRouter from './routes/diesel.js';
