@@ -1,11 +1,13 @@
 import { Router } from 'express';
-import { createDriverSalary,
+import {
+  createDriverSalary,
   fetchDriverSalaries,
   fetchDriverSalary,
   updateDriverSalary,
-  deleteDriverSalary, } from '../controllers/driverSalary.js';
+  deleteDriverSalary,
+} from './driverSalary.controller.js';
 
-import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 
 const router = Router();
 
