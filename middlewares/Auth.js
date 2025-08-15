@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
-import UserModel from '../model/User.js';
+import UserModel from '../entities/user/user.model.js';
 
 // check if token exists
 const authenticate = asyncHandler(async (req, res, next) => {

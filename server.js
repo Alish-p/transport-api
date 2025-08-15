@@ -24,9 +24,9 @@ import loanRouter from './entities/loan/loan.routes.js';
 import transporterPaymentRouter from './entities/transporterPayment/transporterPayment.routes.js';
 import subtripEventRouter from './routes/subtripEvent.js';
 import subtripRouter from './routes/subtrip.js';
-import userRouter from './routes/user.js';
+import userRouter from './entities/user/user.routes.js';
 import tenantRouter from './routes/tenant.js';
-import authRouter from './routes/auth.js';
+import authRouter from './entities/user/auth.routes.js';
 import taskRouter from './routes/task.js';
 import gpsRouter from './routes/gps.js';
 
