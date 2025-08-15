@@ -4,7 +4,7 @@ import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 
 import DriverSalary from './driverSalary.model.js';
-import Driver from '../../model/Driver.js';
+import Driver from '../driver/driver.model.js';
 import Subtrip from '../../model/Subtrip.js';
 
 import {

@@ -1,5 +1,5 @@
 import asyncHandler from 'express-async-handler';
-import Driver from '../model/Driver.js';
+import Driver from '../entities/driver/driver.model.js';
 import Transporter from '../model/Transporter.js';
 import Customer from '../model/Customer.js';
 import Vehicle from '../model/Vehicle.js';
