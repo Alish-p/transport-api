@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
-import UserModel from '../model/User.js';
-import { generateToken } from '../utills/generate-token.js';
-import Tenant from '../model/Tenant.js';
+import Tenant from '../../model/Tenant.js';
+import { generateToken } from '../../utills/generate-token.js';
+import UserModel from './user.model.js';
 
 // Auth
 const loginUser = asyncHandler(async (req, res) => {

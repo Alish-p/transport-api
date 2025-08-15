@@ -1,5 +1,5 @@
 import asyncHandler from 'express-async-handler';
-import UserModel from '../model/User.js';
+import UserModel from './user.model.js';
 
 // Create User
 const createUser = asyncHandler(async (req, res) => {
