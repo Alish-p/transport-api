@@ -13,7 +13,7 @@ import transporterRouter from './routes/transporter.js';
 import driverRouter from './entities/driver/driver.routes.js';
 import customerRouter from './routes/customer.js';
 import bankRouter from './entities/bank/bank.routes.js';
-import pumpRouter from './routes/pump.js';
+import pumpRouter from './entities/pump/pump.routes.js';
 import dieselPriceRouter from './routes/diesel.js';
 import routeRouter from './routes/route.js';
 import tripRouter from './routes/trip.js';

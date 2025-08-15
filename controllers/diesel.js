@@ -1,5 +1,5 @@
 import asyncHandler from 'express-async-handler';
-import Pump from '../model/Pump.js';
+import Pump from '../entities/pump/pump.model.js';
 import DieselPrice from '../model/Diesel.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
 
