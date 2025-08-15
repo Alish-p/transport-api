@@ -1,13 +1,15 @@
 import { Router } from 'express';
-import { createRoute,
+import {
+  createRoute,
   fetchRoutes,
   deleteRoute,
   updateRoute,
   fetchSingleRoute,
-  fetchRouteSubtrips, } from '../controllers/route.js';
+  fetchRouteSubtrips,
+} from './route.controller.js';
 
-import { authenticate, checkPermission } from '../middlewares/Auth.js';
-import pagination from '../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

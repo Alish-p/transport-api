@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
-import Route from '../model/Route.js';
-import Subtrip from '../model/Subtrip.js';
-import { addTenantToQuery } from '../utills/tenant-utils.js';
+import Route from './route.model.js';
+import Subtrip from '../../model/Subtrip.js';
+import { addTenantToQuery } from '../../utills/tenant-utils.js';
 
 // Create Route
 const createRoute = asyncHandler(async (req, res) => {
