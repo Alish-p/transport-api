@@ -1,5 +1,5 @@
-import { SUBTRIP_EVENT_TYPES } from '../constants/event-types.js';
 import SubtripEvent from '../entities/subtripEvent/subtripEvent.model.js';
+import { SUBTRIP_EVENT_TYPES } from '../entities/subtripEvent/subtripEvent.constants.js';
 
 const recordSubtripEvent = async (
   subtrip,
@@ -21,9 +21,9 @@ const recordSubtripEvent = async (
     details,
     user: user
       ? {
-          _id: user._id,
-          name: user.name,
-        }
+        _id: user._id,
+        name: user.name,
+      }
       : null,
     tenant:
       tenant ||
@@ -95,6 +95,8 @@ const generateEventMessage = (event) => {
   }
 };
 
-export { recordSubtripEvent,
+export {
+  recordSubtripEvent,
   generateEventMessage,
-  SUBTRIP_EVENT_TYPES, };
+  SUBTRIP_EVENT_TYPES,
+};

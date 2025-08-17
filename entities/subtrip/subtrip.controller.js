@@ -7,11 +7,12 @@ import Driver from '../driver/driver.model.js';
 import Expense from '../expense/expense.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import { SUBTRIP_EVENT_TYPES } from '../../constants/event-types.js';
-import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_STATUS } from './subtrip.constants.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
+import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
+import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
+
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>
@@ -1144,7 +1145,8 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
   }
 });
 
-export { createSubtrip,
+export {
+  createSubtrip,
   fetchSubtrips,
   fetchSubtrip,
   fetchPaginatedSubtrips,
@@ -1156,4 +1158,5 @@ export { createSubtrip,
   createEmptySubtrip,
   closeEmptySubtrip,
   fetchSubtripsByStatuses,
-  fetchSubtripsByTransporter, };
+  fetchSubtripsByTransporter,
+};
