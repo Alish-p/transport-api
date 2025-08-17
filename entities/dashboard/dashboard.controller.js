@@ -1,6 +1,6 @@
+import asyncHandler from 'express-async-handler';
 import Loan from '../loan/loan.model.js';
 import Driver from '../driver/driver.model.js';
-import asyncHandler from 'express-async-handler';
 import Vehicle from '../vehicle/vehicle.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
@@ -807,37 +807,87 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
             INVOICE_STATUS.OVERDUE,
           ],
         },
-      }).select(
-        "_id invoiceNo issueDate dueDate netTotal totalReceived invoiceStatus"
-      ),
+      })
+        .select(
+          "_id invoiceNo issueDate dueDate netTotal totalReceived invoiceStatus customerId payments"
+        )
+        .populate("customerId", "customerName"),
       Invoice.find({
         tenant: req.tenant,
         invoiceStatus: {
           $in: [INVOICE_STATUS.RECEIVED, INVOICE_STATUS.PARTIAL_RECEIVED],
         },
-      }).select(
-        "_id invoiceNo issueDate dueDate netTotal totalReceived invoiceStatus"
-      ),
+      })
+        .select(
+          "_id invoiceNo issueDate dueDate netTotal totalReceived invoiceStatus customerId payments"
+        )
+        .populate("customerId", "customerName"),
       Subtrip.find({
         tenant: req.tenant,
         $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }],
         subtripStatus: SUBTRIP_STATUS.RECEIVED,
-      }).select(
-        "_id customerId loadingPoint unloadingPoint startDate loadingWeight rate"
-      ),
+      })
+        .select(
+          "_id customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate tripId"
+        )
+        .populate("customerId", "customerName")
+        .populate({
+          path: "tripId",
+          select: "vehicleId driverId",
+          populate: [
+            { path: "vehicleId", select: "vehicleNo isOwn" },
+            { path: "driverId", select: "driverName" },
+          ],
+        }),
     ]);
 
     const pendingAmount = pendingAgg[0]?.total || 0;
     const receivedAmount = receivedAgg[0]?.total || 0;
     const unbilledAmount = unbilledAgg[0]?.total || 0;
+    const formattedPendingInvoices = pendingInvoices.map((inv) => ({
+      _id: inv._id,
+      invoiceNo: inv.invoiceNo,
+      customerName: inv.customerId?.customerName || null,
+      invoiceStatus: inv.invoiceStatus,
+      issueDate: inv.issueDate,
+      dueDate: inv.dueDate,
+      netTotal: inv.netTotal,
+      totalReceived: inv.totalReceived,
+      payments: inv.payments || [],
+    }));
+    const formattedReceivedInvoices = receivedInvoices.map((inv) => ({
+      _id: inv._id,
+      invoiceNo: inv.invoiceNo,
+      customerName: inv.customerId?.customerName || null,
+      invoiceStatus: inv.invoiceStatus,
+      issueDate: inv.issueDate,
+      dueDate: inv.dueDate,
+      netTotal: inv.netTotal,
+      totalReceived: inv.totalReceived,
+      payments: inv.payments || [],
+    }));
+    const formattedUnbilledSubtrips = unbilledSubtrips.map((st) => ({
+      _id: st._id,
+      customerName: st.customerId?.customerName || null,
+      startDate: st.startDate,
+      receivedDate: st.endDate,
+      loadingPoint: st.loadingPoint,
+      loadingWeight: st.loadingWeight,
+      rate: st.rate,
+      unloadingPoint: st.unloadingPoint,
+      unloadingDate: st.endDate,
+      vehicleNo: st.tripId?.vehicleId?.vehicleNo || null,
+      driver: st.tripId?.driverId?.driverName || null,
+      subtripType: st.tripId?.vehicleId?.isOwn ? "own" : "market",
+    }));
 
     res.status(200).json({
       pendingAmount,
-      pendingInvoices,
+      pendingInvoices: formattedPendingInvoices,
       receivedAmount,
-      receivedInvoices,
+      receivedInvoices: formattedReceivedInvoices,
       unbilledAmount,
-      unbilledSubtrips,
+      unbilledSubtrips: formattedUnbilledSubtrips,
     });
   } catch (error) {
     console.log(error);
