@@ -25,6 +25,7 @@ const validateZod = (schema) => (req, res, next) => {
     req.params = result.params;
     return next();
   } catch (error) {
+    console.log({ error })
     const message =
       error.errors
         ?.map((e) => `${e.path.join(".")}: ${e.message}`)

@@ -1,17 +1,17 @@
-import asyncHandler from 'express-async-handler';
+/* eslint-disable no-await-in-loop */
 import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
+import Tenant from '../model/Tenant.js';
 import Invoice from '../model/Invoice.js';
 import Subtrip from '../model/Subtrip.js';
 import Customer from '../model/Customer.js';
-import Tenant from '../model/Tenant.js';
 import { addTenantToQuery } from '../utills/tenant-utils.js';
-
-import { INVOICE_STATUS, SUBTRIP_STATUS } from '../constants/status.js';
-
-import { recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES, } from '../helpers/subtrip-event-helper.js';
-
 import { calculateInvoiceSummary } from '../utills/invoice-utils.js';
+import { INVOICE_STATUS, SUBTRIP_STATUS } from '../constants/status.js';
+import {
+  recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES,
+} from '../helpers/subtrip-event-helper.js';
 
 const createInvoice = asyncHandler(async (req, res) => {
   const {
@@ -379,6 +379,16 @@ const cancelInvoice = asyncHandler(async (req, res) => {
 
     for (const subtrip of subtrips) {
       subtrip.subtripStatus = SUBTRIP_STATUS.RECEIVED;
+      subtrip.invoiceId = null;
+
+      await recordSubtripEvent(
+        subtrip._id,
+        SUBTRIP_EVENT_TYPES.INVOICE_DELETED,
+        { invoiceNo: invoice.invoiceNo },
+        req.user,
+        req.tenant
+      );
+
       await subtrip.save({ session });
     }
 
@@ -466,9 +476,11 @@ const payInvoice = asyncHandler(async (req, res) => {
   }
 });
 
-export { createInvoice,
+export {
+  createInvoice,
   fetchInvoices,
   fetchInvoice,
   cancelInvoice,
   payInvoice,
-  deleteInvoice, };
+  deleteInvoice,
+};

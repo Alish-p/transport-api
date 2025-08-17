@@ -1,15 +1,14 @@
 import { Router } from 'express';
-import validateZod from '../middlewares/validate.js';
-import { invoiceSchema } from '../validators/invoice-validator.js';
-import { createInvoice,
+import pagination from '../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../middlewares/Auth.js';
+import {
+  createInvoice,
   fetchInvoices,
   fetchInvoice,
   cancelInvoice,
   payInvoice,
-  deleteInvoice, } from '../controllers/invoice.js';
-
-import { authenticate, checkPermission } from '../middlewares/Auth.js';
-import pagination from '../middlewares/pagination.js';
+  deleteInvoice,
+} from '../controllers/invoice.js';
 
 const router = Router();
 
@@ -17,7 +16,6 @@ router.post(
   "/",
   authenticate,
   checkPermission("invoice", "create"),
-  validateZod(invoiceSchema),
   createInvoice
 );
 router.get("/", authenticate, pagination, fetchInvoices);
