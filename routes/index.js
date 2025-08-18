@@ -1,0 +1,54 @@
+import express from 'express';
+
+import bankRouter from '../entities/bank/bank.routes.js';
+import customerRouter from '../entities/customer/customer.routes.js';
+import dashboardRouter from '../entities/dashboard/dashboard.routes.js';
+import dieselPriceRouter from '../entities/diesel/diesel.routes.js';
+import driverRouter from '../entities/driver/driver.routes.js';
+import driverSalaryRouter from '../entities/driverSalary/driverSalary.routes.js';
+import expenseRouter from '../entities/expense/expense.routes.js';
+import gpsRouter from '../entities/gps/gps.routes.js';
+import invoiceRouter from '../entities/invoice/invoice.routes.js';
+import loanRouter from '../entities/loan/loan.routes.js';
+import pumpRouter from '../entities/pump/pump.routes.js';
+import routeRouter from '../entities/route/route.routes.js';
+import subtripRouter from '../entities/subtrip/subtrip.routes.js';
+import subtripEventRouter from '../entities/subtripEvent/subtripEvent.routes.js';
+import taskRouter from '../entities/task/task.routes.js';
+import tenantRouter from '../entities/tenant/tenant.routes.js';
+import transporterRouter from '../entities/transporter/transporter.routes.js';
+import transporterPaymentRouter from '../entities/transporterPayment/transporterPayment.routes.js';
+import tripRouter from '../entities/trip/trip.routes.js';
+import userRouter from '../entities/user/user.routes.js';
+import authRouter from '../entities/user/auth.routes.js';
+import vehicleRouter from '../entities/vehicle/vehicle.routes.js';
+
+const router = express.Router();
+
+router.use('/dashboard', dashboardRouter);
+
+router.use('/vehicles', vehicleRouter);
+router.use('/transporters', transporterRouter);
+router.use('/drivers', driverRouter);
+router.use('/customers', customerRouter);
+router.use('/banks', bankRouter);
+router.use('/pumps', pumpRouter);
+router.use('/diesel-prices', dieselPriceRouter);
+router.use('/routes', routeRouter);
+router.use('/trips', tripRouter);
+router.use('/subtrips', subtripRouter);
+router.use('/expenses', expenseRouter);
+router.use('/invoices', invoiceRouter);
+router.use('/driverPayroll', driverSalaryRouter);
+router.use('/loans', loanRouter);
+router.use('/transporter-payments', transporterPaymentRouter);
+router.use('/subtrip-events', subtripEventRouter);
+router.use('/tenants', tenantRouter);
+router.use('/users', userRouter);
+router.use('/tasks', taskRouter);
+router.use('/gps', gpsRouter);
+
+// authentication
+router.use('/account', authRouter);
+
+export default router;
