@@ -1,1 +1,1 @@
-export const PUMP_SEARCH_FIELDS = ['pumpName', 'placeName'];
+export const PUMP_SEARCH_FIELDS = ['name'];

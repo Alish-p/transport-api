@@ -39,7 +39,7 @@ const fetchPumps = asyncHandler(async (req, res) => {
     }
 
     const [pumps, total] = await Promise.all([
-      Pump.find(query).sort({ pumpName: 1 }).skip(skip).limit(limit),
+      Pump.find(query).sort({ name: 1 }).skip(skip).limit(limit),
       Pump.countDocuments(query),
     ]);
 
