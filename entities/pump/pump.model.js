@@ -15,6 +15,7 @@ const pumpSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, trim: true },
+    ownerName: { type: String, required: true, trim: true },
     address: { type: String, required: true, trim: true },
     bankAccount: { type: bankAccountSchema, required: true },
     tenant: {
