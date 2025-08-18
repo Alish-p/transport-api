@@ -9,6 +9,7 @@ import {
 import { bankSchema } from './bank.validation.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
+import validate from '../../middlewares/validate.js';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.post(
   '/',
   authenticate,
   checkPermission('bank', 'create'),
+  validate(bankSchema),
   createBank,
 );
 router.get('/', authenticate, pagination, fetchBanks);
