@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import CounterModel from '../../../model/Counter.js';
+import CounterModel from './Counter.js';
 
 //
 // 📦 Tax Breakup Schema — Captures GST details for audit compliance
