@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
-import validateZod from '../../middlewares/validate.js';
 import { loanSchema } from './loan.validation.js';
 import {
   createLoan,
@@ -16,7 +15,7 @@ import {
 
 const router = Router();
 
-router.post('/', authenticate, checkPermission('loan', 'create'), validateZod(loanSchema), createLoan);
+router.post('/', authenticate, checkPermission('loan', 'create'), createLoan);
 router.post('/:id/repay', authenticate, repayLoan);
 router.get('/', authenticate, fetchAllLoans);
 router.get('/pending/:borrowerType/:id', authenticate, fetchPendingLoans);

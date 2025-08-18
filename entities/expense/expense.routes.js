@@ -8,7 +8,6 @@ import {
 } from './expense.controller.js';
 
 import { expenseSchema } from './expense.validation.js';
-import validateZod from '../../middlewares/validate.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
 
@@ -18,7 +17,6 @@ router.post(
   "/",
   authenticate,
   checkPermission("expense", "create"),
-  validateZod(expenseSchema),
   createExpense,
 );
 router.get("/pagination", authenticate, pagination, fetchPaginatedExpenses);
@@ -27,7 +25,6 @@ router.put(
   "/:id",
   authenticate,
   checkPermission("expense", "update"),
-  validateZod(expenseSchema),
   updateExpense,
 );
 router.delete(

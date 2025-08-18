@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import validateZod from '../../middlewares/validate.js';
 import { customerSchema } from './customer.validation.js';
 import {
   createCustomer,
@@ -24,7 +23,6 @@ router.post(
   "/",
   authenticate,
   checkPermission("customer", "create"),
-  validateZod(customerSchema),
   createCustomer
 );
 router.get("/", authenticate, pagination, fetchCustomers);

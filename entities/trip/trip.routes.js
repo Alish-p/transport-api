@@ -10,7 +10,6 @@ import {
 } from './trip.controller.js';
 
 import { tripSchema } from './trip.validation.js';
-import validateZod from '../../middlewares/validate.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
 
@@ -23,7 +22,6 @@ router.post(
   "/",
   authenticate,
   checkPermission("trip", "create"),
-  validateZod(tripSchema),
   createTrip,
 );
 router.get("/:id", authenticate, fetchTrip);
@@ -31,7 +29,6 @@ router.put(
   "/:id",
   authenticate,
   checkPermission("trip", "update"),
-  validateZod(tripSchema),
   updateTrip,
 );
 router.delete(

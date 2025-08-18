@@ -7,7 +7,6 @@ import {
   fetchBankDetails,
 } from './bank.controller.js';
 import { bankSchema } from './bank.validation.js';
-import validateZod from '../../middlewares/validate.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
 
@@ -17,7 +16,6 @@ router.post(
   '/',
   authenticate,
   checkPermission('bank', 'create'),
-  validateZod(bankSchema),
   createBank,
 );
 router.get('/', authenticate, pagination, fetchBanks);
@@ -32,7 +30,6 @@ router.put(
   '/:id',
   authenticate,
   checkPermission('bank', 'update'),
-  validateZod(bankSchema),
   updateBank,
 );
 

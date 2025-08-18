@@ -7,7 +7,6 @@ import {
   updatePump,
 } from './pump.controller.js';
 import { pumpSchema } from './pump.validation.js';
-import validateZod from '../../middlewares/validate.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
 
@@ -17,7 +16,6 @@ router.post(
   '/',
   authenticate,
   checkPermission('pump', 'create'),
-  validateZod(pumpSchema),
   createPump,
 );
 router.get('/', authenticate, pagination, fetchPumps);
@@ -27,7 +25,6 @@ router.put(
   '/:id',
   authenticate,
   checkPermission('pump', 'update'),
-  validateZod(pumpSchema),
   updatePump,
 );
 
