@@ -14,7 +14,7 @@ import {
   getFinancialMonthlyData,
   getInvoiceStatusSummary,
   getTopRoutes,
-  getTransporterPaymentTotals,
+  getTransporterPaymentSummary,
   getInvoiceAmountSummary,
 } from './dashboard.controller.js';
 
@@ -57,7 +57,7 @@ router.get("/invoice-amount-summary", authenticate, getInvoiceAmountSummary);
 router.get(
   "/transporter-payment-summary",
   authenticate,
-  getTransporterPaymentTotals
+  getTransporterPaymentSummary
 );
 
 export default router;

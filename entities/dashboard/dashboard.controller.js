@@ -651,24 +651,30 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
 });
 
 // Get transporter payment totals for dashboard
-const getTransporterPaymentTotals = asyncHandler(async (req, res) => {
+const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
   try {
-    const [generatedAgg, paidAgg, pendingSubtrips] = await Promise.all([
+    const [
+      payableAgg,
+      paidAgg,
+      pendingSubtrips,
+      payablePayments,
+      paidPayments,
+    ] = await Promise.all([
       TransporterPayment.aggregate([
-        { $match: { tenant: req.tenant, status: "generated" } },
+        { $match: { tenant: req.tenant, status: 'generated' } },
         {
           $group: {
             _id: null,
-            total: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
+            total: { $sum: { $ifNull: ['$summary.netIncome', 0] } },
           },
         },
       ]),
       TransporterPayment.aggregate([
-        { $match: { tenant: req.tenant, status: "paid" } },
+        { $match: { tenant: req.tenant, status: 'paid' } },
         {
           $group: {
             _id: null,
-            total: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
+            total: { $sum: { $ifNull: ['$summary.netIncome', 0] } },
           },
         },
       ]),
@@ -676,31 +682,90 @@ const getTransporterPaymentTotals = asyncHandler(async (req, res) => {
         addTenantToQuery(req, {
           subtripStatus: SUBTRIP_STATUS.RECEIVED,
           transporterPaymentReceiptId: { $exists: false },
-        })
+        }),
       )
+        .select(
+          '_id customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate tripId',
+        )
+        .populate('customerId', 'customerName')
         .populate({
-          path: "tripId",
-          populate: { path: "vehicleId", select: "isOwn" },
+          path: 'tripId',
+          select: 'vehicleId driverId',
+          populate: [
+            {
+              path: 'vehicleId',
+              select: 'vehicleNo isOwn transporter',
+              populate: { path: 'transporter', select: 'transportName' },
+            },
+            { path: 'driverId', select: 'driverName' },
+          ],
         })
-        .populate("expenses")
+        .populate('expenses')
+        .lean(),
+      TransporterPayment.find({ tenant: req.tenant, status: 'generated' })
+        .select('_id paymentId issueDate status summary transporterId')
+        .populate('transporterId', 'transportName')
+        .lean(),
+      TransporterPayment.find({ tenant: req.tenant, status: 'paid' })
+        .select('_id paymentId issueDate status summary transporterId')
+        .populate('transporterId', 'transportName')
         .lean(),
     ]);
 
-    let yetToCreateAmount = 0;
-    pendingSubtrips.forEach((st) => {
-      if (st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn) {
-        const { totalTransporterPayment } = calculateTransporterPayment(st);
-        yetToCreateAmount += totalTransporterPayment;
-      }
-    });
+    let pendingAmount = 0;
+    const formattedPendingSubtrips = pendingSubtrips
+      .filter((st) => st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn)
+      .map((st) => {
+        const { totalTransporterPayment, totalExpense, totalShortageAmount, totalFreightAmount } = calculateTransporterPayment(st);
+        pendingAmount += totalTransporterPayment;
+        return {
+          _id: st._id,
+          customerName: st.customerId?.customerName || null,
+          loadingPoint: st.loadingPoint,
+          unloadingPoint: st.unloadingPoint,
+          startDate: st.startDate,
+          endDate: st.endDate,
+          loadingWeight: st.loadingWeight,
+          rate: st.rate,
+          transporter: st.tripId?.vehicleId?.transporter?.transportName || null,
+          vehicleNo: st.tripId?.vehicleId?.vehicleNo || null,
+          driver: st.tripId?.driverId?.driverName || null,
+          totalTransporterPayment,
+          totalExpense,
+          totalShortageAmount,
+          totalFreightAmount,
+          expenses: st.expenses || [],
+        };
+      });
 
-    const generatedAmount = generatedAgg[0]?.total || 0;
+    const payableAmount = payableAgg[0]?.total || 0;
     const paidAmount = paidAgg[0]?.total || 0;
 
+    const formattedPayablePayments = payablePayments.map((p) => ({
+      _id: p._id,
+      paymentId: p.paymentId,
+      transporterName: p.transporterId?.transportName || null,
+      issueDate: p.issueDate,
+      status: p.status,
+      netIncome: p.summary?.netIncome || 0,
+    }));
+
+    const formattedPaidPayments = paidPayments.map((p) => ({
+      _id: p._id,
+      paymentId: p.paymentId,
+      transporterName: p.transporterId?.transportName || null,
+      issueDate: p.issueDate,
+      status: p.status,
+      netIncome: p.summary?.netIncome || 0,
+    }));
+
     res.status(200).json({
-      generatedAmount,
+      pendingAmount,
+      pendingTransporterPayments: formattedPendingSubtrips,
+      payableAmount,
+      payablePayments: formattedPayablePayments,
       paidAmount,
-      yetToCreateAmount,
+      paidPayments: formattedPaidPayments,
     });
   } catch (error) {
     console.log(error);
@@ -1280,7 +1345,7 @@ export {
   getCustomerMonthlyFreight,
   getMonthlySubtripExpenseSummary,
   getMonthlyMaterialWeightSummary,
-  getTransporterPaymentTotals,
+  getTransporterPaymentSummary,
   getInvoiceAmountSummary,
   getMonthlyDriverSummary,
   getMonthlyTransporterSummary,
