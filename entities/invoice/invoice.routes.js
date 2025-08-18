@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import validateZod from '../../middlewares/validate.js';
 import { invoiceSchema } from './invoice.validation.js';
 import {
   createInvoice,
@@ -19,7 +18,6 @@ router.post(
   "/",
   authenticate,
   checkPermission("invoice", "create"),
-  validateZod(invoiceSchema),
   createInvoice
 );
 router.get("/", authenticate, pagination, fetchInvoices);

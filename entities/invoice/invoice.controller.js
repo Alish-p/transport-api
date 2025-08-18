@@ -380,6 +380,16 @@ const cancelInvoice = asyncHandler(async (req, res) => {
 
     for (const subtrip of subtrips) {
       subtrip.subtripStatus = SUBTRIP_STATUS.RECEIVED;
+      subtrip.invoiceId = null;
+
+      await recordSubtripEvent(
+        subtrip._id,
+        SUBTRIP_EVENT_TYPES.INVOICE_DELETED,
+        { invoiceNo: invoice.invoiceNo },
+        req.user,
+        req.tenant
+      );
+
       await subtrip.save({ session });
     }
 
@@ -467,9 +477,11 @@ const payInvoice = asyncHandler(async (req, res) => {
   }
 });
 
-export { createInvoice,
+export {
+  createInvoice,
   fetchInvoices,
   fetchInvoice,
   cancelInvoice,
   payInvoice,
-  deleteInvoice, };
+  deleteInvoice,
+};
