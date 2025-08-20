@@ -87,41 +87,6 @@ const updateDriver = async (id, data, tenant) =>
 const deleteDriver = async (id, tenant) =>
   Driver.findOneAndDelete({ _id: id, tenant });
 
-const fetchDriverSubtrips = async (id, tenant) => {
-  const trips = await Trip.find(addTenantToQuery({ tenant }, { driverId: id })).select(
-    'subtrips'
-  );
-
-  const subtripIds = trips.flatMap((trip) => trip.subtrips);
-
-  const subtrips = await Subtrip.find(
-    addTenantToQuery({ tenant }, { _id: { $in: subtripIds } })
-  )
-    .populate({
-      path: 'tripId',
-      populate: [
-        {
-          path: 'vehicleId',
-          select: 'vehicleNo vehicleType noOfTyres',
-        },
-        {
-          path: 'driverId',
-          select: 'driverName',
-        },
-      ],
-    })
-    .populate({
-      path: 'customerId',
-      select: 'customerName',
-    })
-    .populate('expenses')
-    .select(
-      'loadingPoint unloadingPoint subtripStatus expenses startDate endDate tripId customerId'
-    );
-
-  return subtrips;
-};
-
 export {
   createDriver,
   quickCreateDriver,
@@ -130,5 +95,4 @@ export {
   fetchDriverById,
   updateDriver,
   deleteDriver,
-  fetchDriverSubtrips,
 };

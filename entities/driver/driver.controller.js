@@ -7,7 +7,6 @@ import {
   fetchDriverById as fetchDriverByIdService,
   updateDriver as updateDriverService,
   deleteDriver as deleteDriverService,
-  fetchDriverSubtrips as fetchDriverSubtripsService,
 } from './driver.service.js';
 
 const createDriver = asyncHandler(async (req, res) => {
@@ -51,11 +50,6 @@ const deleteDriver = asyncHandler(async (req, res) => {
   res.status(200).json(driver);
 });
 
-const fetchDriverSubtrips = asyncHandler(async (req, res) => {
-  const subtrips = await fetchDriverSubtripsService(req.params.id, req.tenant);
-  res.status(200).json(subtrips);
-});
-
 export {
   createDriver,
   quickCreateDriver,
@@ -64,5 +58,4 @@ export {
   fetchDriverById,
   updateDriver,
   deleteDriver,
-  fetchDriverSubtrips,
 };

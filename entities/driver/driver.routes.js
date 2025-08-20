@@ -7,7 +7,6 @@ import {
   updateDriver,
   fetchDriverById,
   fetchDriversSummary,
-  fetchDriverSubtrips,
 } from './driver.controller.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
@@ -23,7 +22,6 @@ router.post(
 );
 router.get('/', authenticate, pagination, fetchDrivers);
 router.get('/summary', authenticate, fetchDriversSummary);
-router.get('/:id/subtrips', authenticate, fetchDriverSubtrips);
 router.get('/:id', authenticate, fetchDriverById);
 router.delete(
   '/:id',
