@@ -11,7 +11,6 @@ import {
   getCustomerSubtripMonthlyData,
   getCustomerRoutes,
   getCustomerInvoiceAmountSummary,
-  getCustomerInvoices,
 } from './customer.controller.js';
 
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
@@ -37,8 +36,6 @@ router.get(
 router.get("/:id/subtrip-monthly-data", authenticate, getCustomerSubtripMonthlyData);
 
 router.get("/:id/routes", authenticate, getCustomerRoutes);
-
-router.get("/:id/invoices", authenticate, getCustomerInvoices);
 
 router.get(
   "/:id/invoice-amount-summary",

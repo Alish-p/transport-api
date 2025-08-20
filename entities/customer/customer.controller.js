@@ -309,16 +309,6 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
   }
 });
 
-// Fetch invoices for a specific customer
-const getCustomerInvoices = asyncHandler(async (req, res) => {
-  const invoices = await Invoice.find({
-    customerId: req.params.id,
-    tenant: req.tenant,
-  });
-
-  res.status(200).json(invoices);
-});
-
 // Get subtrip monthly data (own vs market) for a specific customer
 const getCustomerSubtripMonthlyData = asyncHandler(async (req, res) => {
   const yearParam = parseInt(req.query.year, 10);
@@ -471,9 +461,9 @@ const deleteCustomer = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Customer deleted successfully" });
 });
 
-//
 
-export { createCustomer,
+export {
+  createCustomer,
   fetchCustomers,
   fetchCustomersSummary,
   getCustomerMonthlyMaterialWeight,
@@ -482,5 +472,5 @@ export { createCustomer,
   deleteCustomer,
   getCustomerRoutes,
   getCustomerInvoiceAmountSummary,
-  getCustomerInvoices,
-  getCustomerSubtripMonthlyData, };
+  getCustomerSubtripMonthlyData,
+};
