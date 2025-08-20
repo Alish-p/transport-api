@@ -104,45 +104,6 @@ const fetchSingleRoute = asyncHandler(async (req, res) => {
   res.status(200).json(route);
 });
 
-// Fetch Subtrips for a Route
-const fetchRouteSubtrips = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const route = await Route.findOne({ _id: id, tenant: req.tenant });
-
-  if (!route) {
-    res.status(404).json({ message: "Route not found" });
-    return;
-  }
-
-  const subtrips = await Subtrip.find({
-    routeCd: route._id,
-    tenant: req.tenant,
-  })
-    .populate({
-      path: "tripId",
-      populate: [
-        {
-          path: "vehicleId",
-          select: "vehicleNo vehicleType noOfTyres",
-        },
-        {
-          path: "driverId",
-          select: "driverName",
-        },
-      ],
-    })
-    .populate({
-      path: "customerId",
-      select: "customerName",
-    })
-    .populate("expenses")
-    .select(
-      "loadingPoint unloadingPoint subtripStatus expenses startDate endDate tripId customerId"
-    );
-
-  res.status(200).json(subtrips);
-});
 
 // Update Route
 const updateRoute = asyncHandler(async (req, res) => {
@@ -193,9 +154,10 @@ const deleteRoute = asyncHandler(async (req, res) => {
   res.status(200).json(route);
 });
 
-export { createRoute,
+export {
+  createRoute,
   fetchRoutes,
   fetchSingleRoute,
-  fetchRouteSubtrips,
   updateRoute,
-  deleteRoute, };
+  deleteRoute,
+};
