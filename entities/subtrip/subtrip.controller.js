@@ -43,6 +43,8 @@ const createSubtrip = asyncHandler(async (req, res) => {
   const subtrip = new Subtrip({
     ...req.body,
     tripId,
+    vehicleId: req.body.vehicleId || trip.vehicleId,
+    driverId: req.body.driverId || trip.driverId,
     subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
     tenant: req.tenant,
   });
