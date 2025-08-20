@@ -18,7 +18,7 @@ const createExpense = asyncHandler(async (req, res) => {
     const subtrip = await Subtrip.findOne({
       _id: subtripId,
       tenant: req.tenant,
-    }).populate("tripId");
+    });
 
     if (!subtrip) {
       res.status(404).json({ message: "Subtrip not found" });
@@ -29,7 +29,7 @@ const createExpense = asyncHandler(async (req, res) => {
       ...req.body,
       subtripId,
       tripId: subtrip?.tripId,
-      vehicleId: subtrip?.tripId?.vehicleId,
+      vehicleId: subtrip?.vehicleId,
       tenant: req.tenant,
     });
 

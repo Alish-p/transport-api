@@ -49,7 +49,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
       driverSalaryReceiptId: null, // requires this field on Subtrip
       tenant: req.tenant,
     })
-      .populate("tripId")
+      .populate("vehicleId")
       .populate("expenses")
       .session(session);
 
@@ -72,7 +72,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
         subtripId: st._id,
         loadingPoint: st.loadingPoint,
         unloadingPoint: st.unloadingPoint,
-        vehicleNo: st.tripId?.vehicleId?.vehicleNo,
+        vehicleNo: st.vehicleId?.vehicleNo,
         startDate: st.startDate,
         customerName: st.customerId?.customerName,
         invoiceNo: st.invoiceNo,
@@ -200,7 +200,7 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
         driverSalaryReceiptId: null,
         tenant: req.tenant,
       })
-        .populate("tripId")
+        .populate("vehicleId")
         .populate("expenses")
         .session(session);
 
@@ -223,7 +223,7 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
           subtripId: st._id,
           loadingPoint: st.loadingPoint,
           unloadingPoint: st.unloadingPoint,
-          vehicleNo: st.tripId?.vehicleId?.vehicleNo,
+          vehicleNo: st.vehicleId?.vehicleNo,
           startDate: st.startDate,
           customerName: st.customerId?.customerName,
           invoiceNo: st.invoiceNo,

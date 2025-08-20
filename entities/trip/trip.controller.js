@@ -316,10 +316,12 @@ const deleteTrip = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Trip deleted successfully" });
 });
 
-export { createTrip,
+export {
+  createTrip,
   fetchTrips,
   fetchTripsPreview,
   fetchTrip,
   closeTrip,
   updateTrip,
-  deleteTrip, };
+  deleteTrip,
+};

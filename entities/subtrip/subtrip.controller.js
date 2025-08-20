@@ -25,16 +25,11 @@ const populateSubtrip = (query) =>
     .populate("routeCd")
     .populate("customerId")
     .populate({
-      path: "tripId",
-      populate: [
-        { path: "driverId", model: "Driver" },
-        {
-          path: "vehicleId",
-          model: "Vehicle",
-          populate: { path: "transporter", model: "Transporter" },
-        },
-      ],
-    });
+      path: "vehicleId",
+      populate: { path: "transporter", model: "Transporter" },
+    })
+    .populate({ path: "driverId", model: "Driver" })
+    .populate("tripId");
 
 // Create Subtrip
 const createSubtrip = asyncHandler(async (req, res) => {
@@ -48,6 +43,8 @@ const createSubtrip = asyncHandler(async (req, res) => {
   const subtrip = new Subtrip({
     ...req.body,
     tripId,
+    vehicleId: req.body.vehicleId || trip.vehicleId,
+    driverId: req.body.driverId || trip.driverId,
     subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
     tenant: req.tenant,
   });
@@ -100,8 +97,6 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
 
     // Initialize base query with tenant filter
     const query = addTenantToQuery(req);
-    const tripQuery = addTenantToQuery(req);
-    let vehicleQuery = addTenantToQuery(req);
 
     // Direct field filters
     if (subtripId) query._id = subtripId;
@@ -173,49 +168,28 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       };
     }
 
-    // Handle nested filters (driverId, vehicleId, transporterId)
-    if (driverId || vehicleId || transporterId) {
-      // Build vehicle query if transporterId is provided
-      if (transporterId) {
-        vehicleQuery = addTenantToQuery(req, { transporter: transporterId });
-      }
-
-      // If vehicleId is provided, add it to vehicle query
-      if (vehicleId) {
-        vehicleQuery._id = vehicleId;
-      }
-
-      // Fetch vehicles based on vehicle query
-      let vehicles = [];
-      if (Object.keys(vehicleQuery).length > 0) {
-        vehicles = await Vehicle.find(vehicleQuery).select("_id vehicleNo");
-        console.log(vehicles);
-        if (!vehicles.length) {
-          return res.status(404).json({
-            message: "No vehicles found matching the specified criteria.",
-          });
-        }
-        tripQuery.vehicleId = { $in: vehicles.map((v) => v._id) };
-      }
-
-      // Add driverId to trip query if provided
-      if (driverId) {
-        tripQuery.driverId = driverId;
-      }
-
-      // Fetch trips based on trip query
-      if (Object.keys(tripQuery).length > 0) {
-        const trips = await Trip.find(tripQuery).select("_id");
-        if (!trips.length) {
-          return res.status(404).json({
-            message: "No trips found matching the specified criteria.",
-          });
-        }
-        query.tripId = { $in: trips.map((trip) => trip._id) };
-      }
+    // Handle driver, vehicle, and transporter filters
+    if (driverId) {
+      query.driverId = driverId;
     }
 
-    console.log({ query, tripQuery, vehicleQuery });
+    if (transporterId) {
+      const vehicleSearch = { transporter: transporterId };
+      if (vehicleId) vehicleSearch._id = vehicleId;
+      const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select(
+        "_id vehicleNo"
+      );
+      if (!vehicles.length) {
+        return res.status(404).json({
+          message: "No vehicles found matching the specified criteria.",
+        });
+      }
+      query.vehicleId = { $in: vehicles.map((v) => v._id) };
+    } else if (vehicleId) {
+      query.vehicleId = vehicleId;
+    }
+
+    console.log({ query });
 
     // Execute the query with population
     const subtrips = await populateSubtrip(Subtrip.find(query)).lean();
@@ -258,8 +232,6 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
 
     // Base query ensures we only consider loaded subtrips and tenant matches
     const query = addTenantToQuery(req, { isEmpty: false });
-    const tripQuery = addTenantToQuery(req);
-    let vehicleQuery = addTenantToQuery(req);
 
     if (subtripId) query._id = subtripId;
     if (routeId) query.routeCd = routeId;
@@ -305,46 +277,26 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       }
     }
 
-    // Nested driver/vehicle/transporter filtering
-    if (driverId || vehicleId || transporterId) {
-      if (transporterId) {
-        vehicleQuery = addTenantToQuery(req, { transporter: transporterId });
-      }
+    // Driver/vehicle/transporter filtering
+    if (driverId) {
+      query.driverId = driverId;
+    }
 
-      if (vehicleId) {
-        vehicleQuery._id = vehicleId;
+    if (transporterId) {
+      const vehicleSearch = { transporter: transporterId };
+      if (vehicleId) vehicleSearch._id = vehicleId;
+      const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select("_id");
+      if (!vehicles.length) {
+        return res.status(200).json({
+          results: [],
+          total: 0,
+          startRange: 0,
+          endRange: 0,
+        });
       }
-
-      let vehicles = [];
-      if (Object.keys(vehicleQuery).length > 0) {
-        vehicles = await Vehicle.find(vehicleQuery).select("_id");
-        if (!vehicles.length) {
-          return res.status(200).json({
-            results: [],
-            total: 0,
-            startRange: 0,
-            endRange: 0,
-          });
-        }
-        tripQuery.vehicleId = { $in: vehicles.map((v) => v._id) };
-      }
-
-      if (driverId) {
-        tripQuery.driverId = driverId;
-      }
-
-      if (Object.keys(tripQuery).length > 0) {
-        const trips = await Trip.find(tripQuery).select("_id");
-        if (!trips.length) {
-          return res.status(200).json({
-            results: [],
-            total: 0,
-            startRange: 0,
-            endRange: 0,
-          });
-        }
-        query.tripId = { $in: trips.map((t) => t._id) };
-      }
+      query.vehicleId = { $in: vehicles.map((v) => v._id) };
+    } else if (vehicleId) {
+      query.vehicleId = vehicleId;
     }
 
     // Fetch data and totals in parallel
@@ -435,15 +387,11 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
           });
         }
 
-        const trips = await Trip.find({
-          tenant: req.tenant,
-          $or: [
-            driverIds.length ? { driverId: { $in: driverIds } } : null,
-            vehicleIds.length ? { vehicleId: { $in: vehicleIds } } : null,
-          ].filter(Boolean),
-        }).select("_id");
+        const orConditions = [];
+        if (driverIds.length) orConditions.push({ driverId: { $in: driverIds } });
+        if (vehicleIds.length) orConditions.push({ vehicleId: { $in: vehicleIds } });
 
-        if (!trips.length) {
+        if (!orConditions.length) {
           return res.status(200).json({
             results: [],
             total: 0,
@@ -452,23 +400,20 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
           });
         }
 
-        query.tripId = { $in: trips.map((t) => t._id) };
+        query.$or = orConditions;
       }
     }
 
     const [subtrips, total] = await Promise.all([
       Subtrip.find(query)
         .select(
-          "_id loadingPoint unloadingPoint startDate subtripStatus tripId"
+          "_id loadingPoint unloadingPoint startDate subtripStatus driverId vehicleId"
         )
         .populate({
-          path: "tripId",
-          select: "vehicleId driverId",
-          populate: [
-            { path: "vehicleId", select: "vehicleNo isOwn" },
-            { path: "driverId", select: "driverName" },
-          ],
+          path: "vehicleId",
+          select: "vehicleNo isOwn",
         })
+        .populate({ path: "driverId", select: "driverName" })
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -481,9 +426,9 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
       loadingPoint: st.loadingPoint,
       unloadingPoint: st.unloadingPoint,
       startDate: st.startDate,
-      vehicleNo: st.tripId?.vehicleId?.vehicleNo,
-      isOwn: st.tripId?.vehicleId?.isOwn,
-      driverName: st.tripId?.driverId?.driverName,
+      vehicleNo: st.vehicleId?.vehicleNo,
+      isOwn: st.vehicleId?.isOwn,
+      driverName: st.driverId?.driverName,
     }));
 
     res.status(200).json({
@@ -792,11 +737,7 @@ const receiveLR = asyncHandler(async (req, res) => {
   await subtrip.save();
 
   // Close the parent trip for market vehicles
-  if (
-    subtrip.tripId &&
-    subtrip.tripId.vehicleId &&
-    !subtrip.tripId.vehicleId.isOwn
-  ) {
+  if (subtrip.vehicleId && !subtrip.vehicleId.isOwn) {
     await Trip.findOneAndUpdate(
       { _id: subtrip.tripId._id || subtrip.tripId, tenant: req.tenant },
       {
@@ -1086,22 +1027,15 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
       transporterPaymentReceiptId: { $exists: false },
     })
       .populate({
-        path: "tripId",
-        populate: [
-          {
-            path: "vehicleId",
-            populate: {
-              path: "transporter",
-            },
-          },
-        ],
+        path: "vehicleId",
+        populate: { path: "transporter" },
       })
       .populate("expenses")
       .lean();
 
     // Group subtrips by transporter
     const groupedByTransporter = subtrips.reduce((acc, subtrip) => {
-      const transporter = subtrip.tripId?.vehicleId?.transporter;
+      const transporter = subtrip.vehicleId?.transporter;
       if (!transporter) return acc;
 
       const transporterId = transporter._id.toString();

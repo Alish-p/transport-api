@@ -137,17 +137,8 @@ const getCustomerRoutes = asyncHandler(async (req, res) => {
       },
       {
         $lookup: {
-          from: "trips",
-          localField: "tripId",
-          foreignField: "_id",
-          as: "trip",
-        },
-      },
-      { $unwind: "$trip" },
-      {
-        $lookup: {
           from: "vehicles",
-          localField: "trip.vehicleId",
+          localField: "vehicleId",
           foreignField: "_id",
           as: "vehicle",
         },
@@ -333,17 +324,8 @@ const getCustomerSubtripMonthlyData = asyncHandler(async (req, res) => {
       },
       {
         $lookup: {
-          from: "trips",
-          localField: "tripId",
-          foreignField: "_id",
-          as: "trip",
-        },
-      },
-      { $unwind: "$trip" },
-      {
-        $lookup: {
           from: "vehicles",
-          localField: "trip.vehicleId",
+          localField: "vehicleId",
           foreignField: "_id",
           as: "vehicle",
         },
