@@ -44,16 +44,13 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       transporterPaymentReceiptId: null,
       tenant: req.tenant,
     })
-      .populate({
-        path: "tripId",
-        populate: { path: "vehicleId" },
-      })
+      .populate({ path: "vehicleId" })
       .populate("customerId")
       .populate("expenses")
       .session(session);
 
     const subtrips = subtripsRaw.filter(
-      (st) => st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn
+      (st) => st.vehicleId && !st.vehicleId.isOwn
     );
 
     if (subtrips.length !== associatedSubtrips.length) {
@@ -80,7 +77,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
         subtripId: st._id,
         loadingPoint: st.loadingPoint,
         unloadingPoint: st.unloadingPoint,
-        vehicleNo: st.tripId?.vehicleId?.vehicleNo,
+        vehicleNo: st.vehicleId?.vehicleNo,
         startDate: st.startDate,
         invoiceNo: st.invoiceNo,
         customerName: st.customerId?.customerName,
@@ -212,16 +209,13 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         transporterPaymentReceiptId: null,
         tenant: req.tenant,
       })
-        .populate({
-          path: "tripId",
-          populate: { path: "vehicleId" },
-        })
+        .populate({ path: "vehicleId" })
         .populate("customerId")
         .populate("expenses")
         .session(session);
 
       const subtrips = rawSubtrips.filter(
-        (st) => st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn
+        (st) => st.vehicleId && !st.vehicleId.isOwn
       );
 
       if (subtrips.length !== associatedSubtrips.length) {
@@ -252,7 +246,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
           subtripId: st._id,
           loadingPoint: st.loadingPoint,
           unloadingPoint: st.unloadingPoint,
-          vehicleNo: st.tripId.vehicleId.vehicleNo,
+          vehicleNo: st.vehicleId.vehicleNo,
           startDate: st.startDate,
           invoiceNo: st.invoiceNo,
           customerName: st.customerId?.customerName,
@@ -462,12 +456,7 @@ const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     .populate("transporterId")
     .populate({
       path: "associatedSubtrips",
-      populate: {
-        path: "tripId",
-        populate: {
-          path: "vehicleId",
-        },
-      },
+      populate: { path: "vehicleId" },
     });
   res.status(200).json(updatedReceipt);
 });

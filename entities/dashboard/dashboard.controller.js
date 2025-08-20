@@ -193,19 +193,15 @@ const getExpiringSubtrips = asyncHandler(async (req, res) => {
       ewayExpiryDate: { $ne: null, $lte: threshold },
     })
   )
-    .select("_id startDate unloadingPoint ewayExpiryDate tripId customerId")
-    .populate({
-      path: "tripId",
-      select: "vehicleId",
-      populate: { path: "vehicleId", select: "vehicleNo" },
-    })
+    .select("_id startDate unloadingPoint ewayExpiryDate vehicleId customerId")
+    .populate({ path: "vehicleId", select: "vehicleNo" })
     .populate({ path: "customerId", select: "customerName" })
     .sort({ ewayExpiryDate: 1 })
     .lean();
 
   const formatted = subtrips.map((st) => ({
     subtripId: st._id,
-    vehicle: st.tripId?.vehicleId?.vehicleNo || null,
+    vehicle: st.vehicleId?.vehicleNo || null,
     customer: st.customerId?.customerName || null,
     startDate: st.startDate,
     unloadingPoint: st.unloadingPoint,
@@ -236,17 +232,8 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
       },
       {
         $lookup: {
-          from: "trips",
-          localField: "tripId",
-          foreignField: "_id",
-          as: "trip",
-        },
-      },
-      { $unwind: "$trip" },
-      {
-        $lookup: {
           from: "vehicles",
-          localField: "trip.vehicleId",
+          localField: "vehicleId",
           foreignField: "_id",
           as: "vehicle",
         },
@@ -494,17 +481,8 @@ const getTopRoutes = asyncHandler(async (req, res) => {
       { $match: { tenant: req.tenant, routeCd: { $ne: null } } },
       {
         $lookup: {
-          from: "trips",
-          localField: "tripId",
-          foreignField: "_id",
-          as: "trip",
-        },
-      },
-      { $unwind: "$trip" },
-      {
-        $lookup: {
           from: "vehicles",
-          localField: "trip.vehicleId",
+          localField: "vehicleId",
           foreignField: "_id",
           as: "vehicle",
         },
@@ -685,21 +663,15 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
         }),
       )
         .select(
-          '_id customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate tripId',
+          '_id customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId',
         )
         .populate('customerId', 'customerName')
         .populate({
-          path: 'tripId',
-          select: 'vehicleId driverId',
-          populate: [
-            {
-              path: 'vehicleId',
-              select: 'vehicleNo isOwn transporter',
-              populate: { path: 'transporter', select: 'transportName' },
-            },
-            { path: 'driverId', select: 'driverName' },
-          ],
+          path: 'vehicleId',
+          select: 'vehicleNo isOwn transporter',
+          populate: { path: 'transporter', select: 'transportName' },
         })
+        .populate({ path: 'driverId', select: 'driverName' })
         .populate('expenses')
         .lean(),
       TransporterPayment.find({ tenant: req.tenant, status: 'generated' })
@@ -714,7 +686,7 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
 
     let pendingAmount = 0;
     const formattedPendingSubtrips = pendingSubtrips
-      .filter((st) => st.tripId?.vehicleId && !st.tripId.vehicleId.isOwn)
+      .filter((st) => st.vehicleId && !st.vehicleId.isOwn)
       .map((st) => {
         const { totalTransporterPayment, totalExpense, totalShortageAmount, totalFreightAmount } = calculateTransporterPayment(st);
         pendingAmount += totalTransporterPayment;
@@ -727,9 +699,9 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
           endDate: st.endDate,
           loadingWeight: st.loadingWeight,
           rate: st.rate,
-          transporter: st.tripId?.vehicleId?.transporter?.transportName || null,
-          vehicleNo: st.tripId?.vehicleId?.vehicleNo || null,
-          driver: st.tripId?.driverId?.driverName || null,
+          transporter: st.vehicleId?.transporter?.transportName || null,
+          vehicleNo: st.vehicleId?.vehicleNo || null,
+          driver: st.driverId?.driverName || null,
           totalTransporterPayment,
           totalExpense,
           totalShortageAmount,
@@ -893,17 +865,11 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         subtripStatus: SUBTRIP_STATUS.RECEIVED,
       })
         .select(
-          "_id customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate tripId"
+          "_id customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId"
         )
         .populate("customerId", "customerName")
-        .populate({
-          path: "tripId",
-          select: "vehicleId driverId",
-          populate: [
-            { path: "vehicleId", select: "vehicleNo isOwn" },
-            { path: "driverId", select: "driverName" },
-          ],
-        }),
+        .populate({ path: "vehicleId", select: "vehicleNo isOwn" })
+        .populate({ path: "driverId", select: "driverName" }),
     ]);
 
     const pendingAmount = pendingAgg[0]?.total || 0;
@@ -941,9 +907,9 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
       rate: st.rate,
       unloadingPoint: st.unloadingPoint,
       unloadingDate: st.endDate,
-      vehicleNo: st.tripId?.vehicleId?.vehicleNo || null,
-      driver: st.tripId?.driverId?.driverName || null,
-      subtripType: st.tripId?.vehicleId?.isOwn ? "own" : "market",
+      vehicleNo: st.vehicleId?.vehicleNo || null,
+      driver: st.driverId?.driverName || null,
+      subtripType: st.vehicleId?.isOwn ? "own" : "market",
     }));
 
     res.status(200).json({
@@ -1002,17 +968,8 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
       },
       {
         $lookup: {
-          from: "trips",
-          localField: "tripId",
-          foreignField: "_id",
-          as: "trip",
-        },
-      },
-      { $unwind: "$trip" },
-      {
-        $lookup: {
           from: "vehicles",
-          localField: "trip.vehicleId",
+          localField: "vehicleId",
           foreignField: "_id",
           as: "vehicle",
         },
@@ -1154,17 +1111,8 @@ const getMonthlyDriverSummary = asyncHandler(async (req, res) => {
       },
       {
         $lookup: {
-          from: "trips",
-          localField: "tripId",
-          foreignField: "_id",
-          as: "trip",
-        },
-      },
-      { $unwind: "$trip" },
-      {
-        $lookup: {
           from: "vehicles",
-          localField: "trip.vehicleId",
+          localField: "vehicleId",
           foreignField: "_id",
           as: "vehicle",
         },
@@ -1174,7 +1122,7 @@ const getMonthlyDriverSummary = asyncHandler(async (req, res) => {
       {
         $lookup: {
           from: "drivers",
-          localField: "trip.driverId",
+          localField: "driverId",
           foreignField: "_id",
           as: "driver",
         },
@@ -1250,17 +1198,8 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
       },
       {
         $lookup: {
-          from: "trips",
-          localField: "tripId",
-          foreignField: "_id",
-          as: "trip",
-        },
-      },
-      { $unwind: "$trip" },
-      {
-        $lookup: {
           from: "vehicles",
-          localField: "trip.vehicleId",
+          localField: "vehicleId",
           foreignField: "_id",
           as: "vehicle",
         },

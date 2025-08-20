@@ -181,17 +181,7 @@ const getVehicleBillingSummary = asyncHandler(async (req, res) => {
   const vehicleObjectId = new mongoose.Types.ObjectId(id);
 
   const subtrips = await Subtrip.aggregate([
-    { $match: matchStage },
-    {
-      $lookup: {
-        from: "trips",
-        localField: "tripId",
-        foreignField: "_id",
-        as: "trip",
-      },
-    },
-    { $unwind: "$trip" },
-    { $match: { "trip.vehicleId": vehicleObjectId } },
+    { $match: { ...matchStage, vehicleId: vehicleObjectId } },
     {
       $lookup: {
         from: "expenses",

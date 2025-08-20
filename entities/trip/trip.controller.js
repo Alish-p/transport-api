@@ -11,23 +11,11 @@ const createTrip = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { driverId, vehicleId, fromDate, remarks, closePreviousTrips } =
-      req.body;
+    const { fromDate, remarks } = req.body;
 
-    // 1) If requested, close all existing OPEN trips for this vehicle (inside txn)
-    if (closePreviousTrips) {
-      await Trip.updateMany(
-        { vehicleId, tripStatus: TRIP_STATUS.OPEN, tenant: req.tenant },
-        { tripStatus: TRIP_STATUS.CLOSED, toDate: new Date() },
-        { session }
-      );
-    }
-
-    // 2) Create the new trip (inside txn)
+    // 1) Create the new trip (inside txn)
     const trip = new Trip(
       {
-        driverId,
-        vehicleId,
         tripStatus: TRIP_STATUS.OPEN,
         fromDate,
         remarks,
@@ -56,16 +44,13 @@ const createTrip = asyncHandler(async (req, res) => {
 // Fetch Trips with pagination and search
 const fetchTrips = asyncHandler(async (req, res) => {
   try {
-    const { tripId, driverId, vehicleId, subtripId, fromDate, toDate, status } =
-      req.query;
+    const { tripId, subtripId, fromDate, toDate, status } = req.query;
 
     const { limit, skip } = req.pagination || {};
 
     const query = addTenantToQuery(req);
 
     if (tripId) query._id = tripId;
-    if (driverId) query.driverId = driverId;
-    if (vehicleId) query.vehicleId = vehicleId;
     if (subtripId) query.subtrips = subtripId;
 
     if (fromDate || toDate) {
@@ -85,8 +70,6 @@ const fetchTrips = asyncHandler(async (req, res) => {
           path: "subtrips",
           populate: [{ path: "customerId", model: "Customer" }],
         })
-        .populate({ path: "driverId", select: "driverName" })
-        .populate({ path: "vehicleId", select: "vehicleNo" })
         .sort({ fromDate: -1 })
         .skip(skip)
         .limit(limit),
@@ -114,78 +97,23 @@ const fetchTrips = asyncHandler(async (req, res) => {
 // Fetch minimal trip preview with pagination and search
 const fetchTripsPreview = asyncHandler(async (req, res) => {
   try {
-    const { search, status } = req.query;
+    const { status } = req.query;
     const { limit, skip } = req.pagination || {};
 
-    const basePipeline = [
-      {
-        $lookup: {
-          from: "drivers",
-          localField: "driverId",
-          foreignField: "_id",
-          as: "driver",
-        },
-      },
-      { $unwind: "$driver" },
-      {
-        $lookup: {
-          from: "vehicles",
-          localField: "vehicleId",
-          foreignField: "_id",
-          as: "vehicle",
-        },
-      },
-      { $unwind: "$vehicle" },
-    ];
-
-    const matchStage = { tenant: req.tenant };
-
+    const query = { tenant: req.tenant };
     if (status) {
       const statuses = Array.isArray(status) ? status : [status];
-      matchStage.tripStatus = { $in: statuses };
+      query.tripStatus = { $in: statuses };
     }
 
-    if (search) {
-      matchStage.$or = [
-        { "driver.driverName": { $regex: search, $options: "i" } },
-        { "vehicle.vehicleNo": { $regex: search, $options: "i" } },
-      ];
-    }
-
-    if (Object.keys(matchStage).length) {
-      basePipeline.push({ $match: matchStage });
-    }
-
-    const projectStage = {
-      $project: {
-        _id: 1,
-        driverId: {
-          driverName: "$driver.driverName",
-        },
-        vehicleId: {
-          vehicleNo: "$vehicle.vehicleNo",
-        },
-        fromDate: "$fromDate",
-        tripStatus: "$tripStatus",
-      },
-    };
-
-    const dataPipeline = [
-      ...basePipeline,
-      { $sort: { fromDate: -1 } },
-      projectStage,
-      { $skip: skip || 0 },
-      { $limit: limit || 0 },
-    ];
-
-    const countPipeline = [...basePipeline, { $count: "count" }];
-
-    const [trips, countArr] = await Promise.all([
-      Trip.aggregate(dataPipeline),
-      Trip.aggregate(countPipeline),
+    const [trips, total] = await Promise.all([
+      Trip.find(query)
+        .sort({ fromDate: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select("_id fromDate tripStatus"),
+      Trip.countDocuments(query),
     ]);
-
-    const total = countArr[0]?.count || 0;
 
     res.status(200).json({
       trips,
@@ -210,13 +138,13 @@ const fetchTrip = asyncHandler(async (req, res) => {
         { path: "expenses" },
         { path: "routeCd" },
         { path: "customerId" },
+        { path: "driverId" },
+        {
+          path: "vehicleId",
+          populate: { path: "transporter" },
+        },
       ],
-    })
-    .populate({
-      path: "vehicleId",
-      populate: { path: "transporter" },
-    })
-    .populate("driverId");
+    });
 
   if (!trip) {
     res.status(404).json({ message: "Trip not found" });
@@ -265,26 +193,7 @@ const updateTrip = asyncHandler(async (req, res) => {
     throw new Error("Cannot update a closed trip");
   }
 
-  // 3. If the client is trying to change the driver...
-  if (
-    req.body.driverId &&
-    String(req.body.driverId) !== String(trip.driverId)
-  ) {
-    // 3a. Check for any subtrip with a salary already assigned
-    const lockedCount = await Subtrip.countDocuments({
-      tripId: trip._id,
-      driverSalaryId: { $exists: true, $ne: null },
-    });
-
-    if (lockedCount > 0) {
-      res.status(400);
-      throw new Error(
-        "Cannot change driver: one or more subtrips already have salary created."
-      );
-    }
-  }
-
-  // 4. Perform the update
+  // 3. Perform the update
   const updatedTrip = await Trip.findOneAndUpdate(
     { _id: id, tenant: req.tenant },
     req.body,

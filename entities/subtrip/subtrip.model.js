@@ -11,6 +11,8 @@ const subtripSchema = new Schema({
 
   // References to related entities
   tripId: { type: String, ref: "Trip", required: true },
+  driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
+  vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   routeCd: { type: Schema.Types.ObjectId, ref: "Route" },
   customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
   expenses: [{ type: Schema.Types.ObjectId, ref: "Expense" }],

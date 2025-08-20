@@ -70,10 +70,8 @@ const createInvoice = asyncHandler(async (req, res) => {
       invoiceId: null,
       tenant: req.tenant,
     })
-      .populate({
-        path: "tripId",
-        populate: [{ path: "vehicleId" }, { path: "driverId" }],
-      })
+      .populate({ path: "vehicleId" })
+      .populate({ path: "driverId" })
       .session(session);
 
     if (subtrips.length !== subtripIds.length) {
@@ -93,7 +91,7 @@ const createInvoice = asyncHandler(async (req, res) => {
       consignee: st.consignee,
       unloadingPoint: st.unloadingPoint,
       diNumber: st.diNumber,
-      vehicleNo: st.tripId?.vehicleId?.vehicleNo,
+      vehicleNo: st.vehicleId?.vehicleNo,
       rate: st.rate,
       materialType: st.materialType,
       loadingWeight: st.loadingWeight,
