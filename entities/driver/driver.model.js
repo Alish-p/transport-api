@@ -5,7 +5,7 @@ const driverSchema = new Schema({
   driverName: { type: String, required: true, trim: true, set: toTitleCase },
   driverLicenceNo: { type: String, required: true },
   driverPresentAddress: { type: String, required: true },
-  driverCellNo: { type: String, required: true, unique: true },
+  driverCellNo: { type: String, required: true, },
   licenseFrom: { type: Date, required: true },
   licenseTo: { type: Date, required: true },
   aadharNo: { type: String, required: true },
@@ -32,5 +32,12 @@ const driverSchema = new Schema({
     index: true,
   },
 });
+
+// Unique per tenant:
+driverSchema.index(
+  { tenant: 1, driverCellNo: 1 },
+  { unique: true, name: 'uniq_driver_phone_per_tenant' }
+);
+
 
 export default model('Driver', driverSchema);
