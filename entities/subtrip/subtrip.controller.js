@@ -932,6 +932,8 @@ const createEmptySubtrip = asyncHandler(async (req, res) => {
   const subtrip = new Subtrip({
     tripId,
     routeCd,
+    driverId: trip.driverId,
+    vehicleId: trip.vehicleId,
     loadingPoint,
     unloadingPoint,
     startDate,
