@@ -220,6 +220,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       driverId,
       vehicleId,
       transporterId,
+      isOwn,
       fromDate,
       toDate,
       subtripEndFromDate,
@@ -277,14 +278,18 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       }
     }
 
-    // Driver/vehicle/transporter filtering
+    // Driver/vehicle/transporter/ownership filtering
     if (driverId) {
       query.driverId = driverId;
     }
 
-    if (transporterId) {
-      const vehicleSearch = { transporter: transporterId };
+    const hasIsOwnFilter = typeof isOwn !== "undefined";
+    if (transporterId || vehicleId || hasIsOwnFilter) {
+      const vehicleSearch = {};
+      if (transporterId) vehicleSearch.transporter = transporterId;
       if (vehicleId) vehicleSearch._id = vehicleId;
+      if (hasIsOwnFilter) vehicleSearch.isOwn = isOwn === true || isOwn === "true";
+
       const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select("_id");
       if (!vehicles.length) {
         return res.status(200).json({
@@ -295,8 +300,6 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
         });
       }
       query.vehicleId = { $in: vehicles.map((v) => v._id) };
-    } else if (vehicleId) {
-      query.vehicleId = vehicleId;
     }
 
     // Fetch data and totals in parallel
