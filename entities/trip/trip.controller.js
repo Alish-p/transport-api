@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Trip from './trip.model.js';
+import Vehicle from '../vehicle/vehicle.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
 import { TRIP_STATUS } from './trip.constants.js';
@@ -56,7 +57,7 @@ const createTrip = asyncHandler(async (req, res) => {
 // Fetch Trips with pagination and search
 const fetchTrips = asyncHandler(async (req, res) => {
   try {
-    const { tripId, driverId, vehicleId, subtripId, fromDate, toDate, status } =
+    const { tripId, driverId, vehicleId, subtripId, fromDate, toDate, status, isOwn } =
       req.query;
 
     const { limit, skip } = req.pagination || {};
@@ -65,7 +66,7 @@ const fetchTrips = asyncHandler(async (req, res) => {
 
     if (tripId) query._id = tripId;
     if (driverId) query.driverId = driverId;
-    if (vehicleId) query.vehicleId = vehicleId;
+    // vehicleId will be applied below when considering isOwn as well
     if (subtripId) query.subtrips = subtripId;
 
     if (fromDate || toDate) {
@@ -77,6 +78,27 @@ const fetchTrips = asyncHandler(async (req, res) => {
     if (status) {
       const statuses = Array.isArray(status) ? status : [status];
       query.tripStatus = { $in: statuses };
+    }
+
+    // If filtering by ownership and/or specific vehicle, resolve matching vehicles first
+    const hasIsOwnFilter = typeof isOwn !== 'undefined';
+    if (vehicleId || hasIsOwnFilter) {
+      const vehicleSearch = {};
+      if (vehicleId) vehicleSearch._id = vehicleId;
+      if (hasIsOwnFilter) vehicleSearch.isOwn = isOwn === true || isOwn === 'true';
+
+      const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select('_id');
+      if (!vehicles.length) {
+        return res.status(200).json({
+          trips: [],
+          total: 0,
+          totalClosed: 0,
+          totalOpen: 0,
+          startRange: (skip || 0) + 1,
+          endRange: (skip || 0),
+        });
+      }
+      query.vehicleId = { $in: vehicles.map(v => v._id) };
     }
 
     const [trips, total, totalClosed, totalOpen] = await Promise.all([
