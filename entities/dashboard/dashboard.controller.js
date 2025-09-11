@@ -179,18 +179,17 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
   }
 });
 
-// Get subtrips whose eway bill is expired or about to expire
+// Get subtrips whose eway bill is expiring in the next 24 hours
 const getExpiringSubtrips = asyncHandler(async (req, res) => {
-  const daysParam = parseInt(req.query.days, 10);
-  const days = Number.isNaN(daysParam) ? 1 : daysParam;
-
   const now = new Date();
-  const threshold = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+  // Fixed 24-hour window from current time
+  const threshold = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
   const subtrips = await Subtrip.find(
     addTenantToQuery(req, {
       subtripStatus: SUBTRIP_STATUS.LOADED,
-      ewayExpiryDate: { $ne: null, $lte: threshold },
+      // Only include eway bills expiring in the next 24 hours; exclude already expired
+      ewayExpiryDate: { $ne: null, $gt: now, $lte: threshold },
     })
   )
     .select("_id startDate unloadingPoint ewayExpiryDate vehicleId customerId")
