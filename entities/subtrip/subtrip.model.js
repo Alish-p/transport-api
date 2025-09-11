@@ -29,6 +29,8 @@ const subtripSchema = new Schema({
   invoiceNo: { type: String },
   shipmentNo: { type: String },
   consignee: { type: String },
+  // Optional reference to another subtrip number
+  referenceSubtripNo: { type: String },
   orderNo: { type: String },
   ewayBill: { type: String },
   ewayExpiryDate: { type: Date },
