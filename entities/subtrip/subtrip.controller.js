@@ -217,6 +217,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       routeId,
       customerId,
       subtripStatus,
+      referenceSubtripNo,
       driverId,
       vehicleId,
       transporterId,
@@ -237,6 +238,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
     if (subtripId) query._id = subtripId;
     if (routeId) query.routeCd = routeId;
     if (customerId) query.customerId = customerId;
+    if (referenceSubtripNo) query.referenceSubtripNo = referenceSubtripNo;
 
     // Status filter (single or array)
     if (subtripStatus) {
