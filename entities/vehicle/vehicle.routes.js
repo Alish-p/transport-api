@@ -4,7 +4,6 @@ import {
   quickCreateVehicle,
   fetchVehicles,
   fetchVehiclesSummary,
-  getVehicleBillingSummary,
   fetchVehicleById,
   updateVehicle,
   deleteVehicle,
@@ -27,8 +26,7 @@ router.post(
 router.get("/", authenticate, pagination, fetchVehicles);
 router.get("/summary", authenticate, fetchVehiclesSummary);
 
-// ─── READ (SINGLE & BILLING) ────────────────────────────────────────
-router.get("/:id/billing-summary", authenticate, getVehicleBillingSummary);
+// ─── READ (SINGLE) ────────────────────────────────────────
 router.get("/:id", authenticate, fetchVehicleById);
 
 // ─── UPDATE ─────────────────────────────────────────────────────────
