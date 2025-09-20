@@ -1,11 +1,11 @@
-import mongoose from 'mongoose';
-import asyncHandler from 'express-async-handler';
-import Trip from './trip.model.js';
-import Vehicle from '../vehicle/vehicle.model.js';
-import Subtrip from '../subtrip/subtrip.model.js';
-import Expense from '../expense/expense.model.js';
-import { TRIP_STATUS } from './trip.constants.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import mongoose from "mongoose";
+import asyncHandler from "express-async-handler";
+import Trip from "./trip.model.js";
+import Vehicle from "../vehicle/vehicle.model.js";
+import Subtrip from "../subtrip/subtrip.model.js";
+import Expense from "../expense/expense.model.js";
+import { TRIP_STATUS } from "./trip.constants.js";
+import { addTenantToQuery } from "../../utils/tenant-utils.js";
 
 const createTrip = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
@@ -15,7 +15,7 @@ const createTrip = asyncHandler(async (req, res) => {
     const { driverId, vehicleId, fromDate, remarks, closePreviousTrips } =
       req.body;
 
-    // 1) If requested, close all existing OPEN trips for this vehicle (inside txn)
+    // 1) Close previous open trips for this vehicle if requested
     if (closePreviousTrips) {
       await Trip.updateMany(
         { vehicleId, tripStatus: TRIP_STATUS.OPEN, tenant: req.tenant },
@@ -24,28 +24,25 @@ const createTrip = asyncHandler(async (req, res) => {
       );
     }
 
-    // 2) Create the new trip (inside txn)
-    const trip = new Trip(
-      {
-        driverId,
-        vehicleId,
-        tripStatus: TRIP_STATUS.OPEN,
-        fromDate,
-        remarks,
-        dateOfCreation: new Date(),
-        tenant: req.tenant,
-      },
-      { session }
-    );
+    // 2) Create new trip
+    const trip = new Trip({
+      driverId,
+      vehicleId,
+      tripStatus: TRIP_STATUS.OPEN,
+      fromDate,
+      remarks,
+      dateOfCreation: new Date(),
+      tenant: req.tenant,
+    });
+
     const newTrip = await trip.save({ session });
 
-    // 3) Commit the transaction
+    // 3) Commit
     await session.commitTransaction();
     session.endSession();
 
     res.status(201).json(newTrip);
   } catch (error) {
-    // If anything goes wrong, abort the transaction
     await session.abortTransaction();
     session.endSession();
 
@@ -57,15 +54,23 @@ const createTrip = asyncHandler(async (req, res) => {
 // Fetch Trips with pagination and search
 const fetchTrips = asyncHandler(async (req, res) => {
   try {
-    const { tripNo, driverId, vehicleId, subtripId, fromDate, toDate, status, isOwn } =
-      req.query;
+    const {
+      tripNo,
+      driverId,
+      vehicleId,
+      subtripId,
+      fromDate,
+      toDate,
+      status,
+      isOwn,
+    } = req.query;
 
     const { limit, skip } = req.pagination || {};
 
     const query = addTenantToQuery(req);
 
     if (tripNo) {
-      query.tripNo = tripId;
+      query.tripNo = tripNo;
     }
     if (driverId) query.driverId = driverId;
     // vehicleId will be applied below when considering isOwn as well
@@ -83,13 +88,16 @@ const fetchTrips = asyncHandler(async (req, res) => {
     }
 
     // If filtering by ownership and/or specific vehicle, resolve matching vehicles first
-    const hasIsOwnFilter = typeof isOwn !== 'undefined';
+    const hasIsOwnFilter = typeof isOwn !== "undefined";
     if (vehicleId || hasIsOwnFilter) {
       const vehicleSearch = {};
       if (vehicleId) vehicleSearch._id = vehicleId;
-      if (hasIsOwnFilter) vehicleSearch.isOwn = isOwn === true || isOwn === 'true';
+      if (hasIsOwnFilter)
+        vehicleSearch.isOwn = isOwn === true || isOwn === "true";
 
-      const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select('_id');
+      const vehicles = await Vehicle.find(
+        addTenantToQuery(req, vehicleSearch)
+      ).select("_id");
       if (!vehicles.length) {
         return res.status(200).json({
           trips: [],
@@ -97,10 +105,10 @@ const fetchTrips = asyncHandler(async (req, res) => {
           totalClosed: 0,
           totalOpen: 0,
           startRange: (skip || 0) + 1,
-          endRange: (skip || 0),
+          endRange: skip || 0,
         });
       }
-      query.vehicleId = { $in: vehicles.map(v => v._id) };
+      query.vehicleId = { $in: vehicles.map((v) => v._id) };
     }
 
     const [trips, total, totalClosed, totalOpen] = await Promise.all([
@@ -228,7 +236,11 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
 
 // fetch All details of trip
 const fetchTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findOne({ tripNo: req.params.id, tenant: req.tenant })
+  const id = req.params.id;
+  const idQuery = mongoose.Types.ObjectId.isValid(id)
+    ? { _id: id }
+    : { tripNo: id };
+  const trip = await Trip.findOne({ ...idQuery, tenant: req.tenant })
     .populate({
       path: "subtrips",
       populate: [
@@ -275,10 +287,13 @@ const closeTrip = asyncHandler(async (req, res) => {
 
 // Update Trip
 const updateTrip = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id;
+  const idQuery = mongoose.Types.ObjectId.isValid(id)
+    ? { _id: id }
+    : { tripNo: id };
 
   // 1. Fetch the trip
-  const trip = await Trip.findOne({ tripNo: id, tenant: req.tenant });
+  const trip = await Trip.findOne({ ...idQuery, tenant: req.tenant });
   if (!trip) {
     res.status(404);
     throw new Error("Trip not found");
@@ -311,7 +326,7 @@ const updateTrip = asyncHandler(async (req, res) => {
 
   // 4. Perform the update
   const updatedTrip = await Trip.findOneAndUpdate(
-    { tripNo: id, tenant: req.tenant },
+    { ...idQuery, tenant: req.tenant },
     req.body,
     {
       new: true,
@@ -319,12 +334,17 @@ const updateTrip = asyncHandler(async (req, res) => {
     }
   );
 
+  if (!updatedTrip) {
+    res.status(404);
+    throw new Error("Trip not found");
+  }
+
   res.status(200).json(updatedTrip);
 });
 
 // Delete Trip and Associated Subtrips and Expenses
 const deleteTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findOne({ _id: req.params.id, tenant: req.tenant });
+  const trip = await Trip.findOne({ tripNo: req.params.id, tenant: req.tenant });
 
   if (!trip) {
     res.status(404).json({ message: "Trip not found" });
@@ -337,7 +357,7 @@ const deleteTrip = asyncHandler(async (req, res) => {
     await Subtrip.findOneAndDelete({ _id: subtripId, tenant: req.tenant });
   }
 
-  await Trip.findOneAndDelete({ _id: req.params.id, tenant: req.tenant });
+  await Trip.findOneAndDelete({ tripNo: req.params.id, tenant: req.tenant });
   res.status(200).json({ message: "Trip deleted successfully" });
 });
 

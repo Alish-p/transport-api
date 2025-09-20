@@ -23,16 +23,23 @@ const tripSchema = new Schema({
 tripSchema.index({ tenant: 1, tripNo: 1 }, { unique: true });
 
 // for creating incremental id
-tripSchema.pre("save", async function (next) {
+tripSchema.pre("validate", async function (next) {
   if (!this.isNew) {
     return next();
   }
   try {
-    const counter = await CounterModel.findOneAndUpdate(
+    const counterQuery = CounterModel.findOneAndUpdate(
       { model: "Trip", tenant: this.tenant },
       { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: "Trip" } },
       { new: true, upsert: true }
     );
+
+    const session = this.$session();
+    if (session) {
+      counterQuery.session(session);
+    }
+
+    const counter = await counterQuery;
 
     const tripNo = counter ? `t-${counter.seq}` : "t-1";
     this.tripNo = this.tripNo || tripNo;
