@@ -10,7 +10,7 @@ const subtripSchema = new Schema({
   isEmpty: { type: Boolean, default: false },
 
   // References to related entities
-  tripId: { type: String, ref: "Trip", required: true },
+  tripId: { type: Schema.Types.ObjectId, ref: "Trip", required: true },
   driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   routeCd: { type: Schema.Types.ObjectId, ref: "Route" },
@@ -75,6 +75,18 @@ const subtripSchema = new Schema({
     required: true,
     index: true,
   },
+});
+
+// Enable virtuals in outputs
+subtripSchema.set('toObject', { virtuals: true });
+subtripSchema.set('toJSON', { virtuals: true });
+
+// Virtual populate to fetch Trip using subtrip.tripId (tripNo) -> Trip.tripNo
+subtripSchema.virtual('trip', {
+  ref: 'Trip',
+  localField: 'tripId',
+  foreignField: 'tripNo',
+  justOne: true,
 });
 
 // for creating incremental id

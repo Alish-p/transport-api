@@ -3,7 +3,7 @@ import CounterModel from '../../model/Counter.js';
 
 // Trip Schema
 const tripSchema = new Schema({
-  _id: { type: String, immutable: true, unique: true },
+  tripNo: { type: String, required: true },
   driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   tripStatus: { type: String, required: true }, // Billed or Pending
@@ -19,6 +19,9 @@ const tripSchema = new Schema({
   },
 });
 
+// Unique trip number per tenant
+tripSchema.index({ tenant: 1, tripNo: 1 }, { unique: true });
+
 // for creating incremental id
 tripSchema.pre("save", async function (next) {
   if (!this.isNew) {
@@ -31,8 +34,8 @@ tripSchema.pre("save", async function (next) {
       { new: true, upsert: true }
     );
 
-    const tripId = counter ? `t-${counter.seq}` : "t-1";
-    this._id = tripId;
+    const tripNo = counter ? `t-${counter.seq}` : "t-1";
+    this.tripNo = this.tripNo || tripNo;
   } catch (error) {
     return next(error);
   }

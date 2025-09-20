@@ -2,7 +2,7 @@ import { Schema, model } from 'mongoose';
 
 // Expense Schema
 const expenseSchema = new Schema({
-  tripId: { type: String, ref: "Trip" },
+  tripId: { type: Schema.Types.ObjectId, ref: "Trip" },
   subtripId: { type: String, ref: "Subtrip" },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle" },
   pumpCd: { type: Schema.Types.ObjectId, ref: "Pump", default: null },

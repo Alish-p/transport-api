@@ -57,14 +57,16 @@ const createTrip = asyncHandler(async (req, res) => {
 // Fetch Trips with pagination and search
 const fetchTrips = asyncHandler(async (req, res) => {
   try {
-    const { tripId, driverId, vehicleId, subtripId, fromDate, toDate, status, isOwn } =
+    const { tripNo, driverId, vehicleId, subtripId, fromDate, toDate, status, isOwn } =
       req.query;
 
     const { limit, skip } = req.pagination || {};
 
     const query = addTenantToQuery(req);
 
-    if (tripId) query._id = tripId;
+    if (tripNo) {
+      query.tripNo = tripId;
+    }
     if (driverId) query.driverId = driverId;
     // vehicleId will be applied below when considering isOwn as well
     if (subtripId) query.subtrips = subtripId;
@@ -181,6 +183,7 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
     const projectStage = {
       $project: {
         _id: 1,
+        tripNo: 1,
         driverId: {
           driverName: "$driver.driverName",
         },
@@ -225,7 +228,7 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
 
 // fetch All details of trip
 const fetchTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findOne({ _id: req.params.id, tenant: req.tenant })
+  const trip = await Trip.findOne({ tripNo: req.params.id, tenant: req.tenant })
     .populate({
       path: "subtrips",
       populate: [
@@ -250,11 +253,11 @@ const fetchTrip = asyncHandler(async (req, res) => {
 
 // Update Trip and Close it
 const closeTrip = asyncHandler(async (req, res) => {
-  const tripId = req.params.id;
+  const tripNo = req.params.id;
 
   // Find the trip by ID and update it
   const trip = await Trip.findOneAndUpdate(
-    { _id: tripId, tenant: req.tenant },
+    { tripNo: tripNo, tenant: req.tenant },
     {
       tripStatus: TRIP_STATUS.CLOSED,
       toDate: new Date(),
@@ -275,7 +278,7 @@ const updateTrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   // 1. Fetch the trip
-  const trip = await Trip.findOne({ _id: id, tenant: req.tenant });
+  const trip = await Trip.findOne({ tripNo: id, tenant: req.tenant });
   if (!trip) {
     res.status(404);
     throw new Error("Trip not found");
@@ -308,7 +311,7 @@ const updateTrip = asyncHandler(async (req, res) => {
 
   // 4. Perform the update
   const updatedTrip = await Trip.findOneAndUpdate(
-    { _id: id, tenant: req.tenant },
+    { tripNo: id, tenant: req.tenant },
     req.body,
     {
       new: true,
