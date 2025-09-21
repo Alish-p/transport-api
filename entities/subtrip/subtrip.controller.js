@@ -70,7 +70,7 @@ const createSubtrip = asyncHandler(async (req, res) => {
 const fetchSubtrips = asyncHandler(async (req, res) => {
   try {
     const {
-      subtripId,
+      subtripNo,
       tripId,
       routeId,
       customerId,
@@ -99,7 +99,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     const query = addTenantToQuery(req);
 
     // Direct field filters
-    if (subtripId) query._id = subtripId;
+    if (subtripNo) query.subtripNo = subtripNo;
     if (tripId) query.tripId = tripId;
     if (routeId) query.routeCd = new mongoose.Types.ObjectId(routeId);
     if (customerId) query.customerId = customerId;
@@ -213,7 +213,7 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
 const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
   try {
     const {
-      subtripId,
+      subtripNo,
       routeId,
       customerId,
       subtripStatus,
@@ -235,7 +235,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
     // Base query ensures we only consider loaded subtrips and tenant matches
     const query = addTenantToQuery(req, { isEmpty: false });
 
-    if (subtripId) query._id = subtripId;
+    if (subtripNo) query.subtripNo = subtripNo;
     if (routeId) query.routeCd = routeId;
     if (customerId) query.customerId = customerId;
     if (referenceSubtripNo) query.referenceSubtripNo = referenceSubtripNo;
@@ -365,7 +365,7 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
 
     if (search) {
       if (search.startsWith("st-")) {
-        query._id = search;
+        query.subtripNo = search;
       } else {
         const regex = new RegExp(search, "i");
 
@@ -412,7 +412,7 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
     const [subtrips, total] = await Promise.all([
       Subtrip.find(query)
         .select(
-          "_id loadingPoint unloadingPoint startDate subtripStatus driverId vehicleId"
+          "_id subtripNo loadingPoint unloadingPoint startDate subtripStatus driverId vehicleId"
         )
         .populate({
           path: "vehicleId",
@@ -427,6 +427,7 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
 
     const formatted = subtrips.map((st) => ({
       _id: st._id,
+      subtripNo: st.subtripNo,
       subtripStatus: st.subtripStatus,
       loadingPoint: st.loadingPoint,
       unloadingPoint: st.unloadingPoint,

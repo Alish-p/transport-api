@@ -10,7 +10,7 @@ const tripSchema = new Schema({
   fromDate: { type: Date, required: true },
   toDate: { type: Date },
   remarks: { type: String },
-  subtrips: [{ type: String, ref: "Subtrip" }],
+  subtrips: [{ type: Schema.Types.ObjectId, ref: "Subtrip" }],
   tenant: {
     type: Schema.Types.ObjectId,
     ref: "Tenant",

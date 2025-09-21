@@ -3,7 +3,7 @@ import { Schema, model } from 'mongoose';
 // Expense Schema
 const expenseSchema = new Schema({
   tripId: { type: Schema.Types.ObjectId, ref: "Trip" },
-  subtripId: { type: String, ref: "Subtrip" },
+  subtripId: { type: Schema.Types.ObjectId, ref: "Subtrip" },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle" },
   pumpCd: { type: Schema.Types.ObjectId, ref: "Pump", default: null },
   date: { type: Date, default: Date.now },

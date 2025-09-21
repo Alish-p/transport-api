@@ -34,7 +34,8 @@ const taxBreakupSchema = new Schema(
 //
 const subtripPaymentSnapshotSchema = new Schema(
   {
-    subtripId: { type: String, ref: "Subtrip", required: true },
+    subtripId: { type: Schema.Types.ObjectId, ref: "Subtrip", required: true },
+    subtripNo: String,
 
     // Route info
     loadingPoint: String,
@@ -101,7 +102,7 @@ const transporterPaymentReceiptSchema = new Schema(
     issueDate: { type: Date, default: Date.now },
 
     // Subtrip linkage and snapshot
-    associatedSubtrips: [{ type: String, ref: "Subtrip" }],
+    associatedSubtrips: [{ type: Schema.Types.ObjectId, ref: "Subtrip" }],
     subtripSnapshot: [subtripPaymentSnapshotSchema],
 
     // Charges beyond calculated freight

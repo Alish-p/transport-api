@@ -1,7 +1,7 @@
 import { Schema, model } from 'mongoose';
 
 const subtripEventSchema = new Schema({
-  subtripId: { type: String, ref: "Subtrip", required: true, index: true },
+  subtripId: { type: Schema.Types.ObjectId, ref: "Subtrip", required: true, index: true },
   eventType: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
   details: Schema.Types.Mixed,

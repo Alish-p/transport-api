@@ -3,7 +3,8 @@ import CounterModel from '../../model/Counter.js';
 
 const subtripPaymentSnapshotSchema = new Schema(
   {
-    subtripId: { type: String, ref: "Subtrip", required: true },
+    subtripId: { type: Schema.Types.ObjectId, ref: "Subtrip", required: true },
+    subtripNo: String,
 
     // Route info
     loadingPoint: String,

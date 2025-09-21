@@ -3,8 +3,8 @@ import CounterModel from '../../model/Counter.js';
 
 // subtrip Schema
 const subtripSchema = new Schema({
-  // Unique id for the subtrip
-  _id: { type: String, immutable: true, unique: true },
+  // Unique no for the subtrip
+  subtripNo: { type: String, required: true },
 
   // Flag to identify empty trips
   isEmpty: { type: Boolean, default: false },
@@ -77,32 +77,30 @@ const subtripSchema = new Schema({
   },
 });
 
-// Enable virtuals in outputs
-subtripSchema.set('toObject', { virtuals: true });
-subtripSchema.set('toJSON', { virtuals: true });
-
-// Virtual populate to fetch Trip using subtrip.tripId (tripNo) -> Trip.tripNo
-subtripSchema.virtual('trip', {
-  ref: 'Trip',
-  localField: 'tripId',
-  foreignField: 'tripNo',
-  justOne: true,
-});
+// Unique trip number per tenant
+subtripSchema.index({ tenant: 1, subtripNo: 1 }, { unique: true });
 
 // for creating incremental id
-subtripSchema.pre("save", async function (next) {
+subtripSchema.pre("validate", async function (next) {
   if (!this.isNew) {
     return next();
   }
   try {
-    const counter = await CounterModel.findOneAndUpdate(
+    const counterQuery = CounterModel.findOneAndUpdate(
       { model: "Subtrip", tenant: this.tenant },
       { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: "Subtrip" } },
       { new: true, upsert: true }
     );
 
-    const subtripId = counter ? `st-${counter.seq}` : "st-1";
-    this._id = subtripId;
+    const session = this.$session();
+    if (session) {
+      counterQuery.session(session);
+    }
+
+    const counter = await counterQuery;
+
+    const subtripNo = counter ? `st-${counter.seq}` : "st-1";
+    this.subtripNo = this.subtripNo || subtripNo;
   } catch (error) {
     return next(error);
   }
@@ -111,11 +109,6 @@ subtripSchema.pre("save", async function (next) {
 // for locking once subtrip is closed
 subtripSchema.pre("save", function (next) {
   // If no modifications, proceed
-
-  console.log({
-    modi: this.isModified("subtripStatus"),
-    current: this.subtripStatus,
-  });
 
   if (!this.isModified()) return next();
 

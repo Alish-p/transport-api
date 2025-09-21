@@ -22,7 +22,8 @@ const taxBreakupSchema = new Schema(
 
 const subtripSnapshotSchema = new Schema(
   {
-    subtripId: { type: String, ref: "Subtrip", required: true },
+    subtripId: { type: Schema.Types.ObjectId, ref: "Subtrip", required: true },
+    subtripNo: String,
     consignee: String,
     unloadingPoint: String,
     vehicleNo: String,
@@ -89,7 +90,7 @@ const invoiceSchema = new Schema(
     payments: [paymentSchema],
 
     // Hybrid referencing
-    invoicedSubTrips: [{ type: String, ref: "Subtrip" }],
+    invoicedSubTrips: [{ type: Schema.Types.ObjectId, ref: "Subtrip" }],
     subtripSnapshot: [subtripSnapshotSchema],
 
     // Optional metadata
