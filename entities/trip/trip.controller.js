@@ -236,11 +236,8 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
 
 // fetch All details of trip
 const fetchTrip = asyncHandler(async (req, res) => {
-  const id = req.params.id;
-  const idQuery = mongoose.Types.ObjectId.isValid(id)
-    ? { _id: id }
-    : { tripNo: id };
-  const trip = await Trip.findOne({ ...idQuery, tenant: req.tenant })
+
+  const trip = await Trip.findOne({ _id: req.params.id, tenant: req.tenant })
     .populate({
       path: "subtrips",
       populate: [
@@ -265,11 +262,10 @@ const fetchTrip = asyncHandler(async (req, res) => {
 
 // Update Trip and Close it
 const closeTrip = asyncHandler(async (req, res) => {
-  const tripNo = req.params.id;
 
   // Find the trip by ID and update it
   const trip = await Trip.findOneAndUpdate(
-    { tripNo: tripNo, tenant: req.tenant },
+    { _id: req.params.id, tenant: req.tenant },
     {
       tripStatus: TRIP_STATUS.CLOSED,
       toDate: new Date(),
@@ -287,13 +283,9 @@ const closeTrip = asyncHandler(async (req, res) => {
 
 // Update Trip
 const updateTrip = asyncHandler(async (req, res) => {
-  const id = req.params.id;
-  const idQuery = mongoose.Types.ObjectId.isValid(id)
-    ? { _id: id }
-    : { tripNo: id };
 
   // 1. Fetch the trip
-  const trip = await Trip.findOne({ ...idQuery, tenant: req.tenant });
+  const trip = await Trip.findOne({ _id: req.params.id, tenant: req.tenant });
   if (!trip) {
     res.status(404);
     throw new Error("Trip not found");
@@ -344,7 +336,7 @@ const updateTrip = asyncHandler(async (req, res) => {
 
 // Delete Trip and Associated Subtrips and Expenses
 const deleteTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findOne({ tripNo: req.params.id, tenant: req.tenant });
+  const trip = await Trip.findOne({ _id: req.params.id, tenant: req.tenant });
 
   if (!trip) {
     res.status(404).json({ message: "Trip not found" });
@@ -357,7 +349,7 @@ const deleteTrip = asyncHandler(async (req, res) => {
     await Subtrip.findOneAndDelete({ _id: subtripId, tenant: req.tenant });
   }
 
-  await Trip.findOneAndDelete({ tripNo: req.params.id, tenant: req.tenant });
+  await Trip.findOneAndDelete({ _id: req.params.id, tenant: req.tenant });
   res.status(200).json({ message: "Trip deleted successfully" });
 });
 
