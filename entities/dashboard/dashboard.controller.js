@@ -192,7 +192,7 @@ const getExpiringSubtrips = asyncHandler(async (req, res) => {
       ewayExpiryDate: { $ne: null, $gt: now, $lte: threshold },
     })
   )
-    .select("_id startDate unloadingPoint ewayExpiryDate vehicleId customerId")
+    .select("_id subtripNo startDate unloadingPoint ewayExpiryDate vehicleId customerId")
     .populate({ path: "vehicleId", select: "vehicleNo" })
     .populate({ path: "customerId", select: "customerName" })
     .sort({ ewayExpiryDate: 1 })
@@ -200,6 +200,7 @@ const getExpiringSubtrips = asyncHandler(async (req, res) => {
 
   const formatted = subtrips.map((st) => ({
     subtripId: st._id,
+    subtripNo: st.subtripNo,
     vehicle: st.vehicleId?.vehicleNo || null,
     customer: st.customerId?.customerName || null,
     startDate: st.startDate,

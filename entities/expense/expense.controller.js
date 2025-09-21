@@ -159,6 +159,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
           populate: { path: "transporter", select: "transportName" },
         })
         .populate({ path: "pumpCd", select: "name" })
+        .populate({ path: "subtripId", select: "subtripNo" })
         .sort({ date: -1 })
         .skip(skip)
         .limit(limit),
