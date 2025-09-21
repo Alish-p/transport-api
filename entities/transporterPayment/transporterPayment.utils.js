@@ -36,7 +36,7 @@ const calculateTransporterPayment = (subtrip) => {
 // 🛠 Calculate tax breakup based on tenant and transporter state
 // In GST reverse mechanism we just show tax breakdown only not take consideration into netTotal
 const calculateTaxBreakup = (transporter, totalAmountBeforeTax, tenantState) => {
-  const taxRate = CONFIG.transporterInvoiceTax || 6; // default GST rate
+  const taxRate = CONFIG.transporterInvoiceTax || 9; // default GST rate
   const tdsRate = transporter?.tdsPercentage || 0;
   const tdsAmount = (totalAmountBeforeTax * tdsRate) / 100;
 
@@ -154,6 +154,8 @@ const calculateTransporterPaymentSummary = (
   };
 };
 
-export { calculateTransporterPayment,
+export {
+  calculateTransporterPayment,
   calculateTaxBreakup,
-  calculateTransporterPaymentSummary, };
+  calculateTransporterPaymentSummary,
+};

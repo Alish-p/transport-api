@@ -15,7 +15,7 @@ const calculateInvoicePerSubtrip = (subtrip) => {
 
 // 🛠 Calculate tax breakup based on tenant and customer state
 const calculateTaxBreakup = (customer, totalAmountBeforeTax, tenantState) => {
-  const taxRate = CONFIG.customerInvoiceTax || 6; // default to 6%
+  const taxRate = CONFIG.customerInvoiceTax || 9; // default to 9%
 
   // 🚫 GST not applicable — return only TDS
   if (!customer?.gstEnabled) {
@@ -164,5 +164,7 @@ const calculateInvoiceSummary = (invoice, customer, tenantState) => {
   };
 };
 
-export { calculateInvoiceSummary,
-  calculateTaxBreakup, };
+export {
+  calculateInvoiceSummary,
+  calculateTaxBreakup,
+};
