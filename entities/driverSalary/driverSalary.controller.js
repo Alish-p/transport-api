@@ -70,6 +70,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
 
       return {
         subtripId: st._id,
+        subtripNo: st.subtripNo,
         loadingPoint: st.loadingPoint,
         unloadingPoint: st.unloadingPoint,
         vehicleNo: st.vehicleId?.vehicleNo,
@@ -221,6 +222,7 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
         const totalDriverSalary = calculateDriverSalary(st);
         return {
           subtripId: st._id,
+          subtripNo: st.subtripNo,
           loadingPoint: st.loadingPoint,
           unloadingPoint: st.unloadingPoint,
           vehicleNo: st.vehicleId?.vehicleNo,
@@ -358,9 +360,11 @@ const deleteDriverSalary = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Driver Salary deleted successfully." });
 });
 
-export { createDriverSalary,
+export {
+  createDriverSalary,
   createBulkDriverSalaries,
   fetchDriverSalaries,
   fetchDriverSalary,
   updateDriverSalary,
-  deleteDriverSalary, };
+  deleteDriverSalary,
+};

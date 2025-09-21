@@ -318,7 +318,7 @@ const updateTrip = asyncHandler(async (req, res) => {
 
   // 4. Perform the update
   const updatedTrip = await Trip.findOneAndUpdate(
-    { ...idQuery, tenant: req.tenant },
+    { _id: req.params.id, tenant: req.tenant },
     req.body,
     {
       new: true,

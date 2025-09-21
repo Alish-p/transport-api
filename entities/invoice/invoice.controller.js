@@ -88,6 +88,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     // 5. Prepare snapshot
     const subtripSnapshot = subtrips.map((st) => ({
       subtripId: st._id,
+      subtripNo: st.subtripNo,
       consignee: st.consignee,
       unloadingPoint: st.unloadingPoint,
       diNumber: st.diNumber,

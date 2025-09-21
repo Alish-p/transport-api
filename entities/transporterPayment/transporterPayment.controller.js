@@ -6,10 +6,14 @@ import Subtrip from '../subtrip/subtrip.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import TransporterPayment from './transporterPayment.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import { recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES, } from '../../helpers/subtrip-event-helper.js';
-import { calculateTransporterPayment,
-  calculateTransporterPaymentSummary, } from './transporterPayment.utils.js';
+import {
+  recordSubtripEvent,
+  SUBTRIP_EVENT_TYPES,
+} from '../../helpers/subtrip-event-helper.js';
+import {
+  calculateTransporterPayment,
+  calculateTransporterPaymentSummary,
+} from './transporterPayment.utils.js';
 
 // 💰 Create Transporter Payment Receipt
 const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
@@ -75,6 +79,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
       return {
         subtripId: st._id,
+        subtripNo: st.subtripNo,
         loadingPoint: st.loadingPoint,
         unloadingPoint: st.unloadingPoint,
         vehicleNo: st.vehicleId?.vehicleNo,
@@ -196,9 +201,8 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       if (!transporter) {
         await session.abortTransaction();
         return res.status(404).json({
-          message: `Payload #${
-            idx + 1
-          }: Transporter not found (${transporterId}).`,
+          message: `Payload #${idx + 1
+            }: Transporter not found (${transporterId}).`,
           index: idx,
         });
       }
@@ -225,9 +229,8 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         // eslint-disable-next-line no-await-in-loop
         await session.abortTransaction();
         return res.status(400).json({
-          message: `Payload #${
-            idx + 1
-          }: Some subtrips invalid, belong to another tenant, or already linked.`,
+          message: `Payload #${idx + 1
+            }: Some subtrips invalid, belong to another tenant, or already linked.`,
           failedSubtrips: failed,
           index: idx,
         });
@@ -244,6 +247,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
 
         return {
           subtripId: st._id,
+          subtripNo: st.subtripNo,
           loadingPoint: st.loadingPoint,
           unloadingPoint: st.unloadingPoint,
           vehicleNo: st.vehicleId.vehicleNo,
@@ -490,9 +494,11 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   });
 });
 
-export { createTransporterPaymentReceipt,
+export {
+  createTransporterPaymentReceipt,
   createBulkTransporterPaymentReceipts,
   fetchTransporterPaymentReceipts,
   fetchTransporterPaymentReceipt,
   updateTransporterPaymentReceipt,
-  deleteTransporterPaymentReceipt, };
+  deleteTransporterPaymentReceipt,
+};
