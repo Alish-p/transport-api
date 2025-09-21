@@ -663,7 +663,7 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
         }),
       )
         .select(
-          '_id customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId',
+          '_id subtripNo customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId',
         )
         .populate('customerId', 'customerName')
         .populate({
@@ -692,6 +692,7 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
         pendingAmount += totalTransporterPayment;
         return {
           _id: st._id,
+          subtripNo: st.subtripNo,
           customerName: st.customerId?.customerName || null,
           loadingPoint: st.loadingPoint,
           unloadingPoint: st.unloadingPoint,
@@ -865,7 +866,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         subtripStatus: SUBTRIP_STATUS.RECEIVED,
       })
         .select(
-          "_id customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId"
+          "_id subtripNo customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId"
         )
         .populate("customerId", "customerName")
         .populate({ path: "vehicleId", select: "vehicleNo isOwn" })
@@ -899,6 +900,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
     }));
     const formattedUnbilledSubtrips = unbilledSubtrips.map((st) => ({
       _id: st._id,
+      subtripNo: st.subtripNo,
       customerName: st.customerId?.customerName || null,
       startDate: st.startDate,
       receivedDate: st.endDate,
