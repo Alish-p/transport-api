@@ -3,6 +3,7 @@ import {
   createTrip,
   fetchTrips,
   fetchTripsPreview,
+  fetchVehicleActiveTrip,
   fetchTrip,
   updateTrip,
   deleteTrip,
@@ -24,6 +25,7 @@ router.post(
   checkPermission("trip", "create"),
   createTrip,
 );
+router.get("/vehicle/:vehicleId/active", authenticate, fetchVehicleActiveTrip);
 router.get("/:id", authenticate, fetchTrip);
 router.put(
   "/:id",

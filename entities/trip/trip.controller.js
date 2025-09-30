@@ -234,6 +234,42 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
   }
 });
 
+const fetchVehicleActiveTrip = asyncHandler(async (req, res) => {
+  const { vehicleId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+    res.status(400).json({ message: "Invalid vehicle id" });
+    return;
+  }
+
+  const activeTrip = await Trip.findOne({
+    tenant: req.tenant,
+    vehicleId,
+    tripStatus: TRIP_STATUS.OPEN,
+  })
+    .populate({ path: "vehicleId", select: "vehicleNo" })
+    .populate({ path: "driverId", select: "driverName" })
+    .populate({
+      path: "subtrips",
+      select:
+        "subtripNo subtripStatus startDate endDate materialType routeCd customerId driverId",
+      populate: [
+        { path: "customerId", select: "customerName" },
+        { path: "routeCd", select: "routeName fromPlace toPlace" },
+        { path: "driverId", select: "driverName" },
+      ],
+    })
+    .lean();
+
+  if (!activeTrip) {
+    res.status(404).json({ message: "Active trip not found for this vehicle" });
+    return;
+  }
+
+  res.status(200).json(
+    activeTrip);
+});
+
 // fetch All details of trip
 const fetchTrip = asyncHandler(async (req, res) => {
 
@@ -357,6 +393,7 @@ export {
   createTrip,
   fetchTrips,
   fetchTripsPreview,
+  fetchVehicleActiveTrip,
   fetchTrip,
   closeTrip,
   updateTrip,
