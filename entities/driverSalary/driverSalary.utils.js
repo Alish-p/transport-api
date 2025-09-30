@@ -11,7 +11,7 @@ function calculateDriverSalary(subtrip) {
 
   // Filter only the expenses of type 'driver-salary'
   const driverSalaryExpenses = subtrip.expenses.filter(
-    (expense) => expense.expenseType === "driver-salary"
+    (expense) => expense.expenseType === "Driver Salary"
   );
 
   // Sum up the amounts of those expenses
@@ -41,9 +41,9 @@ function calculateDriverSalarySummary(
   // Total income across all subtrips
   const totalTripWiseIncome = Array.isArray(associatedSubtrips)
     ? associatedSubtrips.reduce(
-        (sum, subtrip) => sum + calculateDriverSalary(subtrip),
-        0
-      )
+      (sum, subtrip) => sum + calculateDriverSalary(subtrip),
+      0
+    )
     : 0;
 
   // Sum of all additional payments
@@ -68,5 +68,7 @@ function calculateDriverSalarySummary(
   };
 }
 
-export { calculateDriverSalary,
-  calculateDriverSalarySummary, };
+export {
+  calculateDriverSalary,
+  calculateDriverSalarySummary,
+};

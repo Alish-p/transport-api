@@ -27,7 +27,7 @@ const expenseSchema = new Schema({
 });
 
 expenseSchema.pre("validate", function (next) {
-  if (this.expenseType === "diesel") {
+  if (this.expenseType === "Diesel") {
     this.dieselLtr = this.dieselLtr || undefined;
     this.dieselPrice = this.dieselPrice || undefined;
     this.pumpCd = this.pumpCd || undefined;
@@ -37,7 +37,7 @@ expenseSchema.pre("validate", function (next) {
     this.pumpCd = undefined;
   }
 
-  if (this.expenseType === "salary") {
+  if (this.expenseType === "Driver Salary") {
     this.variableSalary = this.variableSalary || undefined;
     this.fixedSalary = this.fixedSalary || undefined;
     this.performanceSalary = this.performanceSalary || undefined;
@@ -47,7 +47,7 @@ expenseSchema.pre("validate", function (next) {
     this.performanceSalary = undefined;
   }
 
-  if (this.expenseType === "adblue") {
+  if (this.expenseType === "Adblue") {
     this.adblueLiters = this.adblueLiters || undefined;
     this.adbluePrice = this.adbluePrice || undefined;
   } else {
