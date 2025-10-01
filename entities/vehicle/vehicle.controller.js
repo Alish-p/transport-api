@@ -88,7 +88,8 @@ const fetchVehicles = asyncHandler(async (req, res) => {
       await Promise.all([
         Vehicle.find(query)
           .populate("transporter", "transportName")
-          .sort({ vehicleNo: 1 })
+          // Show own vehicles first, then sort by vehicle number
+          .sort({ isOwn: -1, vehicleNo: 1 })
           .skip(skip)
           .limit(limit),
         Vehicle.countDocuments(query),
@@ -116,7 +117,9 @@ const fetchVehicles = asyncHandler(async (req, res) => {
 const fetchVehiclesSummary = asyncHandler(async (req, res) => {
   const Vehicles = await Vehicle.find({ tenant: req.tenant })
     .select("vehicleNo vehicleType modelType vehicleCompany noOfTyres isOwn")
-    .populate("transporter", "transportName");
+    .populate("transporter", "transportName")
+    // Own vehicles first, then by vehicle number
+    .sort({ isOwn: -1, vehicleNo: 1 });
   res.status(200).json(Vehicles);
 });
 
