@@ -1400,32 +1400,6 @@ const getDailySummary = asyncHandler(async (req, res) => {
     const invoiceCount = invoices.length;
     const invoiceTotalAmount = invoices.reduce((sum, inv) => sum + (inv.netTotal || 0), 0);
 
-    // Build billed subtrips from invoice.subtripSnapshot
-    const billedSubtripsList = invoices.flatMap((inv) =>
-      (inv.subtripSnapshot || []).map((snap) => ({
-        invoiceId: inv._id,
-        invoiceNo: inv.invoiceNo,
-        customerName: inv.customerId?.customerName || null,
-        issueDate: inv.issueDate,
-        subtripId: snap.subtripId,
-        subtripNo: snap.subtripNo,
-        vehicleNo: snap.vehicleNo,
-        unloadingPoint: snap.unloadingPoint,
-        diNumber: snap.diNumber,
-        rate: snap.rate,
-        loadingWeight: snap.loadingWeight,
-        materialType: snap.materialType,
-        shortageWeight: snap.shortageWeight,
-        shortageAmount: snap.shortageAmount,
-        freightAmount: snap.freightAmount,
-        totalAmount: snap.totalAmount,
-        startDate: snap.startDate,
-      }))
-    );
-
-    const billedSubtripsCount = billedSubtripsList.length;
-    const billedSubtripsAmount = billedSubtripsList.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-
     // 5. Transporter payments generated on the day
     const transporterPayments = await TransporterPayment.find({
       tenant: req.tenant,
@@ -1447,11 +1421,6 @@ const getDailySummary = asyncHandler(async (req, res) => {
         created: { count: createdSubtrips.length, list: createdSubtrips },
         loaded: { count: loadedSubtrips.length, list: loadedSubtrips },
         received: { count: receivedSubtrips.length, list: receivedSubtrips },
-        billed: {
-          count: billedSubtripsCount,
-          amount: billedSubtripsAmount,
-          list: billedSubtripsList,
-        },
       },
       invoices: {
         count: invoiceCount,
