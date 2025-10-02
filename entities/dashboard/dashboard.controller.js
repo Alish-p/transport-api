@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import Loan from '../loan/loan.model.js';
 import Driver from '../driver/driver.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
@@ -14,6 +15,7 @@ import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 import { calculateTransporterPayment } from '../transporterPayment/transporterPayment.utils.js';
+import SubtripEvent from '../subtripEvent/subtripEvent.model.js';
 
 
 
@@ -1275,6 +1277,213 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// (Exports moved to bottom with getDailySummary)
+
+// Get day-wise dashboard summary
+const getDailySummary = asyncHandler(async (req, res) => {
+  const { date } = req.query;
+
+  if (!date) {
+    return res
+      .status(400)
+      .json({ message: "date query parameter required in YYYY-MM-DD format" });
+  }
+
+  const [yearStr, monthStr, dayStr] = date.split("-");
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+  const dayNum = parseInt(dayStr, 10);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNum) ||
+    Number.isNaN(dayNum) ||
+    monthNum < 1 ||
+    monthNum > 12 ||
+    dayNum < 1 ||
+    dayNum > 31
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Invalid date format. Use YYYY-MM-DD" });
+  }
+
+  const startOfDay = new Date(Date.UTC(year, monthNum - 1, dayNum, 0, 0, 0, 0));
+  const endOfDay = new Date(Date.UTC(year, monthNum - 1, dayNum + 1, 0, 0, 0, 0));
+
+  try {
+    // helper: resolve subtrips from event list supporting ObjectId or subtripNo strings
+    const fetchSubtripsFromEvents = async (events) => {
+      const validIds = new Set();
+      const subtripNos = new Set();
+
+      for (const e of events) {
+        const v = e.subtripId;
+        if (!v) continue;
+        // Handle ObjectId instance
+        if (typeof v === 'object' && v._id) {
+          validIds.add(String(v._id));
+        } else if (typeof v === 'object' && v.toString) {
+          const s = v.toString();
+          if (mongoose.Types.ObjectId.isValid(s)) validIds.add(s);
+          else subtripNos.add(s);
+        } else if (typeof v === 'string') {
+          if (mongoose.Types.ObjectId.isValid(v)) validIds.add(v);
+          else subtripNos.add(v);
+        }
+      }
+
+      const or = [];
+      if (validIds.size) or.push({ _id: { $in: Array.from(validIds) } });
+      if (subtripNos.size) or.push({ subtripNo: { $in: Array.from(subtripNos) } });
+
+      if (!or.length) return [];
+
+      return Subtrip.find({ tenant: req.tenant, $or: or })
+        .select(
+          '_id subtripNo startDate endDate loadingPoint unloadingPoint loadingWeight rate subtripStatus customerId vehicleId driverId'
+        )
+        .populate('customerId', 'customerName')
+        .populate({
+          path: 'vehicleId',
+          select: 'vehicleNo isOwn transporter',
+          populate: { path: 'transporter', select: 'transportName' },
+        })
+        .populate('driverId', 'driverName')
+        .lean();
+    };
+    // 1. Subtrips created on the day (via SubtripEvent CREATED)
+    const createdEvents = await SubtripEvent
+      .find({
+        tenant: req.tenant,
+        eventType: 'CREATED',
+        timestamp: { $gte: startOfDay, $lt: endOfDay },
+      })
+      .select('subtripId timestamp')
+      .lean();
+
+    const createdSubtrips = await fetchSubtripsFromEvents(createdEvents);
+
+    // 2. Subtrips loaded/ dispatched on the day (Material added event)
+    const loadedEvents = await SubtripEvent
+      .find({
+        tenant: req.tenant,
+        eventType: 'MATERIAL_ADDED',
+        timestamp: { $gte: startOfDay, $lt: endOfDay },
+      })
+      .select('subtripId timestamp')
+      .lean();
+
+    const loadedSubtrips = await fetchSubtripsFromEvents(loadedEvents);
+
+    // 3. Subtrips received on the day (RECEIVED or ERROR_RESOLVED events)
+    const receivedEvents = await SubtripEvent
+      .find({
+        tenant: req.tenant,
+        eventType: { $in: ['RECEIVED', 'ERROR_RESOLVED'] },
+        timestamp: { $gte: startOfDay, $lt: endOfDay },
+      })
+      .select('subtripId timestamp')
+      .lean();
+
+    const receivedSubtrips = await fetchSubtripsFromEvents(receivedEvents);
+
+    // 4 & 6. Invoices generated on the day + Billed subtrips derived from invoices
+    const invoices = await Invoice.find({
+      tenant: req.tenant,
+      issueDate: { $gte: startOfDay, $lt: endOfDay },
+    })
+      .select('_id invoiceNo issueDate netTotal customerId invoiceStatus subtripSnapshot')
+      .populate('customerId', 'customerName')
+      .lean();
+
+    const invoiceCount = invoices.length;
+    const invoiceTotalAmount = invoices.reduce((sum, inv) => sum + (inv.netTotal || 0), 0);
+
+    // Build billed subtrips from invoice.subtripSnapshot
+    const billedSubtripsList = invoices.flatMap((inv) =>
+      (inv.subtripSnapshot || []).map((snap) => ({
+        invoiceId: inv._id,
+        invoiceNo: inv.invoiceNo,
+        customerName: inv.customerId?.customerName || null,
+        issueDate: inv.issueDate,
+        subtripId: snap.subtripId,
+        subtripNo: snap.subtripNo,
+        vehicleNo: snap.vehicleNo,
+        unloadingPoint: snap.unloadingPoint,
+        diNumber: snap.diNumber,
+        rate: snap.rate,
+        loadingWeight: snap.loadingWeight,
+        materialType: snap.materialType,
+        shortageWeight: snap.shortageWeight,
+        shortageAmount: snap.shortageAmount,
+        freightAmount: snap.freightAmount,
+        totalAmount: snap.totalAmount,
+        startDate: snap.startDate,
+      }))
+    );
+
+    const billedSubtripsCount = billedSubtripsList.length;
+    const billedSubtripsAmount = billedSubtripsList.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+
+    // 5. Transporter payments generated on the day
+    const transporterPayments = await TransporterPayment.find({
+      tenant: req.tenant,
+      issueDate: { $gte: startOfDay, $lt: endOfDay },
+    })
+      .select('_id paymentId issueDate status summary transporterId')
+      .populate('transporterId', 'transportName')
+      .lean();
+
+    const transporterPaymentCount = transporterPayments.length;
+    const transporterPaymentTotalAmount = transporterPayments.reduce(
+      (sum, p) => sum + (p.summary?.netIncome || 0),
+      0,
+    );
+
+    res.status(200).json({
+      date,
+      subtrips: {
+        created: { count: createdSubtrips.length, list: createdSubtrips },
+        loaded: { count: loadedSubtrips.length, list: loadedSubtrips },
+        received: { count: receivedSubtrips.length, list: receivedSubtrips },
+        billed: {
+          count: billedSubtripsCount,
+          amount: billedSubtripsAmount,
+          list: billedSubtripsList,
+        },
+      },
+      invoices: {
+        count: invoiceCount,
+        amount: invoiceTotalAmount,
+        list: invoices.map((inv) => ({
+          _id: inv._id,
+          invoiceNo: inv.invoiceNo,
+          issueDate: inv.issueDate,
+          customerName: inv.customerId?.customerName || null,
+          status: inv.invoiceStatus,
+          netTotal: inv.netTotal,
+        })),
+      },
+      transporterPayments: {
+        count: transporterPaymentCount,
+        amount: transporterPaymentTotalAmount,
+        list: transporterPayments.map((p) => ({
+          _id: p._id,
+          paymentId: p.paymentId,
+          transporterName: p.transporterId?.transportName || null,
+          issueDate: p.issueDate,
+          status: p.status,
+          netIncome: p.summary?.netIncome || 0,
+        })),
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
 export {
   getTotalCounts,
   getExpiringSubtrips,
@@ -1291,4 +1500,5 @@ export {
   getMonthlyDriverSummary,
   getMonthlyTransporterSummary,
   getMonthlyVehicleSubtripSummary,
+  getDailySummary,
 };

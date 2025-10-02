@@ -16,6 +16,7 @@ import {
   getTopRoutes,
   getTransporterPaymentSummary,
   getInvoiceAmountSummary,
+  getDailySummary,
 } from './dashboard.controller.js';
 
 const router = Router();
@@ -59,5 +60,6 @@ router.get(
   authenticate,
   getTransporterPaymentSummary
 );
+router.get("/daily-summary", authenticate, getDailySummary);
 
 export default router;
