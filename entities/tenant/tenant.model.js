@@ -40,6 +40,34 @@ const integrationSchema = new Schema(
       },
       config: { type: Schema.Types.Mixed },
     },
+    accounting: {
+      enabled: { type: Boolean, default: false },
+      provider: {
+        type: String,
+        enum: ["Tally", "Mark", "Zoho"],
+        default: null,
+      },
+      config: {
+        invoiceLedgerNames: {
+          enabled: { type: Boolean, default: false },
+          cgst: { type: String },
+          igst: { type: String },
+          sgst: { type: String },
+          transport_pay: { type: String },
+          shortage: { type: String },
+        },
+        transporterLedgerNames: {
+          enabled: { type: Boolean, default: false },
+          cgst: { type: String },
+          igst: { type: String },
+          sgst: { type: String },
+          tds: { type: String },
+          diesel: { type: String },
+          trip_advance: { type: String },
+          shortage: { type: String },
+        },
+      },
+    },
   },
   { _id: false }
 );
