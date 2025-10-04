@@ -1341,7 +1341,7 @@ const getDailySummary = asyncHandler(async (req, res) => {
 
       return Subtrip.find({ tenant: req.tenant, $or: or })
         .select(
-          '_id subtripNo startDate endDate loadingPoint unloadingPoint loadingWeight rate subtripStatus customerId vehicleId driverId'
+          '_id subtripNo startDate endDate loadingPoint unloadingPoint loadingWeight rate materialType subtripStatus customerId vehicleId driverId'
         )
         .populate('customerId', 'customerName')
         .populate({
@@ -1375,6 +1375,19 @@ const getDailySummary = asyncHandler(async (req, res) => {
       .lean();
 
     const loadedSubtrips = await fetchSubtripsFromEvents(loadedEvents);
+
+    // Consolidated material summary (by loadingWeight) for loaded subtrips
+    const materialsMap = new Map();
+    for (const st of loadedSubtrips) {
+      const key = st.materialType;
+      const wt = Number(st.loadingWeight) || 0;
+      if (!key || wt <= 0) continue;
+      materialsMap.set(key, (materialsMap.get(key) || 0) + wt);
+    }
+    const materials = Array.from(materialsMap.entries())
+      .map(([materialType, totalLoadingWeight]) => ({ materialType, totalLoadingWeight, amount: totalLoadingWeight }))
+      .sort((a, b) => b.totalLoadingWeight - a.totalLoadingWeight);
+    const materialsTotalWeight = materials.reduce((sum, m) => sum + (m.totalLoadingWeight || 0), 0);
 
     // 3. Subtrips received on the day (RECEIVED or ERROR_RESOLVED events)
     const receivedEvents = await SubtripEvent
@@ -1415,12 +1428,31 @@ const getDailySummary = asyncHandler(async (req, res) => {
       0,
     );
 
+    // 7. Expenses on the given day
+    const expensesOnDate = await Expense.find({
+      tenant: req.tenant,
+      date: { $gte: startOfDay, $lt: endOfDay },
+    })
+      .select(
+        '_id date expenseCategory expenseType amount paidThrough remarks dieselLtr dieselPrice adblueLiters adbluePrice vehicleId subtripId pumpCd'
+      )
+      .populate('vehicleId', 'vehicleNo')
+      .populate('subtripId', 'subtripNo')
+      .populate('pumpCd', 'pumpName')
+      .lean();
+
+    const totalExpenseAmount = expensesOnDate.reduce((sum, e) => sum + (e.amount || 0), 0);
+
     res.status(200).json({
       date,
       subtrips: {
         created: { count: createdSubtrips.length, list: createdSubtrips },
         loaded: { count: loadedSubtrips.length, list: loadedSubtrips },
         received: { count: receivedSubtrips.length, list: receivedSubtrips },
+      },
+      materials: {
+        amount: materialsTotalWeight,
+        list: materials,
       },
       invoices: {
         count: invoiceCount,
@@ -1445,6 +1477,11 @@ const getDailySummary = asyncHandler(async (req, res) => {
           status: p.status,
           netIncome: p.summary?.netIncome || 0,
         })),
+      },
+      expenses: {
+        count: expensesOnDate.length,
+        amount: totalExpenseAmount,
+        list: expensesOnDate,
       },
     });
   } catch (error) {
