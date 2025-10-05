@@ -10,7 +10,8 @@ const subtripSchema = new Schema({
   isEmpty: { type: Boolean, default: false },
 
   // References to related entities
-  tripId: { type: Schema.Types.ObjectId, ref: "Trip", required: true },
+  // Trip reference will only be present for own vehicles
+  tripId: { type: Schema.Types.ObjectId, ref: "Trip" },
   driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   routeCd: { type: Schema.Types.ObjectId, ref: "Route" },

@@ -744,17 +744,6 @@ const receiveLR = asyncHandler(async (req, res) => {
 
   await subtrip.save();
 
-  // Close the parent trip for market vehicles
-  if (subtrip.vehicleId && !subtrip.vehicleId.isOwn) {
-    await Trip.findOneAndUpdate(
-      { _id: subtrip.tripId._id || subtrip.tripId, tenant: req.tenant },
-      {
-        tripStatus: TRIP_STATUS.CLOSED,
-        toDate: new Date(),
-      }
-    );
-  }
-
   res.status(200).json(subtrip);
 });
 

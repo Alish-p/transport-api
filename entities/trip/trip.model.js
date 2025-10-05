@@ -9,6 +9,9 @@ const tripSchema = new Schema({
   tripStatus: { type: String, required: true }, // Billed or Pending
   fromDate: { type: Date, required: true },
   toDate: { type: Date },
+  // Trip-level odometer readings
+  startKm: { type: Number },
+  endKm: { type: Number },
   remarks: { type: String },
   subtrips: [{ type: Schema.Types.ObjectId, ref: "Subtrip" }],
   tenant: {
