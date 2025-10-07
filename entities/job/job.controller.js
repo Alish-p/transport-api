@@ -61,6 +61,7 @@ const createJob = asyncHandler(async (req, res) => {
       // Optional driver advance inputs
       driverAdvance,
       initialAdvanceDiesel,
+      initialAdvanceDieselUnit,
       driverAdvanceGivenBy,
       pumpCd,
 
@@ -355,113 +356,69 @@ const createJob = asyncHandler(async (req, res) => {
       await tripToUse.save({ session });
     }
 
-    // Auto-add expenses for own vehicle loaded jobs based on route config
-    if (isOwnVehicle && isLoaded) {
-      let config = null;
-      if (route) {
-        const v = vehicle;
-        config = route.vehicleConfiguration.find(
-          (item) =>
-            item.vehicleType.toLowerCase() === v.vehicleType.toLowerCase() &&
-            item.noOfTyres === v.noOfTyres
-        );
+    // Only add expenses if explicitly received from UI req
+    // Normalize inputs
+    const normGivenBy = (driverAdvanceGivenBy || '').toString().toLowerCase();
+    const isGivenByPump = normGivenBy.includes('pump'); // handles 'pump' or 'fuel pump'
+    const normDieselUnit = (initialAdvanceDieselUnit || '').toString().toLowerCase();
+
+    // Populate fuel intent fields on subtrip
+    // - Store initialTripAdvance with driverAdvance value for reference
+    const needsSubtripUpdate = driverAdvance !== undefined || initialAdvanceDiesel !== undefined || pumpCd || driverAdvanceGivenBy;
+    if (needsSubtripUpdate) {
+      const patch = {};
+      if (driverAdvance !== undefined) patch.initialTripAdvance = driverAdvance;
+      if (initialAdvanceDiesel !== undefined) patch.initialAdvanceDiesel = initialAdvanceDiesel;
+      if (driverAdvanceGivenBy) patch.driverAdvanceGivenBy = isGivenByPump ? 'pump' : 'self';
+      if (pumpCd) patch.intentFuelPump = pumpCd;
+      if (Object.keys(patch).length) {
+        await Subtrip.updateOne({ _id: newSubtrip._id, tenant: req.tenant }, { $set: patch }, { session });
       }
+    }
 
-      const expensesToInsert = [];
+    const expensesToInsert = [];
 
-      if (config) {
-        // Driver salary
-        if (config.fixedSalary > 0) {
-          expensesToInsert.push({
-            tenant: req.tenant,
-            tripId: newSubtrip.tripId,
-            subtripId: newSubtrip._id,
-            vehicleId,
-            amount: config.fixedSalary,
-            expenseType: 'Driver Salary',
-            expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-            remarks: 'Auto-added fixed driver salary from route config',
-            authorisedBy: 'System',
-            slipNo: 'N/A',
-            paidThrough: 'Cash',
-          });
-        } else if (config.percentageSalary > 0 && rate > 0 && loadingWeight > 0) {
-          const percentAmt = (rate * loadingWeight * config.percentageSalary) / 100;
-          expensesToInsert.push({
-            tenant: req.tenant,
-            tripId: newSubtrip.tripId,
-            subtripId: newSubtrip._id,
-            vehicleId,
-            amount: percentAmt,
-            expenseType: 'Driver Salary',
-            expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-            remarks: 'Auto-calculated percentage-based driver salary from route config',
-            authorisedBy: 'System',
-            slipNo: 'N/A',
-            paidThrough: 'Cash',
-          });
-        }
+    // Driver Advance: add if > 0
+    if (typeof driverAdvance === 'number' && driverAdvance > 0) {
+      expensesToInsert.push({
+        tenant: req.tenant,
+        tripId: newSubtrip.tripId,
+        subtripId: newSubtrip._id,
+        vehicleId,
+        amount: driverAdvance,
+        expenseType: 'Trip Advance',
+        expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+        remarks: 'Driver advance from UI',
+        paidThrough: isGivenByPump ? 'Pump' : 'Cash',
+        pumpCd: isGivenByPump ? pumpCd || null : null,
+      });
+    }
 
-        // Toll
-        if (config.tollAmt > 0) {
-          expensesToInsert.push({
-            tenant: req.tenant,
-            tripId: newSubtrip.tripId,
-            subtripId: newSubtrip._id,
-            vehicleId,
-            amount: config.tollAmt,
-            expenseType: 'Toll',
-            expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-            remarks: 'Auto-added toll from route config',
-            authorisedBy: 'System',
-            slipNo: 'N/A',
-            paidThrough: 'Cash',
-          });
-        }
+    // Initial Advance Diesel: if unit is amount, add expense with pumpCd; if litre, don't add
+    if (
+      typeof initialAdvanceDiesel === 'number' &&
+      initialAdvanceDiesel > 0 &&
+      normDieselUnit === 'amount'
+    ) {
+      expensesToInsert.push({
+        tenant: req.tenant,
+        tripId: newSubtrip.tripId,
+        subtripId: newSubtrip._id,
+        vehicleId,
+        amount: initialAdvanceDiesel,
+        expenseType: 'Diesel',
+        expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+        remarks: 'Initial advance diesel (amount) from UI',
+        paidThrough: 'Pump',
+        pumpCd: pumpCd || null,
+      });
+    }
 
-        // Route-based Advance
-        if (config.advanceAmt > 0) {
-          expensesToInsert.push({
-            tenant: req.tenant,
-            tripId: newSubtrip.tripId,
-            subtripId: newSubtrip._id,
-            vehicleId,
-            amount: config.advanceAmt,
-            expenseType: 'Trip Advance',
-            expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-            remarks: 'Auto-added driver advance from route config',
-            authorisedBy: 'System',
-            slipNo: 'N/A',
-            paidThrough: 'Pump',
-            pumpCd: driverAdvanceGivenBy === 'self' ? null : pumpCd,
-          });
-        }
-      }
-
-      // Manual advance
-      if (driverAdvance && driverAdvance !== 0) {
-        expensesToInsert.push({
-          tenant: req.tenant,
-          tripId: newSubtrip.tripId,
-          subtripId: newSubtrip._id,
-          vehicleId,
-          amount: driverAdvance,
-          expenseType: 'Trip Advance',
-          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-          remarks: 'Manual driver advance entered by user',
-          authorisedBy: 'System',
-          slipNo: 'N/A',
-          paidThrough: 'Pump',
-          pumpCd: driverAdvanceGivenBy === 'self' ? null : pumpCd,
-        });
-      }
-
-      if (expensesToInsert.length) {
-        const createdExpenses = await Expense.insertMany(expensesToInsert, { session });
-        if (!newSubtrip.expenses) newSubtrip.expenses = [];
-        newSubtrip.expenses.push(...createdExpenses.map((e) => e._id));
-        await newSubtrip.save({ session });
-      }
+    if (expensesToInsert.length) {
+      const createdExpenses = await Expense.insertMany(expensesToInsert, { session });
+      if (!newSubtrip.expenses) newSubtrip.expenses = [];
+      newSubtrip.expenses.push(...createdExpenses.map((e) => e._id));
+      await newSubtrip.save({ session });
     }
 
     await session.commitTransaction();
@@ -500,4 +457,3 @@ const createJob = asyncHandler(async (req, res) => {
 });
 
 export { createJob };
-

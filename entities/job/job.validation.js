@@ -44,6 +44,7 @@ const jobCreateSchema = z.object({
       // Optional driver-advance inputs
       driverAdvance: z.number().optional(),
       initialAdvanceDiesel: z.any().optional(),
+      initialAdvanceDieselUnit: z.enum(['litre', 'amount']).optional(),
       driverAdvanceGivenBy: z.string().optional(),
       pumpCd: z.string().optional(),
     })

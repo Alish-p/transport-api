@@ -34,7 +34,12 @@ expenseSchema.pre("validate", function (next) {
   } else {
     this.dieselLtr = undefined;
     this.dieselPrice = undefined;
-    this.pumpCd = undefined;
+    // Allow pumpCd for non-Diesel when explicitly tied to advances paid via pump
+    if (this.expenseType === "Trip Advance") {
+      this.pumpCd = this.pumpCd || undefined;
+    } else {
+      this.pumpCd = undefined;
+    }
   }
 
   if (this.expenseType === "Driver Salary") {
