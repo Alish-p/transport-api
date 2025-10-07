@@ -24,8 +24,6 @@ const subtripSchema = new Schema({
   unloadingPoint: { type: String },
   startDate: { type: Date, required: true },
   endDate: { type: Date },
-  startKm: { type: Number },
-  endKm: { type: Number },
 
   // Shipment and invoice details
   invoiceNo: { type: String },

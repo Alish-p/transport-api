@@ -695,7 +695,6 @@ const receiveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
     unloadingWeight,
-    endKm,
     commissionRate,
     hasError,
     remarks,
@@ -715,7 +714,6 @@ const receiveLR = asyncHandler(async (req, res) => {
   Object.assign(subtrip, {
     unloadingWeight,
     endDate,
-    endKm,
     shortageWeight,
     shortageAmount,
     subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,

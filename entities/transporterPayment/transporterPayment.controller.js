@@ -14,6 +14,7 @@ import {
   calculateTransporterPayment,
   calculateTransporterPaymentSummary,
 } from './transporterPayment.utils.js';
+import WhatsApp from '../../services/whatsapp.service.js';
 
 // 💰 Create Transporter Payment Receipt
 const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
@@ -149,6 +150,10 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
         )
       )
     );
+
+    // Fire-and-forget WhatsApp notification (best-effort)
+    WhatsApp.notifyTransporterPaymentGenerated(transporter, saved)
+      .catch((e) => console.error('WhatsApp notify error:', e?.message || e));
 
     res.status(201).json(saved);
   } catch (err) {
@@ -315,6 +320,10 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
           )
         )
       );
+
+      // Best-effort WhatsApp notification per receipt
+      WhatsApp.notifyTransporterPaymentGenerated(transporter, saved)
+        .catch((e) => console.error('WhatsApp notify error:', e?.message || e));
     }
 
     // 8. Commit all
