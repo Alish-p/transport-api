@@ -1,5 +1,6 @@
 import { Schema, model } from 'mongoose';
 import CounterModel from '../../model/Counter.js';
+import { DRIVER_ADVANCE_GIVEN_BY_OPTIONS } from './subtrip.constants.js';
 
 // subtrip Schema
 const subtripSchema = new Schema({
@@ -55,9 +56,10 @@ const subtripSchema = new Schema({
 
   // Fuel management (Fuel Intent)
   initialAdvanceDiesel: { type: Schema.Types.Mixed },
+  initialAdvanceDieselUnit: { type: String, enum: ['litre', 'amount'], default: undefined },
   initialTripAdvance: { type: Schema.Types.Mixed }, // initial trip advance
   intentFuelPump: { type: Schema.Types.ObjectId, ref: "Pump" },
-  driverAdvanceGivenBy: { type: String },
+  driverAdvanceGivenBy: { type: String, enum: Object.values(DRIVER_ADVANCE_GIVEN_BY_OPTIONS) },
 
   // Status tracking
   subtripStatus: { type: String },

@@ -45,7 +45,7 @@ const jobCreateSchema = z.object({
       driverAdvance: z.number().optional(),
       initialAdvanceDiesel: z.any().optional(),
       initialAdvanceDieselUnit: z.enum(['litre', 'amount']).optional(),
-      driverAdvanceGivenBy: z.string().optional(),
+      driverAdvanceGivenBy: z.enum(['Self', 'Fuel Pump']).optional(),
       pumpCd: z.string().optional(),
     })
     .superRefine((body, ctx) => {

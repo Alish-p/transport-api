@@ -323,6 +323,7 @@ const createJob = asyncHandler(async (req, res) => {
         referenceSubtripNo,
         diNumber,
         initialAdvanceDiesel,
+        initialAdvanceDieselUnit,
         driverAdvanceGivenBy,
       });
       if (pumpCd) subtripFields.intentFuelPump = pumpCd;
@@ -364,12 +365,19 @@ const createJob = asyncHandler(async (req, res) => {
 
     // Populate fuel intent fields on subtrip
     // - Store initialTripAdvance with driverAdvance value for reference
-    const needsSubtripUpdate = driverAdvance !== undefined || initialAdvanceDiesel !== undefined || pumpCd || driverAdvanceGivenBy;
+    const needsSubtripUpdate =
+      driverAdvance !== undefined ||
+      initialAdvanceDiesel !== undefined ||
+      initialAdvanceDieselUnit !== undefined ||
+      pumpCd ||
+      driverAdvanceGivenBy;
     if (needsSubtripUpdate) {
       const patch = {};
       if (driverAdvance !== undefined) patch.initialTripAdvance = driverAdvance;
       if (initialAdvanceDiesel !== undefined) patch.initialAdvanceDiesel = initialAdvanceDiesel;
-      if (driverAdvanceGivenBy) patch.driverAdvanceGivenBy = isGivenByPump ? 'pump' : 'self';
+      if (initialAdvanceDieselUnit !== undefined) patch.initialAdvanceDieselUnit = initialAdvanceDieselUnit;
+      if (driverAdvanceGivenBy)
+        patch.driverAdvanceGivenBy = isGivenByPump ? 'Fuel Pump' : 'Self';
       if (pumpCd) patch.intentFuelPump = pumpCd;
       if (Object.keys(patch).length) {
         await Subtrip.updateOne({ _id: newSubtrip._id, tenant: req.tenant }, { $set: patch }, { session });
