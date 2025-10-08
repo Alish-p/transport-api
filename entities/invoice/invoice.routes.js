@@ -6,7 +6,6 @@ import {
   fetchInvoice,
   cancelInvoice,
   payInvoice,
-  deleteInvoice,
 } from './invoice.controller.js';
 
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
@@ -34,11 +33,6 @@ router.put(
   checkPermission("invoice", "update"),
   payInvoice
 );
-router.delete(
-  "/:id",
-  authenticate,
-  checkPermission("invoice", "delete"),
-  deleteInvoice
-);
+// Deletion of invoices is not allowed; delete route removed.
 
 export default router;

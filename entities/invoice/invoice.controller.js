@@ -290,67 +290,6 @@ const fetchInvoice = asyncHandler(async (req, res) => {
   });
 });
 
-const deleteInvoice = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const session = await Invoice.startSession();
-  session.startTransaction();
-
-  try {
-    // 1. Load invoice with subtrip refs
-    const invoice = await Invoice.findOne({
-      _id: id,
-      tenant: req.tenant,
-    }).session(session);
-
-    if (!invoice) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: "Invoice not found" });
-    }
-
-    // 2. Revert invoiceId on linked subtrips
-    const subtrips = await Subtrip.find({
-      _id: { $in: invoice.invoicedSubTrips },
-      tenant: req.tenant,
-    }).session(session);
-
-    for (const subtrip of subtrips) {
-      subtrip.invoiceId = null;
-      subtrip.subtripStatus = SUBTRIP_STATUS.RECEIVED; // or logic-based status if needed
-
-      await recordSubtripEvent(
-        subtrip._id,
-        SUBTRIP_EVENT_TYPES.INVOICE_DELETED,
-        {
-          deletedInvoiceId: id,
-          invoiceNo: invoice.invoiceNo,
-        },
-        req.user,
-        req.tenant
-      );
-
-      await subtrip.save({ session });
-    }
-
-    // 3. Delete the invoice
-    await Invoice.findOneAndDelete({ _id: id, tenant: req.tenant }).session(
-      session
-    );
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(200).json({ message: "Invoice deleted successfully" });
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error("Invoice deletion failed:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to delete invoice", error: error.message });
-  }
-});
 
 // Mark Invoice as Cancelled
 const cancelInvoice = asyncHandler(async (req, res) => {
@@ -482,5 +421,4 @@ export {
   fetchInvoice,
   cancelInvoice,
   payInvoice,
-  deleteInvoice,
 };
