@@ -22,7 +22,7 @@ import { jobCreateSchema, } from '../job/job.validation.js';
 
 const router = Router();
 
-router.post("/", authenticate, checkPermission("subtrip", "create"), createSubtrip);
+// router.post("/", authenticate, checkPermission("subtrip", "create"), createSubtrip);
 
 // new route for job creation
 router.post('/jobs', authenticate, checkPermission('subtrip', 'create'), validate(jobCreateSchema), createJob);
@@ -46,12 +46,12 @@ router.delete(
   deleteSubtrip
 );
 
-router.put(
-  "/:id/material-info",
-  authenticate,
-  checkPermission("subtrip", "update"),
-  addMaterialInfo
-);
+// router.put(
+//   "/:id/material-info",
+//   authenticate,
+//   checkPermission("subtrip", "update"),
+//   addMaterialInfo
+// );
 router.put(
   "/:id/receive",
   authenticate,
@@ -65,17 +65,17 @@ router.put(
   resolveLR
 );
 
-router.post(
-  "/empty",
-  authenticate,
-  checkPermission("subtrip", "create"),
-  createEmptySubtrip
-);
-router.put(
-  "/:id/close-empty",
-  authenticate,
-  checkPermission("subtrip", "update"),
-  closeEmptySubtrip
-);
+// router.post(
+//   "/empty",
+//   authenticate,
+//   checkPermission("subtrip", "create"),
+//   createEmptySubtrip
+// );
+// router.put(
+//   "/:id/close-empty",
+//   authenticate,
+//   checkPermission("subtrip", "update"),
+//   closeEmptySubtrip
+// );
 
 export default router;

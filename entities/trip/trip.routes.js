@@ -19,12 +19,12 @@ const router = Router();
 router.get("/", authenticate, pagination, fetchTrips);
 router.get("/preview", authenticate, pagination, fetchTripsPreview);
 
-router.post(
-  "/",
-  authenticate,
-  checkPermission("trip", "create"),
-  createTrip,
-);
+// router.post(
+//   "/",
+//   authenticate,
+//   checkPermission("trip", "create"),
+//   createTrip,
+// );
 router.get("/vehicle/:vehicleId/active", authenticate, fetchVehicleActiveTrip);
 router.get("/:id", authenticate, fetchTrip);
 router.put(
