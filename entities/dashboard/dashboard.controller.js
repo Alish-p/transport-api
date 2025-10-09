@@ -1364,21 +1364,10 @@ const getDailySummary = asyncHandler(async (req, res) => {
 
     const createdSubtrips = await fetchSubtripsFromEvents(createdEvents);
 
-    // 2. Subtrips loaded/ dispatched on the day (Material added event)
-    const loadedEvents = await SubtripEvent
-      .find({
-        tenant: req.tenant,
-        eventType: 'MATERIAL_ADDED',
-        timestamp: { $gte: startOfDay, $lt: endOfDay },
-      })
-      .select('subtripId timestamp')
-      .lean();
-
-    const loadedSubtrips = await fetchSubtripsFromEvents(loadedEvents);
 
     // Consolidated material summary (by loadingWeight) for loaded subtrips
     const materialsMap = new Map();
-    for (const st of loadedSubtrips) {
+    for (const st of createdSubtrips) {
       const key = st.materialType;
       const wt = Number(st.loadingWeight) || 0;
       if (!key || wt <= 0) continue;
@@ -1447,7 +1436,6 @@ const getDailySummary = asyncHandler(async (req, res) => {
       date,
       subtrips: {
         created: { count: createdSubtrips.length, list: createdSubtrips },
-        loaded: { count: loadedSubtrips.length, list: loadedSubtrips },
         received: { count: receivedSubtrips.length, list: receivedSubtrips },
       },
       materials: {
