@@ -47,8 +47,6 @@ const getFleetxVehicleData = async (vehicleNo) => {
     // const token = await loginToFleetx();
     const analytics = await fetchLiveAnalytics();
 
-    console.log(analytics)
-
     const vehicle = analytics.vehicles?.find((v) => v.vehicleNumber === vehicleNo);
     if (!vehicle) {
         return null;

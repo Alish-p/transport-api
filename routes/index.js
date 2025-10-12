@@ -22,12 +22,14 @@ import tripRouter from '../entities/trip/trip.routes.js';
 import userRouter from '../entities/user/user.routes.js';
 import authRouter from '../entities/user/auth.routes.js';
 import vehicleRouter from '../entities/vehicle/vehicle.routes.js';
+import vehicleDocumentRouter from '../entities/vehicleDocument/vehicleDocument.routes.js';
 
 const router = express.Router();
 
 router.use('/dashboard', dashboardRouter);
 
 router.use('/vehicles', vehicleRouter);
+router.use('/vehicles', vehicleDocumentRouter);
 router.use('/transporters', transporterRouter);
 router.use('/drivers', driverRouter);
 router.use('/customers', customerRouter);
