@@ -7,11 +7,10 @@ const vehicleDocumentSchema = new Schema(
       type: String,
       required: true,
       enum: ['Insurance', 'PUC', 'RC', 'Fitness', 'Permit', 'Tax', 'Other'],
-      index: true,
     },
     docNumber: { type: String, required: true },
     issueDate: { type: Date },
-    expiryDate: { type: Date, index: true },
+    expiryDate: { type: Date, },
 
     // Storage fields (optional)
     storageProvider: { type: String, default: 's3' },
@@ -20,8 +19,8 @@ const vehicleDocumentSchema = new Schema(
 
     // Audit
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    isActive: { type: Boolean, default: true, index: true },
-    tenant: { type: Schema.Types.ObjectId, ref: 'Tenant', required: true, index: true },
+    isActive: { type: Boolean, default: true, },
+    tenant: { type: Schema.Types.ObjectId, ref: 'Tenant', required: true, },
   },
   { timestamps: true }
 );
