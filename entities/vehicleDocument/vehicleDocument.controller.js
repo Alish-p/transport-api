@@ -107,7 +107,7 @@ export const getActiveDocuments = asyncHandler(async (req, res) => {
 export const getDocumentHistory = asyncHandler(async (req, res) => {
   const { vehicleId } = req.params;
   const { docType } = req.query;
-  const query = addTenantToQuery(req, { vehicle: ensureObjectId(vehicleId) });
+  const query = addTenantToQuery(req, { vehicle: ensureObjectId(vehicleId), isActive: false });
   if (docType) query.docType = docType;
   const docs = await VehicleDocument.find(query).sort({ createdAt: -1 }).lean();
   return res.status(200).json(docs);
