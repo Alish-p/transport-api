@@ -9,6 +9,7 @@ const vehicleDocumentSchema = new Schema(
       enum: ['Insurance', 'PUC', 'RC', 'Fitness', 'Permit', 'Tax', 'Other'],
     },
     docNumber: { type: String, required: true },
+    issuer: { type: String, trim: true },
     issueDate: { type: Date },
     expiryDate: { type: Date, },
 
