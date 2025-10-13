@@ -17,6 +17,7 @@ import {
   getTransporterPaymentSummary,
   getInvoiceAmountSummary,
   getDailySummary,
+  getVehicleDocumentStatusSummary,
 } from './dashboard.controller.js';
 
 const router = Router();
@@ -61,5 +62,6 @@ router.get(
   getTransporterPaymentSummary
 );
 router.get("/daily-summary", authenticate, getDailySummary);
+router.get("/vehicle-documents-summary", authenticate, getVehicleDocumentStatusSummary);
 
 export default router;

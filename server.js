@@ -8,6 +8,7 @@ import rateLimit from "express-rate-limit";
 import connectDB from "./config/db.js";
 import routes from "./routes/index.js";
 import { errorHandler } from "./middlewares/ErrorHandler.js";
+import { startDailyDriverExpiryJob } from "./services/scheduler.js";
 
 dotenv.config();
 
@@ -38,6 +39,8 @@ app.use(express.json());
 // Database
 // -----------------------------------------------------------------------------
 connectDB();
+// Schedule background jobs
+startDailyDriverExpiryJob();
 
 // -----------------------------------------------------------------------------
 // Rate Limiting

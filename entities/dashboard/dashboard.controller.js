@@ -15,6 +15,8 @@ import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 import { calculateTransporterPayment } from '../transporterPayment/transporterPayment.utils.js';
+import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
+import { REQUIRED_DOC_TYPES } from '../vehicleDocument/vehicleDocument.constants.js';
 import SubtripEvent from '../subtripEvent/subtripEvent.model.js';
 
 
@@ -439,6 +441,101 @@ const getSubtripStatusSummary = asyncHandler(async (req, res) => {
     console.log(error);
     res.status(500).json({ error });
   }
+});
+
+// Vehicle document status summary (own vehicles only)
+// Returns counts for: missing (required doc slots lacking), expiring (within N days), expired, valid
+// Query: optional `days` (default 30) for expiring window
+const getVehicleDocumentStatusSummary = asyncHandler(async (req, res) => {
+  const days = Number(req.query.days) > 0 ? Number(req.query.days) : 15;
+  const now = new Date();
+  const end = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+  // 1) Fetch own vehicles for this tenant
+  const ownVehicles = await Vehicle.find({ tenant: req.tenant, isOwn: true })
+    .select('_id')
+    .lean();
+
+  if (!ownVehicles.length) {
+    return res.status(200).json({
+      missing: 0,
+      expiring: 0,
+      expired: 0,
+      valid: 0,
+      meta: {
+        vehicles: 0,
+        requiredDocSlots: 0,
+        windowDays: days,
+      },
+    });
+  }
+
+  const vehicleIds = ownVehicles.map((v) => v._id);
+
+  // 2) Fetch active required documents for these vehicles
+  const docs = await VehicleDocument.find({
+    tenant: req.tenant,
+    isActive: true,
+    vehicle: { $in: vehicleIds },
+    docType: { $in: REQUIRED_DOC_TYPES },
+  })
+    .select('vehicle docType expiryDate')
+    .lean();
+
+  // 3) Build present doc types per vehicle for missing calculation
+  const presentByVehicle = new Map(); // vehicleId -> Set(docType)
+  for (const d of docs) {
+    const key = String(d.vehicle);
+    if (!presentByVehicle.has(key)) presentByVehicle.set(key, new Set());
+    presentByVehicle.get(key).add(d.docType);
+  }
+
+  // Total required slots across own vehicles
+  const totalRequiredSlots = ownVehicles.length * REQUIRED_DOC_TYPES.length;
+
+  // 4) Compute missing required doc slots
+  let missing = 0;
+  for (const v of ownVehicles) {
+    const key = String(v._id);
+    const present = presentByVehicle.get(key) || new Set();
+    for (const t of REQUIRED_DOC_TYPES) {
+      if (!present.has(t)) missing += 1;
+    }
+  }
+
+  // 5) Classify current docs into expired / expiring / valid
+  let expired = 0;
+  let expiring = 0;
+  let valid = 0;
+
+  for (const d of docs) {
+    const exp = d.expiryDate ? new Date(d.expiryDate) : null;
+    if (!exp) {
+      // No expiry considered valid
+      valid += 1;
+      continue;
+    }
+    if (exp < now) {
+      expired += 1;
+    } else if (exp <= end) {
+      expiring += 1;
+    } else {
+      valid += 1;
+    }
+  }
+
+  return res.status(200).json({
+    missing,
+    expiring,
+    expired,
+    valid,
+    meta: {
+      vehicles: ownVehicles.length,
+      requiredDocSlots: totalRequiredSlots,
+      activeDocsConsidered: docs.length,
+      windowDays: days,
+    },
+  });
 });
 
 
@@ -1495,4 +1592,5 @@ export {
   getMonthlyTransporterSummary,
   getMonthlyVehicleSubtripSummary,
   getDailySummary,
+  getVehicleDocumentStatusSummary,
 };
