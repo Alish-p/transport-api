@@ -93,8 +93,6 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       materials,
     } = req.query;
 
-    console.log({ routeId });
-
     // Initialize base query with tenant filter
     const query = addTenantToQuery(req);
 
@@ -189,7 +187,6 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       query.vehicleId = vehicleId;
     }
 
-    console.log({ query });
 
     // Execute the query with population
     const subtrips = await populateSubtrip(Subtrip.find(query)).lean();

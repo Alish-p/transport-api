@@ -47,7 +47,6 @@ export const updateTask = asyncHandler(async (req, res) => {
 
   // Add activity for status change if status is being updated
   if (status && status !== task.status) {
-    console.log({ status, taskStatus: task.status });
 
     task.activities.push({
       user: req.user._id,
@@ -278,9 +277,8 @@ export const toggleSubtaskComplete = asyncHandler(async (req, res) => {
   task.activities.push({
     user: req.user._id,
     action: "subtask_status_changed",
-    message: `Marked subtask "${subtask.text}" as ${
-      subtask.completed ? "completed" : "incomplete"
-    }`,
+    message: `Marked subtask "${subtask.text}" as ${subtask.completed ? "completed" : "incomplete"
+      }`,
   });
 
   await task.save();
