@@ -97,7 +97,11 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     const query = addTenantToQuery(req);
 
     // Direct field filters
-    if (subtripNo) query.subtripNo = subtripNo;
+    // Support partial, case-insensitive search on subtrip number
+    if (subtripNo) {
+      const escaped = String(subtripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.subtripNo = { $regex: escaped, $options: "i" };
+    }
     if (tripId) query.tripId = tripId;
     if (routeId) query.routeCd = new mongoose.Types.ObjectId(routeId);
     if (customerId) query.customerId = customerId;
@@ -232,7 +236,10 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
     // Base query ensures we only consider loaded subtrips and tenant matches
     const query = addTenantToQuery(req, { isEmpty: false });
 
-    if (subtripNo) query.subtripNo = subtripNo;
+    if (subtripNo) {
+      const escaped = String(subtripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.subtripNo = { $regex: escaped, $options: "i" };
+    }
     if (routeId) query.routeCd = routeId;
     if (customerId) query.customerId = customerId;
     if (referenceSubtripNo) query.referenceSubtripNo = referenceSubtripNo;
@@ -361,49 +368,27 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
     });
 
     if (search) {
-      if (search.startsWith("st-")) {
-        query.subtripNo = search;
-      } else {
-        const regex = new RegExp(search, "i");
+      // Case-insensitive, partial match across subtripNo, driverName, vehicleNo
+      const escaped = String(search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "i");
 
-        const [drivers, vehicles] = await Promise.all([
-          Driver.find({
-            driverName: { $regex: regex },
-            tenant: req.tenant,
-          }).select("_id"),
-          Vehicle.find({
-            vehicleNo: { $regex: regex },
-            tenant: req.tenant,
-          }).select("_id"),
-        ]);
+      const [drivers, vehicles] = await Promise.all([
+        Driver.find({ driverName: { $regex: regex }, tenant: req.tenant }).select(
+          "_id"
+        ),
+        Vehicle.find({ vehicleNo: { $regex: regex }, tenant: req.tenant }).select(
+          "_id"
+        ),
+      ]);
 
-        const driverIds = drivers.map((d) => d._id);
-        const vehicleIds = vehicles.map((v) => v._id);
+      const driverIds = drivers.map((d) => d._id);
+      const vehicleIds = vehicles.map((v) => v._id);
 
-        if (!driverIds.length && !vehicleIds.length) {
-          return res.status(200).json({
-            results: [],
-            total: 0,
-            startRange: 0,
-            endRange: 0,
-          });
-        }
+      const orConditions = [{ subtripNo: { $regex: regex } }];
+      if (driverIds.length) orConditions.push({ driverId: { $in: driverIds } });
+      if (vehicleIds.length) orConditions.push({ vehicleId: { $in: vehicleIds } });
 
-        const orConditions = [];
-        if (driverIds.length) orConditions.push({ driverId: { $in: driverIds } });
-        if (vehicleIds.length) orConditions.push({ vehicleId: { $in: vehicleIds } });
-
-        if (!orConditions.length) {
-          return res.status(200).json({
-            results: [],
-            total: 0,
-            startRange: 0,
-            endRange: 0,
-          });
-        }
-
-        query.$or = orConditions;
-      }
+      query.$or = orConditions;
     }
 
     const [subtrips, total] = await Promise.all([

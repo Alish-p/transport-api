@@ -70,7 +70,9 @@ const fetchTrips = asyncHandler(async (req, res) => {
     const query = addTenantToQuery(req);
 
     if (tripNo) {
-      query.tripNo = tripNo;
+      // Support partial, case-insensitive search on trip number
+      const escaped = String(tripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.tripNo = { $regex: escaped, $options: "i" };
     }
     if (driverId) query.driverId = driverId;
     // vehicleId will be applied below when considering isOwn as well
