@@ -24,10 +24,11 @@ function sanitizeSegment(input, toLower = true) {
 
 export const getUploadUrl = asyncHandler(async (req, res) => {
   const { vehicleId } = req.params;
-  const { docType, contentType } = req.query;
+  const { docType, contentType, extension } = req.query;
 
   if (!docType) return res.status(400).json({ message: 'docType is required' });
   if (!contentType) return res.status(400).json({ message: 'contentType is required' });
+  if (!extension) return res.status(400).json({ message: 'extension is required (e.g., pdf, jpg)' });
 
   // Validate vehicle ownership/tenant (own vehicles only)
   const vehicle = await Vehicle.findOne({ _id: vehicleId, tenant: req.tenant, isOwn: true });
@@ -45,10 +46,18 @@ export const getUploadUrl = asyncHandler(async (req, res) => {
   const vehicleSegment = sanitizeSegment(vehicle.vehicleNo || String(vehicleId), false);
   const docTypeSegment = sanitizeSegment(docType, true);
 
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).slice(2, 8);
-  // Key format: <tenantName>/vehicles/<vehicleNo>/<docType>/<ts>_<rand>
-  const key = `${tenantSegment}/vehicles/${vehicleSegment}/${docTypeSegment}/${timestamp}_${random}`;
+  // Build filename: <docType>_YYYY-MM-DD_<rand4>.<ext>
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const rand4 = Math.random().toString(36).slice(2, 6);
+  const safeExt = String(extension).toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!safeExt) return res.status(400).json({ message: 'Invalid extension' });
+  const filename = `${docTypeSegment}_${yyyy}-${mm}-${dd}_${rand4}.${safeExt}`;
+
+  // Final key: <tenant>/vehicles/<vehicleNo>/<docType>/<filename>
+  const key = `${tenantSegment}/vehicles/${vehicleSegment}/${docTypeSegment}/${filename}`;
 
   try {
     const url = await createPresignedPutUrl({ key, contentType, expiresIn: 900 });
@@ -188,14 +197,21 @@ export const deleteDocument = asyncHandler(async (req, res) => {
   const doc = await VehicleDocument.findOne({ _id: docId, tenant: req.tenant, vehicle: vehicleId });
   if (!doc) return res.status(404).json({ message: 'Document not found' });
 
-  try {
-    await deleteObjectFromS3(doc.fileKey);
-  } catch (err) {
-    return res.status(500).json({ message: 'Failed to delete file from S3', error: err.message });
+  let s3Deleted = false;
+  let s3Error;
+  // Attempt S3 delete only if we have a key; treat failures as non-blocking
+  if (doc.fileKey) {
+    try {
+      await deleteObjectFromS3(doc.fileKey);
+      s3Deleted = true;
+    } catch (err) {
+      s3Error = err?.message || 'Unknown S3 error';
+      // Intentionally do not block record deletion
+    }
   }
 
   await VehicleDocument.deleteOne({ _id: docId, tenant: req.tenant, vehicle: vehicleId });
-  return res.status(200).json({ message: 'Deleted', id: docId });
+  return res.status(200).json({ message: 'Deleted', id: docId, s3Deleted, ...(s3Error ? { s3Error } : {}) });
 });
 
 // Fetch paginated vehicle documents with filters and status totals

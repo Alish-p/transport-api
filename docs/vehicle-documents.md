@@ -12,7 +12,7 @@ Environment
 - `AWS_PUBLIC_BASE_URL` (optional CDN/bucket base for public file URLs)
 
 Routes (all under `/api/vehicles` unless stated)
-- GET `/:vehicleId/documents/upload-url?docType=Insurance&contentType=application/pdf`
+- GET `/:vehicleId/documents/upload-url?docType=Insurance&contentType=application/pdf&extension=pdf`
   - Returns `{ key, uploadUrl }` for direct S3 PUT.
 - POST `/:vehicleId/documents`
   - Body: `{ docType, docNumber, issueDate?, expiryDate?, fileKey }`
@@ -37,8 +37,8 @@ Routes (all under `/api/vehicles` unless stated)
  - PUT `/:vehicleId/documents/:docId`
   - Update fields: `{ docNumber?, issueDate?, expiryDate?, isActive?, docType? }`.
   - If `isActive` is true (or remains true) and `docType` is set/unchanged, any other active doc of same type is auto-deactivated.
- - DELETE `/:vehicleId/documents/:docId`
-  - Deletes the document record only (file remains in S3). Optional S3 delete can be added if required.
+- DELETE `/:vehicleId/documents/:docId`
+  - Deletes the document record and attempts to delete the S3 object (best-effort). API still succeeds if S3 delete fails, returning `s3Deleted: false` and an `s3Error` message.
 
 Security
 - All routes require `authenticate`.
@@ -52,4 +52,6 @@ Upload Flow
 3) Client POSTs metadata with `fileKey` to create the record.
 
 Object Key Structure
-- `<tenantName>/vehicles/<vehicleNo>/<docType>/<timestamp>_<rand>`
+- `<tenant>/vehicles/<vehicleNo>/<docType>/<docType>_<YYYY-MM-DD>_<rand4>.<ext>`
+  - Example: `acme/vehicles/GJ01AB1234/insurance/insurance_2025-10-20_ab12.pdf`
+  - `ext` is provided by the client via the `extension` (or `ext`) query param.
