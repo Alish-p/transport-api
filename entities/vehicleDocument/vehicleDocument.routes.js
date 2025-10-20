@@ -1,69 +1,36 @@
 import { Router } from 'express';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import pagination from '../../middlewares/pagination.js';
 import {
   getUploadUrl,
   createDocument,
-  getActiveDocuments,
-  getDocumentHistory,
-  getMissingDocuments,
-  getExpiringDocuments,
   getDownloadUrl,
   updateDocument,
   deleteDocument,
+  fetchDocumentsList,
 } from './vehicleDocument.controller.js';
 
 const router = Router({ mergeParams: true });
 
 // Upload (presigned URL) and create record
 router.get(
-  '/:vehicleId/documents/upload-url',
+  '/:vehicleId/upload-url',
   authenticate,
   checkPermission('vehicle', 'update'),
   getUploadUrl
 );
 
 router.post(
-  '/:vehicleId/documents',
+  '/:vehicleId',
   authenticate,
   checkPermission('vehicle', 'update'),
   createDocument
 );
 
-// Active docs for a vehicle
-router.get(
-  '/:vehicleId/documents/active',
-  authenticate,
-  checkPermission('vehicle', 'view'),
-  getActiveDocuments
-);
-
-// History
-router.get(
-  '/:vehicleId/documents/history',
-  authenticate,
-  checkPermission('vehicle', 'view'),
-  getDocumentHistory
-);
-
-// Missing required docs
-router.get(
-  '/:vehicleId/documents/missing',
-  authenticate,
-  checkPermission('vehicle', 'view'),
-  getMissingDocuments
-);
-
-// Calendar-style expiring docs (tenant-wide or filtered)
-router.get(
-  '/documents/expiring',
-  authenticate,
-  checkPermission('vehicle', 'view'),
-  getExpiringDocuments
-);
 
 // Secure download (presigned GET)
 router.get(
-  '/:vehicleId/documents/:docId/download',
+  '/:vehicleId/:docId/download',
   authenticate,
   checkPermission('vehicle', 'view'),
   getDownloadUrl
@@ -71,7 +38,7 @@ router.get(
 
 // Update document metadata
 router.put(
-  '/:vehicleId/documents/:docId',
+  '/:vehicleId/:docId',
   authenticate,
   checkPermission('vehicle', 'update'),
   updateDocument
@@ -79,10 +46,19 @@ router.put(
 
 // Delete document record
 router.delete(
-  '/:vehicleId/documents/:docId',
+  '/:vehicleId/:docId',
   authenticate,
   checkPermission('vehicle', 'delete'),
   deleteDocument
+);
+
+// Paginated listing with filters and status totals
+router.get(
+  '/',
+  authenticate,
+  checkPermission('vehicle', 'view'),
+  pagination,
+  fetchDocumentsList
 );
 
 export default router;

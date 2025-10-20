@@ -29,7 +29,7 @@ const router = express.Router();
 router.use('/dashboard', dashboardRouter);
 
 router.use('/vehicles', vehicleRouter);
-router.use('/vehicles', vehicleDocumentRouter);
+router.use('/documents', vehicleDocumentRouter);
 router.use('/transporters', transporterRouter);
 router.use('/drivers', driverRouter);
 router.use('/customers', customerRouter);

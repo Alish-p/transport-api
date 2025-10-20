@@ -17,14 +17,21 @@ Routes (all under `/api/vehicles` unless stated)
 - POST `/:vehicleId/documents`
   - Body: `{ docType, docNumber, issueDate?, expiryDate?, fileKey }`
   - Creates/activates a new document record; previous active of same type is deactivated.
-- GET `/:vehicleId/documents/active`
-  - Lists active documents for a vehicle.
-- GET `/:vehicleId/documents/history?docType=Insurance`
-  - Lists history of documents (optionally filter by type).
-- GET `/:vehicleId/documents/missing`
-  - Returns required types and which are missing an active doc.
-- GET `/documents/expiring?from=2024-10-01&to=2025-01-01`
-  - Tenant-wide expiring active documents; supports `vehicleId` and `docType` filters.
+- GET `/documents/pagination`
+  - Paginated list with filters and status totals.
+  - Query params:
+    - `page`, `rowsPerPage`
+    - `status`: one of `missing`, `expiring`, `expired`, `valid`
+    - `vehicleId`
+    - `documentType` (alias: `docType`)
+    - `expiryFrom`, `expiryTo`
+    - `issueFrom`, `issueTo`
+    - `createdBy` (user id)
+    - `docNumber` (search)
+    - `issuer` (search)
+    - `days` (expiring window, default 30)
+  - Response shape:
+    - `{ results, total, totalMissing, totalExpiring, totalExpired, totalValid, startRange, endRange }`
  - GET `/:vehicleId/documents/:docId/download`
   - Returns `{ url, expiresIn }` short-lived presigned GET for private buckets.
  - PUT `/:vehicleId/documents/:docId`
