@@ -35,7 +35,7 @@ Routes (all under `/api/vehicles` unless stated)
  - GET `/:vehicleId/documents/:docId/download`
   - Returns `{ url, expiresIn }` short-lived presigned GET for private buckets.
  - PUT `/:vehicleId/documents/:docId`
-  - Update fields: `{ docNumber?, issueDate?, expiryDate?, isActive?, docType? }`.
+  - Update fields: `{ docNumber?, issueDate?, expiryDate?, isActive?, docType?, issuer? }`.
   - If `isActive` is true (or remains true) and `docType` is set/unchanged, any other active doc of same type is auto-deactivated.
 - DELETE `/:vehicleId/documents/:docId`
   - Deletes the document record and attempts to delete the S3 object (best-effort). API still succeeds if S3 delete fails, returning `s3Deleted: false` and an `s3Error` message.

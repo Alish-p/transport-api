@@ -70,7 +70,7 @@ export const getUploadUrl = asyncHandler(async (req, res) => {
 // Create document record (after client uploads with presigned URL)
 export const createDocument = asyncHandler(async (req, res) => {
   const { vehicleId } = req.params;
-  const { docType, docNumber, issueDate, expiryDate, fileKey } = req.body;
+  const { docType, docNumber, issueDate, expiryDate, fileKey, issuer } = req.body;
 
   if (!docType || !docNumber) {
     return res.status(400).json({ message: 'docType and docNumber are required' });
@@ -91,6 +91,7 @@ export const createDocument = asyncHandler(async (req, res) => {
     vehicle: vehicle._id,
     docType,
     docNumber,
+    issuer,
     issueDate: issueDate ? new Date(issueDate) : undefined,
     expiryDate: expiryDate ? new Date(expiryDate) : undefined,
     storageProvider: 's3',
@@ -125,7 +126,7 @@ export const getDownloadUrl = asyncHandler(async (req, res) => {
 // Update a vehicle document's metadata
 export const updateDocument = asyncHandler(async (req, res) => {
   const { vehicleId, docId } = req.params;
-  const { docNumber, issueDate, expiryDate, isActive, docType, fileKey } = req.body || {};
+  const { docNumber, issueDate, expiryDate, isActive, docType, fileKey, issuer } = req.body || {};
 
   const doc = await VehicleDocument.findOne({ _id: docId, tenant: req.tenant, vehicle: vehicleId });
   if (!doc) return res.status(404).json({ message: 'Document not found' });
@@ -137,6 +138,13 @@ export const updateDocument = asyncHandler(async (req, res) => {
   if (typeof issueDate !== 'undefined') updates.issueDate = issueDate ? new Date(issueDate) : undefined;
   if (typeof expiryDate !== 'undefined') updates.expiryDate = expiryDate ? new Date(expiryDate) : undefined;
   if (typeof isActive !== 'undefined') updates.isActive = Boolean(isActive);
+  if (typeof issuer !== 'undefined') {
+    if (issuer === null) {
+      unsetUpdates.issuer = '';
+    } else {
+      updates.issuer = issuer;
+    }
+  }
   if (typeof docType !== 'undefined') {
     const allowedTypes = ['Insurance', 'PUC', 'RC', 'Fitness', 'Permit', 'Tax', 'Other'];
     if (!allowedTypes.includes(String(docType))) {

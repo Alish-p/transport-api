@@ -1,4 +1,5 @@
 import { Schema, model } from 'mongoose';
+import { DOC_TYPES } from './vehicleDocument.constants.js';
 
 const vehicleDocumentSchema = new Schema(
   {
@@ -6,7 +7,7 @@ const vehicleDocumentSchema = new Schema(
     docType: {
       type: String,
       required: true,
-      enum: ['Insurance', 'PUC', 'RC', 'Fitness', 'Permit', 'Tax', 'Other'],
+      enum: [...DOC_TYPES],
     },
     docNumber: { type: String, required: true },
     issuer: { type: String, trim: true },
