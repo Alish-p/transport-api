@@ -245,8 +245,18 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
   const windowDays = Number(days) > 0 ? Number(days) : 30;
   const expiringEnd = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
 
-  // Build base document query (active docs only by default)
-  const baseQuery = addTenantToQuery(req, { isActive: true });
+  // Build base document query
+  // By default include only active documents. Allow explicit filter via `isActive` query param.
+  // Accepted values: 'true' | 'false' (case-insensitive) or boolean-y.
+  let isActiveFilter;
+  if (typeof req.query.isActive !== 'undefined') {
+    const v = String(req.query.isActive).toLowerCase();
+    if (v === 'true' || v === '1') isActiveFilter = true;
+    else if (v === 'false' || v === '0') isActiveFilter = false;
+  }
+  const baseQuery = addTenantToQuery(req, {
+    ...(typeof isActiveFilter === 'boolean' ? { isActive: isActiveFilter } : { isActive: true }),
+  });
   const effectiveDocType = documentType || docType;
   if (effectiveDocType) baseQuery.docType = effectiveDocType;
   if (vehicleId) baseQuery.vehicle = vehicleId;
