@@ -23,6 +23,7 @@ import userRouter from '../entities/user/user.routes.js';
 import authRouter from '../entities/user/auth.routes.js';
 import vehicleRouter from '../entities/vehicle/vehicle.routes.js';
 import vehicleDocumentRouter from '../entities/vehicleDocument/vehicleDocument.routes.js';
+import ewayBillRouter from '../entities/ewaybill/ewaybill.routes.js';
 
 const router = express.Router();
 
@@ -49,6 +50,7 @@ router.use('/tenants', tenantRouter);
 router.use('/users', userRouter);
 router.use('/tasks', taskRouter);
 router.use('/gps', gpsRouter);
+router.use('/ewaybill', ewayBillRouter);
 
 // authentication
 router.use('/account', authRouter);

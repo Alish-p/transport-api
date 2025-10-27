@@ -7,6 +7,38 @@ import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 
+// Utility to escape RegExp special chars
+const escapeRegExp = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Search customer by GSTIN (priority) or fuzzy name
+const searchCustomer = asyncHandler(async (req, res) => {
+  const { gstinNumber, name } = req.query;
+
+  // 1) Try GSTIN exact (case-insensitive)
+  if (gstinNumber && String(gstinNumber).trim()) {
+    const regex = new RegExp(`^${escapeRegExp(String(gstinNumber).trim())}$`, 'i');
+    const byGstin = await Customer.findOne({ tenant: req.tenant, GSTNo: regex });
+    if (byGstin) {
+      return res.status(200).json(byGstin);
+    }
+    // fall through to name search if provided
+  }
+
+  // 2) Fuzzy name search (contains, case-insensitive)
+  if (name && String(name).trim()) {
+    const byName = await Customer.findOne({
+      tenant: req.tenant,
+      customerName: { $regex: String(name).trim(), $options: 'i' },
+    }).sort({ customerName: 1 });
+
+    if (byName) {
+      return res.status(200).json(byName);
+    }
+  }
+
+  return res.status(404).json({ message: 'Customer not found' });
+});
+
 // Create Customer
 const createCustomer = asyncHandler(async (req, res) => {
   const newCustomer = new Customer({
@@ -17,19 +49,25 @@ const createCustomer = asyncHandler(async (req, res) => {
   res.status(201).json(savedCustomer);
 });
 
-// Fetch Customers with pagination and optional search
+// Fetch Customers with pagination and optional filters
 const fetchCustomers = asyncHandler(async (req, res) => {
   try {
-    const { search } = req.query;
+    // Support explicit filters from UI instead of generic `search`
+    const { customerName, cellNo, gstIn } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
 
-    if (search) {
-      query.$or = [
-        { customerName: { $regex: search, $options: "i" } },
-        { cellNo: { $regex: search, $options: "i" } },
-      ];
+    // Apply filters when provided (case-insensitive regex match)
+    if (customerName) {
+      query.customerName = { $regex: customerName, $options: "i" };
+    }
+    if (cellNo) {
+      query.cellNo = { $regex: cellNo, $options: "i" };
+    }
+    if (gstIn) {
+      // Model field is `GSTNo` — map gstIn query param to it
+      query.GSTNo = { $regex: gstIn, $options: "i" };
     }
 
     const [customers, total] = await Promise.all([
@@ -455,4 +493,5 @@ export {
   getCustomerRoutes,
   getCustomerInvoiceAmountSummary,
   getCustomerSubtripMonthlyData,
+  searchCustomer,
 };

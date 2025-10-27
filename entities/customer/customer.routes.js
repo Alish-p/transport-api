@@ -11,6 +11,7 @@ import {
   getCustomerSubtripMonthlyData,
   getCustomerRoutes,
   getCustomerInvoiceAmountSummary,
+  searchCustomer,
 } from './customer.controller.js';
 
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
@@ -26,6 +27,9 @@ router.post(
 );
 router.get("/", authenticate, pagination, fetchCustomers);
 router.get("/summary", authenticate, fetchCustomersSummary);
+
+// Search by GSTIN (priority) or fuzzy name
+router.get("/search", authenticate, searchCustomer);
 
 router.get(
   "/:id/monthly-material-weight",

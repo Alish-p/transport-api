@@ -40,6 +40,9 @@ const integrationSchema = new Schema(
       },
       config: { type: Schema.Types.Mixed },
     },
+    ewayBill: {
+      enabled: { type: Boolean, default: false },
+    },
     accounting: {
       enabled: { type: Boolean, default: false },
       provider: {
