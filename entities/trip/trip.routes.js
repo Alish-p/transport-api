@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import {
-  createTrip,
   fetchTrips,
   fetchTripsPreview,
   fetchVehicleActiveTrip,
@@ -9,8 +8,6 @@ import {
   deleteTrip,
   closeTrip,
 } from './trip.controller.js';
-
-import { tripSchema } from './trip.validation.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
 
@@ -18,13 +15,6 @@ const router = Router();
 
 router.get("/", authenticate, pagination, fetchTrips);
 router.get("/preview", authenticate, pagination, fetchTripsPreview);
-
-// router.post(
-//   "/",
-//   authenticate,
-//   checkPermission("trip", "create"),
-//   createTrip,
-// );
 router.get("/vehicle/:vehicleId/active", authenticate, fetchVehicleActiveTrip);
 router.get("/:id", authenticate, fetchTrip);
 router.put(

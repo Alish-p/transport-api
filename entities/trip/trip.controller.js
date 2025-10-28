@@ -7,50 +7,6 @@ import Expense from "../expense/expense.model.js";
 import { TRIP_STATUS } from "./trip.constants.js";
 import { addTenantToQuery } from "../../utils/tenant-utils.js";
 
-const createTrip = asyncHandler(async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const { driverId, vehicleId, fromDate, remarks, closePreviousTrips } =
-      req.body;
-
-    // 1) Close previous open trips for this vehicle if requested
-    if (closePreviousTrips) {
-      await Trip.updateMany(
-        { vehicleId, tripStatus: TRIP_STATUS.OPEN, tenant: req.tenant },
-        { tripStatus: TRIP_STATUS.CLOSED, toDate: new Date() },
-        { session }
-      );
-    }
-
-    // 2) Create new trip
-    const trip = new Trip({
-      driverId,
-      vehicleId,
-      tripStatus: TRIP_STATUS.OPEN,
-      fromDate,
-      remarks,
-      dateOfCreation: new Date(),
-      tenant: req.tenant,
-    });
-
-    const newTrip = await trip.save({ session });
-
-    // 3) Commit
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(201).json(newTrip);
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-
-    console.error(error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
 // Fetch Trips with pagination and search
 const fetchTrips = asyncHandler(async (req, res) => {
   try {
@@ -390,7 +346,6 @@ const deleteTrip = asyncHandler(async (req, res) => {
 });
 
 export {
-  createTrip,
   fetchTrips,
   fetchTripsPreview,
   fetchVehicleActiveTrip,

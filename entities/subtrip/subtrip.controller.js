@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Trip from '../trip/trip.model.js';
 import Subtrip from './subtrip.model.js';
@@ -8,7 +7,6 @@ import Vehicle from '../vehicle/vehicle.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { SUBTRIP_STATUS } from './subtrip.constants.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 
@@ -29,40 +27,7 @@ const populateSubtrip = (query) =>
     .populate({ path: "driverId", model: "Driver" })
     .populate("tripId");
 
-// Create Subtrip
-const createSubtrip = asyncHandler(async (req, res) => {
-  const { tripId } = req.body;
-  const trip = await Trip.findOne({ _id: tripId, tenant: req.tenant });
-
-  if (!trip) {
-    return res.status(404).json({ message: "Trip not found" });
-  }
-
-  const subtrip = new Subtrip({
-    ...req.body,
-    tripId,
-    vehicleId: req.body.vehicleId || trip.vehicleId,
-    driverId: req.body.driverId || trip.driverId,
-    subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
-    tenant: req.tenant,
-  });
-
-  const newSubtrip = await subtrip.save();
-
-  trip.subtrips.push(newSubtrip._id);
-  await trip.save();
-
-  // Record creation event
-  await recordSubtripEvent(
-    subtrip._id,
-    SUBTRIP_EVENT_TYPES.CREATED,
-    { note: "Subtrip created" },
-    req.user,
-    req.tenant
-  );
-
-  res.status(201).json(newSubtrip);
-});
+// Controller removed: previously created subtrip directly; superseded by createJob
 
 // Fetch Subtrips with flexible querying
 const fetchSubtrips = asyncHandler(async (req, res) => {
@@ -448,139 +413,7 @@ const fetchSubtrip = asyncHandler(async (req, res) => {
   res.status(200).json(subtrip);
 });
 
-// Add Material Info to Subtrip
-const addMaterialInfo = asyncHandler(async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const { id } = req.params;
-    const {
-      materialType,
-      quantity,
-      grade,
-      loadingWeight,
-      rate,
-      startKm,
-      invoiceNo,
-      shipmentNo,
-      orderNo,
-      referenceSubtripNo,
-      ewayBill,
-      ewayExpiryDate,
-      tds,
-      driverAdvance,
-      initialAdvanceDiesel,
-      driverAdvanceGivenBy,
-      pumpCd,
-      vehicleId,
-      consignee,
-      loadingPoint,
-      unloadingPoint,
-    } = req.body;
-
-    const subtrip = await Subtrip.findOne({
-      _id: id,
-      tenant: req.tenant,
-    }).session(session);
-    if (!subtrip) throw new Error("Subtrip not found");
-
-    const vehicle = await Vehicle.findOne({
-      _id: vehicleId,
-      tenant: req.tenant,
-    }).session(session);
-    if (!vehicle) throw new Error("Vehicle not found");
-
-    const updateData = {
-      loadingWeight,
-      startKm,
-      rate,
-      invoiceNo,
-      shipmentNo,
-      orderNo,
-      referenceSubtripNo,
-      ewayBill,
-      ewayExpiryDate,
-      materialType,
-      quantity,
-      grade,
-      tds,
-      driverAdvanceGivenBy,
-      initialAdvanceDiesel,
-      consignee,
-      subtripStatus: SUBTRIP_STATUS.LOADED,
-      loadingPoint,
-      unloadingPoint,
-    };
-
-    if (pumpCd) updateData.intentFuelPump = pumpCd;
-    Object.assign(subtrip, updateData);
-
-    const expensesToInsert = [];
-
-    // No automatic expenses from route or insights
-
-    // 4. Manual Advance - Add this regardless of vehicle ownership
-    if (driverAdvance && driverAdvance !== 0) {
-      expensesToInsert.push({
-        tenant: req.tenant,
-        tripId: subtrip.tripId,
-        subtripId: subtrip._id,
-        vehicleId,
-        amount: driverAdvance,
-        expenseType: "Trip Advance",
-        expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-        remarks: "Manual driver advance entered by user",
-        authorisedBy: "System",
-        slipNo: "N/A",
-        paidThrough: "Pump",
-        pumpCd: driverAdvanceGivenBy === "self" ? null : pumpCd,
-      });
-    }
-
-    // Save all expenses and add references to subtrip
-    if (expensesToInsert.length > 0) {
-      const createdExpenses = await Expense.insertMany(expensesToInsert, {
-        session,
-      });
-
-      // Ensure expenses array exists
-      if (!subtrip.expenses) {
-        subtrip.expenses = [];
-      }
-
-      // Add expense IDs to the subtrip's expenses array
-      const expenseIds = createdExpenses.map((exp) => exp._id);
-      subtrip.expenses.push(...expenseIds);
-    }
-
-    // Save subtrip after adding expenses
-    await subtrip.save({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    // Record material loading event after successful commit
-    await recordSubtripEvent(
-      subtrip._id,
-      SUBTRIP_EVENT_TYPES.MATERIAL_ADDED,
-      { materialType, quantity, loadingWeight, rate },
-      req.user,
-      req.tenant
-    );
-
-    // Populate updated subtrip
-    const updatedSubtrip = await populateSubtrip(
-      Subtrip.findOne({ _id: subtrip._id, tenant: req.tenant })
-    );
-    res.status(200).json(updatedSubtrip);
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error("Material Info Add Error:", error);
-    res.status(500).json({ message: error.message || "Something went wrong" });
-  }
-});
+// Controller removed: material info now handled via createJob
 
 // received Subtrip (LR)
 const receiveLR = asyncHandler(async (req, res) => {
@@ -790,104 +623,9 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
   }
 });
 
-// Create Empty Subtrip
-const createEmptySubtrip = asyncHandler(async (req, res) => {
-  const { tripId, loadingPoint, unloadingPoint, startDate, startKm } =
-    req.body;
+// Controller removed: empty subtrip creation superseded by createJob
 
-  // Validate required fields
-  if (
-    !tripId ||
-    !loadingPoint ||
-    !unloadingPoint ||
-    !startDate ||
-    !startKm
-  ) {
-    return res.status(400).json({
-      message:
-        "Please provide all required fields: tripId, loadingPoint, unloadingPoint, startDate, startKm",
-    });
-  }
-
-  // Check if trip exists
-  const trip = await Trip.findOne({ _id: tripId, tenant: req.tenant });
-  if (!trip) {
-    return res.status(404).json({ message: "Trip not found" });
-  }
-
-  const subtrip = new Subtrip({
-    tripId,
-    driverId: trip.driverId,
-    vehicleId: trip.vehicleId,
-    loadingPoint,
-    unloadingPoint,
-    startDate,
-    startKm,
-    subtripStatus: SUBTRIP_STATUS.IN_QUEUE,
-    isEmpty: true, // Mark as empty trip
-    tenant: req.tenant,
-  });
-
-  const newSubtrip = await subtrip.save();
-
-  // Record creation event
-  await recordSubtripEvent(
-    newSubtrip._id,
-    SUBTRIP_EVENT_TYPES.CREATED,
-    { note: "Empty subtrip created" },
-    req.user,
-    req.tenant
-  );
-
-  trip.subtrips.push(newSubtrip._id);
-  await trip.save();
-
-  res.status(201).json(newSubtrip);
-});
-
-// Close Empty Subtrip
-const closeEmptySubtrip = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { endDate, endKm } = req.body;
-
-  // Validate required fields
-  if (!endDate || !endKm) {
-    return res.status(400).json({
-      message: "Please provide both endDate and endKm",
-    });
-  }
-
-  const subtrip = await populateSubtrip(
-    Subtrip.findOne({ _id: id, tenant: req.tenant })
-  );
-
-  if (!subtrip) {
-    return res.status(404).json({ message: "Subtrip not found" });
-  }
-
-  // Verify it's an empty trip
-  if (!subtrip.isEmpty) {
-    return res.status(400).json({ message: "This is not an empty subtrip" });
-  }
-
-  // Update subtrip status and end details
-  subtrip.endDate = endDate;
-  subtrip.endKm = endKm;
-  subtrip.subtripStatus = SUBTRIP_STATUS.BILLED;
-
-  // Record closing event
-  await recordSubtripEvent(
-    subtrip._id,
-    SUBTRIP_EVENT_TYPES.BILLED_PAID,
-    { note: "Empty subtrip Completed" },
-    req.user,
-    req.tenant
-  );
-
-  await subtrip.save();
-
-  res.status(200).json(subtrip);
-});
+// Controller removed: empty subtrip close superseded by createJob
 
 // Fetch subtrips grouped by transporter with loans for a given date period
 const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
@@ -967,17 +705,13 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
 });
 
 export {
-  createSubtrip,
   fetchSubtrips,
   fetchSubtrip,
   fetchPaginatedSubtrips,
   updateSubtrip,
   deleteSubtrip,
-  addMaterialInfo,
   receiveLR,
   resolveLR,
-  createEmptySubtrip,
-  closeEmptySubtrip,
   fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
 };
