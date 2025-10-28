@@ -3,7 +3,6 @@ import asyncHandler from 'express-async-handler';
 import Trip from '../trip/trip.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
-import Route from '../route/route.model.js';
 import Expense from '../expense/expense.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
@@ -37,8 +36,7 @@ const createJob = asyncHandler(async (req, res) => {
       startDate: startDateRaw,
       remarks,
 
-      // Route/party
-      routeCd,
+      // Points/party
       loadingPoint: loadingPointInput,
       unloadingPoint: unloadingPointInput,
       customerId,
@@ -128,24 +126,14 @@ const createJob = asyncHandler(async (req, res) => {
     // Validate loaded/market required fields
     const isLoaded = !isEmptyInput || !isOwnVehicle; // market treated as loaded
 
-    // Route is required for all jobs; consignee only for loaded/market
-    if (!routeCd) {
-      const err = new Error('routeCd is required');
+    // Require loading/unloading points explicitly
+    if (!loadingPointInput || !unloadingPointInput) {
+      const err = new Error('loadingPoint and unloadingPoint are required');
       err.status = 400;
       throw err;
     }
-
-    // Ensure route exists
-    const route = await Route.findOne({ _id: routeCd, tenant: req.tenant }).session(session);
-    if (!route) {
-      const err = new Error('Route not found');
-      err.status = 404;
-      throw err;
-    }
-
-    // Use route places when explicit points not provided
-    const loadingPoint = loadingPointInput || route.fromPlace;
-    const unloadingPoint = unloadingPointInput || route.toPlace;
+    const loadingPoint = loadingPointInput;
+    const unloadingPoint = unloadingPointInput;
 
     if (isLoaded) {
       if (!customerId) {
@@ -297,7 +285,6 @@ const createJob = asyncHandler(async (req, res) => {
       subtripStatus: SUBTRIP_STATUS.LOADED,
       isEmpty: !!(isOwnVehicle ? isEmptyInput : false),
       startDate,
-      routeCd,
       loadingPoint,
       unloadingPoint,
     };

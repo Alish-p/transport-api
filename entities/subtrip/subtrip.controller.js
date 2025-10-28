@@ -2,7 +2,6 @@ import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Trip from '../trip/trip.model.js';
 import Subtrip from './subtrip.model.js';
-import Route from '../route/route.model.js';
 import Driver from '../driver/driver.model.js';
 import Expense from '../expense/expense.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
@@ -22,7 +21,6 @@ const populateSubtrip = (query) =>
       populate: [{ path: "pumpCd", model: "Pump" }],
     })
     .populate("intentFuelPump")
-    .populate("routeCd")
     .populate("customerId")
     .populate({
       path: "vehicleId",
@@ -72,7 +70,6 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     const {
       subtripNo,
       tripId,
-      routeId,
       customerId,
       subtripStatus,
       invoiceId,
@@ -103,7 +100,6 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       query.subtripNo = { $regex: escaped, $options: "i" };
     }
     if (tripId) query.tripId = tripId;
-    if (routeId) query.routeCd = new mongoose.Types.ObjectId(routeId);
     if (customerId) query.customerId = customerId;
     if (invoiceId) query.invoiceId = invoiceId;
     if (driverSalaryId) query.driverSalaryId = driverSalaryId;
@@ -215,7 +211,6 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
   try {
     const {
       subtripNo,
-      routeId,
       customerId,
       subtripStatus,
       referenceSubtripNo,
@@ -240,7 +235,6 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       const escaped = String(subtripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       query.subtripNo = { $regex: escaped, $options: "i" };
     }
-    if (routeId) query.routeCd = routeId;
     if (customerId) query.customerId = customerId;
     if (referenceSubtripNo) query.referenceSubtripNo = referenceSubtripNo;
 
@@ -481,7 +475,6 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
       pumpCd,
       vehicleId,
       consignee,
-      routeCd,
       loadingPoint,
       unloadingPoint,
     } = req.body;
@@ -492,23 +485,11 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
     }).session(session);
     if (!subtrip) throw new Error("Subtrip not found");
 
-    const route = await Route.findOne({
-      _id: routeCd,
-      tenant: req.tenant,
-    }).session(session);
-    if (!route) throw new Error("Route not found");
-
     const vehicle = await Vehicle.findOne({
       _id: vehicleId,
       tenant: req.tenant,
     }).session(session);
     if (!vehicle) throw new Error("Vehicle not found");
-
-    const config = route.vehicleConfiguration.find(
-      (item) =>
-        item.vehicleType.toLowerCase() === vehicle.vehicleType.toLowerCase() &&
-        item.noOfTyres === vehicle.noOfTyres
-    );
 
     const updateData = {
       loadingWeight,
@@ -528,7 +509,6 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
       initialAdvanceDiesel,
       consignee,
       subtripStatus: SUBTRIP_STATUS.LOADED,
-      routeCd,
       loadingPoint,
       unloadingPoint,
     };
@@ -538,77 +518,7 @@ const addMaterialInfo = asyncHandler(async (req, res) => {
 
     const expensesToInsert = [];
 
-    // Only add expenses automatically for owned vehicles
-    if (vehicle.isOwn && config) {
-      // 1. Fixed or Percentage Driver Salary
-      if (config.fixedSalary > 0) {
-        expensesToInsert.push({
-          tenant: req.tenant,
-          tripId: subtrip.tripId,
-          subtripId: subtrip._id,
-          vehicleId,
-          amount: config.fixedSalary,
-          expenseType: "Driver Salary",
-          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-          remarks: "Auto-added fixed driver salary from route config",
-          authorisedBy: "System",
-          slipNo: "N/A",
-          paidThrough: "Cash",
-        });
-      } else if (config.percentageSalary > 0 && rate > 0 && loadingWeight > 0) {
-        const percentAmt =
-          (rate * loadingWeight * config.percentageSalary) / 100;
-        expensesToInsert.push({
-          tenant: req.tenant,
-          tripId: subtrip.tripId,
-          subtripId: subtrip._id,
-          vehicleId,
-          amount: percentAmt,
-          expenseType: "Driver Salary",
-          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-          remarks:
-            "Auto-calculated percentage-based driver salary from route config",
-          authorisedBy: "System",
-          slipNo: "N/A",
-          paidThrough: "Cash",
-        });
-      }
-
-      // 2. Toll
-      if (config.tollAmt > 0) {
-        expensesToInsert.push({
-          tenant: req.tenant,
-          tripId: subtrip.tripId,
-          subtripId: subtrip._id,
-          vehicleId,
-          amount: config.tollAmt,
-          expenseType: "Toll",
-          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-          remarks: "Auto-added toll from route config",
-          authorisedBy: "System",
-          slipNo: "N/A",
-          paidThrough: "Cash",
-        });
-      }
-
-      // 3. Route-based Advance
-      if (config.advanceAmt > 0) {
-        expensesToInsert.push({
-          tenant: req.tenant,
-          tripId: subtrip.tripId,
-          subtripId: subtrip._id,
-          vehicleId,
-          amount: config.advanceAmt,
-          expenseType: "Trip Advance",
-          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-          remarks: "Auto-added driver advance from route config",
-          authorisedBy: "System",
-          slipNo: "N/A",
-          paidThrough: "Pump",
-          pumpCd: driverAdvanceGivenBy === "self" ? null : pumpCd,
-        });
-      }
-    }
+    // No automatic expenses from route or insights
 
     // 4. Manual Advance - Add this regardless of vehicle ownership
     if (driverAdvance && driverAdvance !== 0) {
@@ -882,13 +792,12 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
 
 // Create Empty Subtrip
 const createEmptySubtrip = asyncHandler(async (req, res) => {
-  const { tripId, routeCd, loadingPoint, unloadingPoint, startDate, startKm } =
+  const { tripId, loadingPoint, unloadingPoint, startDate, startKm } =
     req.body;
 
   // Validate required fields
   if (
     !tripId ||
-    !routeCd ||
     !loadingPoint ||
     !unloadingPoint ||
     !startDate ||
@@ -896,7 +805,7 @@ const createEmptySubtrip = asyncHandler(async (req, res) => {
   ) {
     return res.status(400).json({
       message:
-        "Please provide all required fields: tripId, routeCd, loadingPoint, unloadingPoint, startDate, startKm",
+        "Please provide all required fields: tripId, loadingPoint, unloadingPoint, startDate, startKm",
     });
   }
 
@@ -908,7 +817,6 @@ const createEmptySubtrip = asyncHandler(async (req, res) => {
 
   const subtrip = new Subtrip({
     tripId,
-    routeCd,
     driverId: trip.driverId,
     vehicleId: trip.vehicleId,
     loadingPoint,

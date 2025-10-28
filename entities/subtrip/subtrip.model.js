@@ -15,7 +15,6 @@ const subtripSchema = new Schema({
   tripId: { type: Schema.Types.ObjectId, ref: "Trip" },
   driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
-  routeCd: { type: Schema.Types.ObjectId, ref: "Route" },
   customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
   expenses: [{ type: Schema.Types.ObjectId, ref: "Expense" }],
 

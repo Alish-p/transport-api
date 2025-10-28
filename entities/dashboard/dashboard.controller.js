@@ -573,59 +573,6 @@ const getInvoiceStatusSummary = asyncHandler(async (req, res) => {
   }
 });
 
-// Get top 10 routes by number of associated subtrips
-const getTopRoutes = asyncHandler(async (req, res) => {
-  try {
-    const results = await Subtrip.aggregate([
-      { $match: { tenant: req.tenant, routeCd: { $ne: null } } },
-      {
-        $lookup: {
-          from: "vehicles",
-          localField: "vehicleId",
-          foreignField: "_id",
-          as: "vehicle",
-        },
-      },
-      { $unwind: "$vehicle" },
-      {
-        $group: {
-          _id: "$routeCd",
-          subtripCount: { $sum: 1 },
-          ownSubtripCount: { $sum: { $cond: ["$vehicle.isOwn", 1, 0] } },
-          marketSubtripCount: { $sum: { $cond: ["$vehicle.isOwn", 0, 1] } },
-        },
-      },
-      { $sort: { subtripCount: -1 } },
-      { $limit: 10 },
-      {
-        $lookup: {
-          from: "routes",
-          localField: "_id",
-          foreignField: "_id",
-          as: "route",
-        },
-      },
-      { $unwind: "$route" },
-      {
-        $project: {
-          _id: 0,
-          routeId: "$_id",
-          routeName: "$route.routeName",
-          fromPlace: "$route.fromPlace",
-          toPlace: "$route.toPlace",
-          subtripCount: 1,
-          ownSubtripCount: 1,
-          marketSubtripCount: 1,
-        },
-      },
-    ]);
-
-    res.status(200).json(results);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error });
-  }
-});
 
 const getFinancialMonthlyData = asyncHandler(async (req, res) => {
   const yearParam = parseInt(req.query.year, 10);
@@ -1581,7 +1528,6 @@ export {
   getSubtripMonthlyData,
   getFinancialMonthlyData,
   getInvoiceStatusSummary,
-  getTopRoutes,
   getSubtripStatusSummary,
   getCustomerMonthlyFreight,
   getMonthlySubtripExpenseSummary,

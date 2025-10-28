@@ -13,7 +13,6 @@ import {
   getSubtripStatusSummary,
   getFinancialMonthlyData,
   getInvoiceStatusSummary,
-  getTopRoutes,
   getTransporterPaymentSummary,
   getInvoiceAmountSummary,
   getDailySummary,
@@ -29,7 +28,6 @@ router.get("/subtrip-status-summary", authenticate, getSubtripStatusSummary);
 router.get("/invoice-status-summary", authenticate, getInvoiceStatusSummary);
 router.get("/financial-monthly-data", authenticate, getFinancialMonthlyData);
 router.get("/customer-monthly-freight", authenticate, getCustomerMonthlyFreight);
-router.get("/top-routes", authenticate, getTopRoutes);
 router.get(
   "/grouped/monthly-expense",
   authenticate,

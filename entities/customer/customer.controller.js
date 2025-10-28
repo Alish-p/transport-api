@@ -162,66 +162,6 @@ const getCustomerMonthlyMaterialWeight = asyncHandler(async (req, res) => {
   }
 });
 
-// Get routes with subtrip counts for a specific customer
-const getCustomerRoutes = asyncHandler(async (req, res) => {
-  try {
-    const results = await Subtrip.aggregate([
-      {
-        $match: {
-          tenant: req.tenant,
-          customerId: new mongoose.Types.ObjectId(req.params.id),
-          routeCd: { $ne: null },
-        },
-      },
-      {
-        $lookup: {
-          from: "vehicles",
-          localField: "vehicleId",
-          foreignField: "_id",
-          as: "vehicle",
-        },
-      },
-      { $unwind: "$vehicle" },
-      {
-        $group: {
-          _id: "$routeCd",
-          subtripCount: { $sum: 1 },
-          ownSubtripCount: { $sum: { $cond: ["$vehicle.isOwn", 1, 0] } },
-          marketSubtripCount: { $sum: { $cond: ["$vehicle.isOwn", 0, 1] } },
-        },
-      },
-      { $sort: { subtripCount: -1 } },
-      {
-        $lookup: {
-          from: "routes",
-          localField: "_id",
-          foreignField: "_id",
-          as: "route",
-        },
-      },
-      { $unwind: "$route" },
-      {
-        $project: {
-          _id: 0,
-          routeId: "$_id",
-          routeName: "$route.routeName",
-          fromPlace: "$route.fromPlace",
-          toPlace: "$route.toPlace",
-          subtripCount: 1,
-          ownSubtripCount: 1,
-          marketSubtripCount: 1,
-        },
-      },
-    ]);
-
-    res.status(200).json(results);
-  } catch (error) {
-    res.status(500).json({
-      message: "An error occurred while fetching routes",
-      error: error.message,
-    });
-  }
-});
 
 // Get invoice amount summary for a specific customer [TODO -  Improve efficiency]
 const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
@@ -490,7 +430,6 @@ export {
   fetchCustomer,
   updateCustomer,
   deleteCustomer,
-  getCustomerRoutes,
   getCustomerInvoiceAmountSummary,
   getCustomerSubtripMonthlyData,
   searchCustomer,

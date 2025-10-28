@@ -254,10 +254,9 @@ const fetchVehicleActiveTrip = asyncHandler(async (req, res) => {
     .populate({
       path: "subtrips",
       select:
-        "subtripNo subtripStatus startDate endDate materialType routeCd customerId driverId",
+        "subtripNo subtripStatus startDate endDate materialType customerId driverId",
       populate: [
         { path: "customerId", select: "customerName" },
-        { path: "routeCd", select: "routeName fromPlace toPlace" },
         { path: "driverId", select: "driverName" },
       ],
     })
@@ -280,7 +279,6 @@ const fetchTrip = asyncHandler(async (req, res) => {
       path: "subtrips",
       populate: [
         { path: "expenses" },
-        { path: "routeCd" },
         { path: "customerId" },
       ],
     })

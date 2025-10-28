@@ -9,7 +9,6 @@ import {
   fetchCustomersSummary,
   getCustomerMonthlyMaterialWeight,
   getCustomerSubtripMonthlyData,
-  getCustomerRoutes,
   getCustomerInvoiceAmountSummary,
   searchCustomer,
 } from './customer.controller.js';
@@ -39,7 +38,6 @@ router.get(
 
 router.get("/:id/subtrip-monthly-data", authenticate, getCustomerSubtripMonthlyData);
 
-router.get("/:id/routes", authenticate, getCustomerRoutes);
 
 router.get(
   "/:id/invoice-amount-summary",

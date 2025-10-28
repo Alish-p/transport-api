@@ -4,7 +4,7 @@ import { z } from 'zod';
 //   createJob schema
 // - tripDecision is optional (market vehicles do not use trips)
 // - startKm is optional and applies to Trip only when creating new & closing previous (enforced in controller)
-// - routeCd required for all jobs; consignee + material required for loaded/market
+// - consignee + material required for loaded/market
 const jobCreateSchema = z.object({
   body: z
     .object({
@@ -20,10 +20,9 @@ const jobCreateSchema = z.object({
       startKm: z.number().optional(),
       remarks: z.string().optional(),
 
-      // Route/party
-      routeCd: z.string().min(1, 'routeCd is required'),
-      loadingPoint: z.string().optional(),
-      unloadingPoint: z.string().optional(),
+      // Points/party
+      loadingPoint: z.string().min(1, 'loadingPoint is required'),
+      unloadingPoint: z.string().min(1, 'unloadingPoint is required'),
 
       // Loaded-only fields (required when isEmpty=false)
       customerId: z.string().optional(),
