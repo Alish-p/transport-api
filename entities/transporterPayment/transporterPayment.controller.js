@@ -2,6 +2,7 @@
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Tenant from '../tenant/tenant.model.js';
+import { sendTransporterPaymentNotification } from '../../services/whatsapp.service.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import TransporterPayment from './transporterPayment.model.js';
@@ -104,7 +105,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     });
 
     // 4. Calculate final summary and tax
-    const tenant = await Tenant.findById(req.tenant).select("address.state");
+    const tenant = await Tenant.findById(req.tenant).select("address.state name");
     const tenantState = tenant?.address?.state || "";
     const summary = calculateTransporterPaymentSummary(
       { associatedSubtrips: subtrips },
@@ -151,6 +152,52 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     );
 
     
+
+    // Fire WhatsApp notification (non-blocking for API correctness)
+    try {
+      const waRes = await sendTransporterPaymentNotification({
+        tenantId: req.tenant,
+        transporter,
+        receipt: saved,
+        tenantName: tenant?.name,
+      });
+      const toLast4 = String(transporter?.cellNo || '').slice(-4);
+      if (waRes?.skipped) {
+        console.info('[WA] Skipped transporter payment message', {
+          reason: waRes.reason,
+          tenantId: String(req.tenant),
+          transporterId: String(transporter?._id || ''),
+          paymentId: saved?.paymentId,
+          toLast4,
+        });
+      } else if (waRes?.ok) {
+        const messageId = waRes?.data?.messages?.[0]?.id;
+        console.info('[WA] Sent transporter payment message', {
+          messageId,
+          tenantId: String(req.tenant),
+          transporterId: String(transporter?._id || ''),
+          paymentId: saved?.paymentId,
+          toLast4,
+        });
+      } else {
+        console.error('[WA] Failed transporter payment message', {
+          status: waRes?.status,
+          error: waRes?.error,
+          data: waRes?.data,
+          tenantId: String(req.tenant),
+          transporterId: String(transporter?._id || ''),
+          paymentId: saved?.paymentId,
+          toLast4,
+        });
+      }
+    } catch (notifyErr) {
+      console.error('[WA] Error sending transporter payment message', {
+        error: notifyErr?.message || notifyErr,
+        tenantId: String(req.tenant),
+        transporterId: String(transporter?._id || ''),
+        paymentId: saved?.paymentId,
+      });
+    }
 
     res.status(201).json(saved);
   } catch (err) {
@@ -274,7 +321,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       });
 
       // 5. Calculate summary & tax
-      const tenant = await Tenant.findById(req.tenant).select("address.state");
+      const tenant = await Tenant.findById(req.tenant).select("address.state name");
       const tenantState = tenant?.address?.state || "";
       const summary = calculateTransporterPaymentSummary(
         { associatedSubtrips: subtrips },
@@ -318,7 +365,52 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         )
       );
 
-      
+      // Send WhatsApp notification per created receipt (log result, ignore failures)
+      try {
+        const waRes = await sendTransporterPaymentNotification({
+          tenantId: req.tenant,
+          transporter,
+          receipt: saved,
+          tenantName: tenant?.name,
+        });
+        const toLast4 = String(transporter?.cellNo || '').slice(-4);
+        if (waRes?.skipped) {
+          console.info('[WA] Skipped transporter payment message', {
+            reason: waRes.reason,
+            tenantId: String(req.tenant),
+            transporterId: String(transporter?._id || ''),
+            paymentId: saved?.paymentId,
+            toLast4,
+          });
+        } else if (waRes?.ok) {
+          const messageId = waRes?.data?.messages?.[0]?.id;
+          console.info('[WA] Sent transporter payment message', {
+            messageId,
+            tenantId: String(req.tenant),
+            transporterId: String(transporter?._id || ''),
+            paymentId: saved?.paymentId,
+            toLast4,
+          });
+        } else {
+          console.error('[WA] Failed transporter payment message', {
+            status: waRes?.status,
+            error: waRes?.error,
+            data: waRes?.data,
+            tenantId: String(req.tenant),
+            transporterId: String(transporter?._id || ''),
+            paymentId: saved?.paymentId,
+            toLast4,
+          });
+        }
+      } catch (notifyErr) {
+        console.error('[WA] Error sending transporter payment message', {
+          error: notifyErr?.message || notifyErr,
+          tenantId: String(req.tenant),
+          transporterId: String(transporter?._id || ''),
+          paymentId: saved?.paymentId,
+        });
+      }
+
     }
 
     // 8. Commit all

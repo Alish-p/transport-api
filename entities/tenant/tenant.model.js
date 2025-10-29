@@ -24,11 +24,6 @@ const integrationSchema = new Schema(
   {
     whatsapp: {
       enabled: { type: Boolean, default: false },
-      provider: {
-        type: String,
-        enum: ["Twilio", "Gupshup", "Kaleyra"],
-        default: null,
-      },
       config: { type: Schema.Types.Mixed },
     },
     vehicleGPS: {
