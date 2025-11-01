@@ -3,12 +3,14 @@ import asyncHandler from 'express-async-handler';
 import Trip from '../trip/trip.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
+import Transporter from '../transporter/transporter.model.js';
 import Expense from '../expense/expense.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
+import { sendLRGenerationNotification } from '../../services/whatsapp.service.js';
 
 
 // New controller: createJob
@@ -440,6 +442,26 @@ const createJob = asyncHandler(async (req, res) => {
           )
         )
       );
+    }
+
+    // WhatsApp: Notify transporter on LR generation for market vehicles only
+    if (!isOwnVehicle) {
+      try {
+        let transporterDoc = null;
+        if (vehicle?.transporter) {
+          transporterDoc = await Transporter.findOne({ _id: vehicle.transporter, tenant: req.tenant });
+        }
+        await sendLRGenerationNotification({
+          tenantId: req.tenant,
+          transporter: transporterDoc,
+          vehicle,
+          subtrip: newSubtrip,
+          createdBy: req.user,
+        });
+      } catch (err) {
+        // Non-blocking; log and continue
+        console.error('Failed to send LR WhatsApp notification:', err?.message || err);
+      }
     }
 
     return res.status(201).json(newSubtrip);

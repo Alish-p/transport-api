@@ -1,5 +1,10 @@
 import Tenant from "../entities/tenant/tenant.model.js";
-import { formatPhoneE164ish, formatCurrencyINR, formatDateDDMonYYYY } from "../utils/format-utils.js";
+import {
+  formatPhoneE164ish,
+  formatCurrencyINR,
+  formatDateDDMonYYYY,
+  formatDateTimeDDMonYYYY_HHMM,
+} from "../utils/format-utils.js";
 
 const GRAPH_API_VERSION = process.env.WA_GRAPH_API_VERSION || "v22.0";
 
@@ -110,7 +115,7 @@ async function sendTransporterPaymentNotification({ tenantId, transporter, recei
   return sendTemplateMessage({
     tenantId,
     to,
-    templateName: "transporter_payment_generated",
+    templateName: "transporter_payment_generated_v1",
     components,
   });
 }
@@ -119,3 +124,69 @@ export {
   sendTemplateMessage,
   sendTransporterPaymentNotification,
 };
+
+// New: LR generation notification to Transporter (Market vehicles)
+// KISS: small adapter that maps inputs to template parameters
+async function sendLRGenerationNotification({ tenantId, transporter, vehicle, subtrip, createdBy }) {
+  if (!transporter) return { ok: false, skipped: true, reason: "no_transporter" };
+  const to = transporter.cellNo;
+  if (!to) return { ok: false, skipped: true, reason: "no_transporter_phone" };
+
+  // Use tenant name as creatorName as requested; fallback to user/team
+  let tenantName;
+  try {
+    const t = tenantId ? await Tenant.findById(tenantId).select("name") : null;
+    tenantName = t?.name;
+  } catch (_) {
+    // ignore lookup errors; will fallback below
+  }
+  const creatorName = tenantName || createdBy?.name || createdBy?.fullName || "Team";
+  const vehicleNo = vehicle?.vehicleNo || "";
+  const transporterName = transporter?.transportName || transporter?.ownerName || "Transporter";
+  const shipmentRef =
+    subtrip?.referenceSubtripNo ||
+    subtrip?.shipmentNo ||
+    subtrip?.orderNo ||
+    subtrip?.invoiceNo ||
+    "";
+  const fromCity = subtrip?.loadingPoint || "";
+  const toCity = subtrip?.unloadingPoint || "";
+  const material = subtrip?.materialType || "";
+  const when = formatDateTimeDDMonYYYY_HHMM(subtrip?.startDate);
+
+  const components = [
+    {
+      type: "body",
+      parameters: [
+        creatorName,
+        vehicleNo,
+        transporterName,
+        shipmentRef,
+        fromCity,
+        toCity,
+        material,
+        when,
+      ].map((t) => ({ type: "text", text: String(t ?? "") })),
+    },
+    {
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [
+        {
+          type: "text",
+          text: String(subtrip?._id || ""),
+        },
+      ],
+    },
+  ];
+
+  return sendTemplateMessage({
+    tenantId,
+    to,
+    templateName: "lr_generation_template",
+    components,
+  });
+}
+
+export { sendLRGenerationNotification };

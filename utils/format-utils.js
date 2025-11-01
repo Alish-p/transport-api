@@ -43,4 +43,25 @@ const formatDateDDMonYYYY = (date) => {
 };
 
 export { trimToDigits, formatPhoneE164ish, formatCurrencyINR, formatDateDDMonYYYY };
+ 
+// Format date+time as "DD Mon YYYY, HH:MM AM/PM"
+const formatDateTimeDDMonYYYY_HHMM = (date) => {
+  try {
+    const d = date ? new Date(date) : new Date();
+    const dateStr = d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    let timeStr = d
+      .toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
+      .toUpperCase();
+    // Normalize spacing like "10:30 AM"
+    timeStr = timeStr.replace(/\s+/g, " ");
+    return `${dateStr}, ${timeStr}`;
+  } catch (_) {
+    return "";
+  }
+};
 
+export { formatDateTimeDDMonYYYY_HHMM };
