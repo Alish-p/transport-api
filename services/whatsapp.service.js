@@ -2,9 +2,8 @@ import Tenant from "../entities/tenant/tenant.model.js";
 import {
   formatPhoneE164ish,
   formatCurrencyINR,
-  formatDateDDMonYYYY,
-  formatDateTimeDDMonYYYY_HHMM,
 } from "../utils/format-utils.js";
+import { fDate, fDateTime } from "../utils/time-utils.js";
 
 const GRAPH_API_VERSION = process.env.WA_GRAPH_API_VERSION || "v22.0";
 
@@ -88,7 +87,7 @@ async function sendTransporterPaymentNotification({ tenantId, transporter, recei
   const name = transporter.ownerName || transporter.transportName || "Transporter";
   const company = tenantName || "Company";
   const paymentId = receipt?.paymentId || "";
-  const issueDate = formatDateDDMonYYYY(receipt?.issueDate);
+  const issueDate = fDate(receipt?.issueDate);
   const amount = formatCurrencyINR(receipt?.summary?.netIncome || 0);
 
   const components = [
@@ -148,7 +147,7 @@ async function sendLRGenerationNotification({ tenantId, transporter, vehicle, su
   const fromCity = subtrip?.loadingPoint || "";
   const toCity = subtrip?.unloadingPoint || "";
   const material = subtrip?.materialType || "";
-  const when = formatDateTimeDDMonYYYY_HHMM(subtrip?.startDate);
+  const when = fDateTime(subtrip?.startDate);
 
   const components = [
     {
