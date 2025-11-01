@@ -560,33 +560,52 @@ const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   res.status(200).json(updatedReceipt);
 });
 
-// Delete Transporter Payment Receipt
+// Delete Transporter Payment Receipt (atomic)
 const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
-  const receipt = await TransporterPayment.findOne({
-    _id: req.params.id,
-    tenant: req.tenant,
-  });
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (!receipt) {
+  try {
+    const receipt = await TransporterPayment.findOne({
+      _id: req.params.id,
+      tenant: req.tenant,
+    }).session(session);
+
+    if (!receipt) {
+      await session.abortTransaction();
+      session.endSession();
+      return res
+        .status(404)
+        .json({ message: "Transporter Payment Receipt not found" });
+    }
+
+    // Unlink all associated subtrips within the same transaction
+    await Subtrip.updateMany(
+      { _id: { $in: receipt.associatedSubtrips }, tenant: req.tenant },
+      { $unset: { transporterPaymentReceiptId: "" } },
+      { session }
+    );
+
+    // Delete the receipt within the same transaction
+    await TransporterPayment.findOneAndDelete(
+      { _id: req.params.id, tenant: req.tenant },
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      message: "Transporter Payment Receipt deleted successfully",
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Transporter payment deletion failed:", err);
     return res
-      .status(404)
-      .json({ message: "Transporter Payment Receipt not found" });
+      .status(500)
+      .json({ message: "Deletion failed", error: err.message });
   }
-
-  // ✅ Use $in with associatedSubtrips to remove links
-  await Subtrip.updateMany(
-    { _id: { $in: receipt.associatedSubtrips }, tenant: req.tenant },
-    { $unset: { transporterPaymentReceiptId: "" } }
-  );
-
-  await TransporterPayment.findOneAndDelete({
-    _id: req.params.id,
-    tenant: req.tenant,
-  });
-
-  res.status(200).json({
-    message: "Transporter Payment Receipt deleted successfully",
-  });
 });
 
 export {
