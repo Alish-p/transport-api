@@ -142,13 +142,9 @@ async function sendLRGenerationNotification({ tenantId, transporter, vehicle, su
   }
   const creatorName = tenantName || createdBy?.name || createdBy?.fullName || "Team";
   const vehicleNo = vehicle?.vehicleNo || "";
-  const transporterName = transporter?.transportName || transporter?.ownerName || "Transporter";
+  const transporterName = transporter?.transportName || "Transporter";
   const shipmentRef =
-    subtrip?.referenceSubtripNo ||
-    subtrip?.shipmentNo ||
-    subtrip?.orderNo ||
-    subtrip?.invoiceNo ||
-    "";
+    subtrip?.subtripNo || "";
   const fromCity = subtrip?.loadingPoint || "";
   const toCity = subtrip?.unloadingPoint || "";
   const material = subtrip?.materialType || "";
@@ -158,9 +154,9 @@ async function sendLRGenerationNotification({ tenantId, transporter, vehicle, su
     {
       type: "body",
       parameters: [
-        creatorName,
-        vehicleNo,
         transporterName,
+        vehicleNo,
+        creatorName,
         shipmentRef,
         fromCity,
         toCity,
