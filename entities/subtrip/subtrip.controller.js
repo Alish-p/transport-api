@@ -179,6 +179,9 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       customerId,
       subtripStatus,
       referenceSubtripNo,
+      loadingPoint,
+      unloadingPoint,
+      ewayBill,
       driverId,
       vehicleId,
       transporterId,
@@ -202,6 +205,18 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
     }
     if (customerId) query.customerId = customerId;
     if (referenceSubtripNo) query.referenceSubtripNo = referenceSubtripNo;
+    if (loadingPoint) {
+      const escaped = String(loadingPoint).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.loadingPoint = { $regex: escaped, $options: "i" };
+    }
+    if (unloadingPoint) {
+      const escaped = String(unloadingPoint).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.unloadingPoint = { $regex: escaped, $options: "i" };
+    }
+    if (ewayBill) {
+      const escaped = String(ewayBill).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.ewayBill = { $regex: escaped, $options: "i" };
+    }
 
     // Status filter (single or array)
     if (subtripStatus) {
@@ -399,6 +414,25 @@ const fetchSubtrip = asyncHandler(async (req, res) => {
   const subtrip = await populateSubtrip(
     Subtrip.findOne({ _id: id, tenant: req.tenant })
   )
+    .populate({ path: "invoiceId", select: "invoiceNo issueDate" })
+    .populate({ path: "driverSalaryId", select: "paymentId issueDate" })
+    .populate({
+      path: "transporterPaymentReceiptId",
+      select: "paymentId issueDate",
+    });
+
+  if (!subtrip) {
+    return res.status(404).json({ message: "Subtrip not found" });
+  }
+
+  res.status(200).json(subtrip);
+});
+
+// Public: Fetch a single Subtrip by ID (no auth/tenant required)
+const fetchSubtripPublic = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const subtrip = await populateSubtrip(Subtrip.findById(id))
     .populate({ path: "invoiceId", select: "invoiceNo issueDate" })
     .populate({ path: "driverSalaryId", select: "paymentId issueDate" })
     .populate({
@@ -707,6 +741,7 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
 export {
   fetchSubtrips,
   fetchSubtrip,
+  fetchSubtripPublic,
   fetchPaginatedSubtrips,
   updateSubtrip,
   deleteSubtrip,

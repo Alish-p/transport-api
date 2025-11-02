@@ -543,6 +543,20 @@ const fetchTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   res.status(200).json(receipt);
 });
 
+// Public: Fetch Single Transporter Payment Receipt by ID (no auth/tenant)
+const fetchTransporterPaymentReceiptPublic = asyncHandler(async (req, res) => {
+  const receipt = await TransporterPayment.findById(req.params.id).populate(
+    "transporterId"
+  );
+
+  if (!receipt) {
+    res.status(404).json({ message: "Transporter Payment Receipt not found" });
+    return;
+  }
+
+  res.status(200).json(receipt);
+});
+
 // Update Transporter Payment Receipt
 const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   const updatedReceipt = await TransporterPayment.findOneAndUpdate(
@@ -613,6 +627,7 @@ export {
   createBulkTransporterPaymentReceipts,
   fetchTransporterPaymentReceipts,
   fetchTransporterPaymentReceipt,
+  fetchTransporterPaymentReceiptPublic,
   updateTransporterPaymentReceipt,
   deleteTransporterPaymentReceipt,
 };
