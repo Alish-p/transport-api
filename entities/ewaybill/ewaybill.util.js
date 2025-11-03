@@ -95,3 +95,53 @@ export async function getMastersIndiaEwayBill(gstin, ewayBillNumber) {
   return message || data;
 }
 
+export async function getMastersIndiaEwayBillsForTransporterByState(
+  gstin,
+  generatedDate,
+  stateCode,
+) {
+  const username = process.env.MASTERSINDIA_USERNAME;
+  const password = process.env.MASTERSINDIA_PASSWORD;
+  if (!username || !password) {
+    throw new Error('MastersIndia credentials not configured in environment');
+  }
+  if (!gstin) {
+    throw new Error('GSTIN missing in tenant');
+  }
+  if (!generatedDate) {
+    throw new Error('generated_date is required in DD/MM/YYYY');
+  }
+  if (!stateCode) {
+    throw new Error('state_code is required');
+  }
+
+  const token = await getMastersIndiaToken(username, password);
+
+  const url = `${MI_BASE_URL}/getEwayBillData/?action=GetEwayBillsForTransporterByState&gstin=${encodeURIComponent(
+    gstin,
+  )}&generated_date=${encodeURIComponent(generatedDate)}&state_code=${encodeURIComponent(
+    stateCode,
+  )}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { Authorization: `JWT ${token}` },
+  });
+
+  const bodyText = await res.text();
+  let data;
+  try {
+    data = JSON.parse(bodyText);
+  } catch (_) {
+    data = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      `MastersIndia EWB list fetch failed ${res.status}: ${bodyText || res.statusText}`,
+    );
+  }
+
+  const message = data?.results?.message ?? null;
+  return message || data;
+}
