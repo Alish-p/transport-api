@@ -35,6 +35,10 @@ const integrationSchema = new Schema(
       },
       config: { type: Schema.Types.Mixed },
     },
+    vehicleApi: {
+      enabled: { type: Boolean, default: false },
+      config: { type: Schema.Types.Mixed },
+    },
     ewayBill: {
       enabled: { type: Boolean, default: false },
     },

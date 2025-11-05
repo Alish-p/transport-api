@@ -9,7 +9,8 @@ const vehicleDocumentSchema = new Schema(
       required: true,
       enum: [...DOC_TYPES],
     },
-    docNumber: { type: String, required: true },
+    // docNumber made optional to allow records when provider lacks it
+    docNumber: { type: String },
     issuer: { type: String, trim: true },
     issueDate: { type: Date },
     expiryDate: { type: Date, },

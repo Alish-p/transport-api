@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Vehicle from './vehicle.model.js';
+import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
+import VehicleLookup from '../vehicleLookup/vehicleLookup.model.js';
+import Tenant from '../tenant/tenant.model.js';
+import { normalizeVehicleDetails, extractDocuments, fetchVehicleByNumber } from '../../helpers/webcorevision.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
@@ -16,6 +20,37 @@ const createVehicle = asyncHandler(async (req, res) => {
 
   const vehicle = new Vehicle({ ...req.body, tenant: req.tenant });
   const newVehicle = await vehicle.save();
+
+  // Best-effort: auto-create documents from latest lookup for this vehicle
+  try {
+    const tenant = await Tenant.findById(req.tenant).select('integrations');
+    const enabled = tenant?.integrations?.vehicleApi?.enabled;
+    if (enabled && newVehicle?.isOwn) {
+      const latestLookup = await VehicleLookup.findOne({ tenant: req.tenant, vehicleNo: newVehicle.vehicleNo })
+        .sort({ createdAt: -1 })
+        .lean();
+      const docs = latestLookup?.normalized?.docs || [];
+      if (Array.isArray(docs) && docs.length) {
+        const toCreate = docs.map((d) => ({
+          tenant: req.tenant,
+          vehicle: newVehicle._id,
+          docType: d.docType,
+          // docNumber optional
+          ...(d.docNumber ? { docNumber: d.docNumber } : {}),
+          issuer: d.issuer || undefined,
+          issueDate: d.issueDate ? new Date(d.issueDate) : undefined,
+          expiryDate: d.expiryDate ? new Date(d.expiryDate) : undefined,
+          createdBy: req.user?._id,
+          isActive: true,
+        }));
+        if (toCreate.length) {
+          await VehicleDocument.insertMany(toCreate, { ordered: false });
+        }
+      }
+    }
+  } catch (e) {
+    // non-blocking; log if needed
+  }
 
   res.status(201).json(newVehicle);
 });
@@ -177,3 +212,45 @@ export {
   updateVehicle,
   deleteVehicle,
 };
+
+// Lookup vehicle details via external provider and persist normalized snapshot
+export const lookupVehicleDetails = asyncHandler(async (req, res) => {
+  const { vehicleNo } = req.body || {};
+  if (!vehicleNo) {
+    return res.status(400).json({ message: 'vehicleNo is required' });
+  }
+
+  // Check tenant integration flag
+  const tenant = await Tenant.findById(req.tenant).select('integrations');
+  const enabled = tenant?.integrations?.vehicleApi?.enabled;
+  if (!enabled) {
+    return res.status(400).json({ message: 'Vehicle API integration is not enabled for this tenant' });
+  }
+
+  // Fetch from provider
+  let raw;
+  try {
+    raw = await fetchVehicleByNumber(vehicleNo);
+  } catch (err) {
+    return res.status(502).json({ message: 'Failed to fetch from provider', error: err.message });
+  }
+
+  const normalized = normalizeVehicleDetails(raw);
+  const docs = extractDocuments(raw);
+  const snapshot = { ...normalized, docs };
+
+  // Persist lookup snapshot
+  await VehicleLookup.create({
+    tenant: req.tenant,
+    vehicleNo: normalized.vehicleNo || vehicleNo,
+    provider: 'webcorevision',
+    providerResponse: raw,
+    normalized: snapshot,
+  });
+
+  // Return normalized data aligned with Vehicle model fields, plus doc suggestions
+  return res.status(200).json({
+    vehicle: normalized,
+    documentsSuggested: docs,
+  });
+});

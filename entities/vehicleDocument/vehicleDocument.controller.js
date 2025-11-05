@@ -72,8 +72,8 @@ export const createDocument = asyncHandler(async (req, res) => {
   const { vehicleId } = req.params;
   const { docType, docNumber, issueDate, expiryDate, fileKey, issuer } = req.body;
 
-  if (!docType || !docNumber) {
-    return res.status(400).json({ message: 'docType and docNumber are required' });
+  if (!docType) {
+    return res.status(400).json({ message: 'docType is required' });
   }
 
   const vehicle = await Vehicle.findOne({ _id: vehicleId, tenant: req.tenant, isOwn: true });
@@ -90,7 +90,7 @@ export const createDocument = asyncHandler(async (req, res) => {
     tenant: req.tenant,
     vehicle: vehicle._id,
     docType,
-    docNumber,
+    ...(typeof docNumber !== 'undefined' ? { docNumber } : {}),
     issuer,
     issueDate: issueDate ? new Date(issueDate) : undefined,
     expiryDate: expiryDate ? new Date(expiryDate) : undefined,

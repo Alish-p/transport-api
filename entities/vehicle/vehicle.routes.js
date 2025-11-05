@@ -7,6 +7,7 @@ import {
   fetchVehicleById,
   updateVehicle,
   deleteVehicle,
+  lookupVehicleDetails,
 } from './vehicle.controller.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
@@ -20,6 +21,14 @@ router.post(
   authenticate,
   checkPermission("vehicle", "create"),
   quickCreateVehicle
+);
+
+// ─── LOOKUP (External vehicle API) ─────────────────────────────────────────
+router.post(
+  "/lookup",
+  authenticate,
+  checkPermission("vehicle", "view"),
+  lookupVehicleDetails
 );
 
 // ─── READ (LIST & SUMMARY) ──────────────────────────────────────────
