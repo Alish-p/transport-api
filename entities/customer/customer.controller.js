@@ -5,7 +5,7 @@ import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import Tenant from '../tenant/tenant.model.js';
-import { fetchGstDetails, normalizeGstToCustomer } from '../../helpers/gst.js';
+import { fetchGstDetails, normalizeGstCanonical } from '../../helpers/gst.js';
 import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 
@@ -463,6 +463,11 @@ export const gstLookup = asyncHandler(async (req, res) => {
     return res.status(502).json({ message: 'Failed to fetch from GST provider', error: err.message });
   }
 
-  const normalized = normalizeGstToCustomer(raw);
-  return res.status(200).json({ customer: normalized });
+  const canonical = normalizeGstCanonical(raw);
+  return res.status(200).json({
+    response: raw?.response ?? raw,
+    responseStatus: raw?.responseStatus ?? 'SUCCESS',
+    message: raw?.message ?? null,
+    canonical,
+  });
 });

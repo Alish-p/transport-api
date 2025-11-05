@@ -18,20 +18,30 @@ function extractPANFromGSTIN(gstin) {
   return undefined;
 }
 
-// Normalize provider response to Customer model fields
-function normalizeGstToCustomer(provider) {
+// Canonical normalization for GST business details (single fixed structure)
+function normalizeGstCanonical(provider) {
   const r = provider?.response || {};
   const addr = r?.principalPlaceOfBusinessFields?.principalPlaceOfBusinessAddress || {};
-  const gstin = r?.gstIdentificationNumber || provider?.gstin || provider?.gstIn || null;
-
   return {
-    customerName: r?.tradeName || r?.legalNameOfBusiness || undefined,
-    GSTNo: gstin || undefined,
-    gstEnabled: true,
-    PANNo: extractPANFromGSTIN(gstin),
-    address: toAddressLine(addr) || undefined,
-    state: addr?.stateName || undefined,
-    pinCode: addr?.pincode || undefined,
+    gstin: r?.gstIdentificationNumber || provider?.gstin || provider?.gstIn || null,
+    pan: extractPANFromGSTIN(r?.gstIdentificationNumber || provider?.gstin || provider?.gstIn || ''),
+    tradeName: r?.tradeName || null,
+    legalName: r?.legalNameOfBusiness || null,
+    status: r?.gstnStatus || null,
+    constitution: r?.constitutionOfBusiness || null,
+    dateOfRegistration: r?.dateOfRegistration || null,
+    address: {
+      line1: toAddressLine(addr) || null,
+      buildingNumber: addr?.buildingNumber || null,
+      streetName: addr?.streetName || null,
+      location: addr?.location || null,
+      district: addr?.districtName || null,
+      state: addr?.stateName || null,
+      city: addr?.city || null,
+      pincode: addr?.pincode || null,
+      latitude: addr?.lattitude || null,
+      longitude: addr?.longitude || null,
+    },
   };
 }
 
@@ -63,5 +73,4 @@ async function fetchGstDetails(gstin) {
   return data;
 }
 
-export { fetchGstDetails, normalizeGstToCustomer };
-
+export { fetchGstDetails, normalizeGstCanonical };
