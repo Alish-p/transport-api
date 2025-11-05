@@ -8,9 +8,18 @@ import {
   updateDocument,
   deleteDocument,
   fetchDocumentsList,
+  syncDocumentsFromProvider,
 } from './vehicleDocument.controller.js';
 
 const router = Router({ mergeParams: true });
+
+// Sync documents from provider using vehicle number
+router.post(
+  '/sync',
+  authenticate,
+  checkPermission('vehicle', 'update'),
+  syncDocumentsFromProvider
+);
 
 // Upload (presigned URL) and create record
 router.get(

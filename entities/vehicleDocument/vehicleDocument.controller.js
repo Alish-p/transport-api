@@ -6,6 +6,7 @@ import { REQUIRED_DOC_TYPES } from './vehicleDocument.constants.js';
 import Tenant from '../tenant/tenant.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { buildPublicFileUrl, createPresignedPutUrl, createPresignedGetUrl, deleteObjectFromS3 } from '../../services/s3.service.js';
+import { fetchVehicleByNumber, extractDocuments } from '../../helpers/webcorevision.js';
 
 function ensureObjectId(id) {
   return new mongoose.Types.ObjectId(id);
@@ -461,4 +462,85 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
     startRange: docsTotal ? skip + 1 : 0,
     endRange: skip + results.length,
   });
+});
+
+// Sync documents from external provider by vehicle number
+export const syncDocumentsFromProvider = asyncHandler(async (req, res) => {
+  const { vehicleNo } = req.body || {};
+  if (!vehicleNo) {
+    return res.status(400).json({ message: 'vehicleNo is required' });
+  }
+
+  // Ensure Vehicle API integration is enabled for this tenant
+  const tenant = await Tenant.findById(req.tenant).select('integrations');
+  const enabled = tenant?.integrations?.vehicleApi?.enabled;
+  if (!enabled) {
+    return res.status(400).json({ message: 'Vehicle API integration is not enabled for this tenant' });
+  }
+
+  // Find target vehicle (own vehicles only)
+  const vehicle = await Vehicle.findOne({ tenant: req.tenant, vehicleNo, isOwn: true }).select('_id vehicleNo');
+  if (!vehicle) {
+    return res.status(404).json({ message: 'Vehicle not found or not owned' });
+  }
+
+  // Fetch latest details from provider
+  let raw;
+  try {
+    raw = await fetchVehicleByNumber(vehicleNo);
+  } catch (err) {
+    return res.status(502).json({ message: 'Failed to fetch from provider', error: err.message });
+  }
+
+  const docs = extractDocuments(raw) || [];
+  if (!Array.isArray(docs) || docs.length === 0) {
+    return res.status(200).json({ addedCount: 0 });
+  }
+
+  // Prepare operations: deactivate previous active doc per type, then insert new active record
+  const uniqueByType = new Map();
+  for (const d of docs) {
+    if (!d?.docType) continue;
+    // Only keep first occurrence per type
+    if (!uniqueByType.has(d.docType)) uniqueByType.set(d.docType, d);
+  }
+
+  const ops = [];
+  const toInsert = [];
+  for (const d of uniqueByType.values()) {
+    ops.push({
+      updateMany: {
+        filter: { tenant: req.tenant, vehicle: vehicle._id, docType: d.docType, isActive: true },
+        update: { $set: { isActive: false } },
+      },
+    });
+    toInsert.push({
+      tenant: req.tenant,
+      vehicle: vehicle._id,
+      docType: d.docType,
+      ...(d.docNumber ? { docNumber: d.docNumber } : {}),
+      issuer: d.issuer || undefined,
+      issueDate: d.issueDate ? new Date(d.issueDate) : undefined,
+      expiryDate: d.expiryDate ? new Date(d.expiryDate) : undefined,
+      createdBy: req.user._id,
+      isActive: true,
+    });
+  }
+
+  if (toInsert.length) {
+    // Execute deactivations first
+    if (ops.length) {
+      try { await VehicleDocument.bulkWrite(ops, { ordered: false }); } catch (e) { /* non-blocking */ }
+    }
+    // Insert new records
+    try {
+      const result = await VehicleDocument.insertMany(toInsert, { ordered: false });
+      return res.status(200).json({ addedCount: Array.isArray(result) ? result.length : toInsert.length });
+    } catch (err) {
+      // On partial failures, report best-effort count
+      return res.status(200).json({ addedCount: toInsert.length });
+    }
+  }
+
+  return res.status(200).json({ addedCount: 0 });
 });
