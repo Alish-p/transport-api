@@ -15,7 +15,6 @@ router.post('/', createTenant);
 router.get(
   '/mytenant',
   authenticate,
-  checkPermission('tenant', 'view'),
   fetchTenantById,
 );
 router.get(
