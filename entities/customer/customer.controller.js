@@ -4,6 +4,8 @@ import Customer from './customer.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import Tenant from '../tenant/tenant.model.js';
+import { fetchGstDetails, normalizeGstToCustomer } from '../../helpers/gst.js';
 import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 
@@ -434,3 +436,33 @@ export {
   getCustomerSubtripMonthlyData,
   searchCustomer,
 };
+
+// Lookup company details by GSTIN via external provider
+export const gstLookup = asyncHandler(async (req, res) => {
+  const { gstin } = req.body || {};
+  const s = String(gstin || '').trim();
+  if (!s) {
+    return res.status(400).json({ message: 'gstin is required' });
+  }
+  // Basic GSTIN validation (15 chars, alphanumeric)
+  if (!/^[0-9A-Z]{15}$/i.test(s)) {
+    return res.status(400).json({ message: 'Invalid GSTIN format' });
+  }
+
+  // Check tenant integration flag
+  const tenant = await Tenant.findById(req.tenant).select('integrations');
+  const enabled = tenant?.integrations?.gstApi?.enabled;
+  if (!enabled) {
+    return res.status(400).json({ message: 'GST API integration is not enabled for this tenant' });
+  }
+
+  let raw;
+  try {
+    raw = await fetchGstDetails(s);
+  } catch (err) {
+    return res.status(502).json({ message: 'Failed to fetch from GST provider', error: err.message });
+  }
+
+  const normalized = normalizeGstToCustomer(raw);
+  return res.status(200).json({ customer: normalized });
+});

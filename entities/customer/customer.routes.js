@@ -15,6 +15,7 @@ import {
 
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
+import { gstLookup } from './customer.controller.js';
 
 const router = Router();
 
@@ -29,6 +30,14 @@ router.get("/summary", authenticate, fetchCustomersSummary);
 
 // Search by GSTIN (priority) or fuzzy name
 router.get("/search", authenticate, searchCustomer);
+
+// GST Lookup for customer prefill
+router.post(
+  "/gst-lookup",
+  authenticate,
+  checkPermission("customer", "view"),
+  gstLookup
+);
 
 router.get(
   "/:id/monthly-material-weight",
