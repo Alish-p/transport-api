@@ -25,6 +25,7 @@ import vehicleDocumentRouter from '../entities/vehicleDocument/vehicleDocument.r
 import ewayBillRouter from '../entities/ewaybill/ewaybill.routes.js';
 import publicRouter from './public.routes.js';
 import lookupRouter from '../entities/lookup/gst.routes.js';
+import challanRouter from '../entities/challan/challan.routes.js';
 
 const router = express.Router();
 
@@ -51,6 +52,7 @@ router.use('/users', userRouter);
 router.use('/tasks', taskRouter);
 router.use('/gps', gpsRouter);
 router.use('/ewaybill', ewayBillRouter);
+router.use('/challans', challanRouter);
 router.use('/public', publicRouter);
 router.use('/lookup', lookupRouter);
 

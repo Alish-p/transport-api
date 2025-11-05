@@ -39,6 +39,11 @@ const integrationSchema = new Schema(
       enabled: { type: Boolean, default: false },
       config: { type: Schema.Types.Mixed },
     },
+    // Traffic eChallan integration (webcorevision provider)
+    challanApi: {
+      enabled: { type: Boolean, default: false },
+      config: { type: Schema.Types.Mixed },
+    },
     // Fetch company details by GST (webcorevision provider)
     gstApi: {
       enabled: { type: Boolean, default: false },
