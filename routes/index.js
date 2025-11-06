@@ -1,6 +1,5 @@
 import express from 'express';
 
-import bankRouter from '../entities/bank/bank.routes.js';
 import customerRouter from '../entities/customer/customer.routes.js';
 import dashboardRouter from '../entities/dashboard/dashboard.routes.js';
 import dieselPriceRouter from '../entities/diesel/diesel.routes.js';
@@ -36,7 +35,6 @@ router.use('/documents', vehicleDocumentRouter);
 router.use('/transporters', transporterRouter);
 router.use('/drivers', driverRouter);
 router.use('/customers', customerRouter);
-router.use('/banks', bankRouter);
 router.use('/pumps', pumpRouter);
 router.use('/diesel-prices', dieselPriceRouter);
 router.use('/trips', tripRouter);

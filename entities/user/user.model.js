@@ -18,12 +18,6 @@ const userSchema = new mongoose.Schema(
     lastSeen: { type: Date },
 
     permissions: {
-      bank: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
       customer: {
         create: { type: Boolean, default: false },
         view: { type: Boolean, default: false },
