@@ -117,9 +117,11 @@ const tenantSchema = new Schema(
       registeredState: String,
     },
     bankDetails: {
-      bankName: String,
-      accountNumber: String,
-      ifscCode: String,
+      name: String,
+      branch: String,
+      ifsc: String,
+      place: String,
+      accNo: String,
     },
     subscription: {
       planName: String,

@@ -1,6 +1,6 @@
 import { Schema, model } from "mongoose";
 
-const bankAccountSchema = new Schema(
+const bankDetailsSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     branch: { type: String, required: true, trim: true },
@@ -17,7 +17,7 @@ const pumpSchema = new Schema(
     phone: { type: String, required: true, trim: true },
     ownerName: { type: String, required: true, trim: true },
     address: { type: String, required: true, trim: true },
-    bankAccount: { type: bankAccountSchema, required: true },
+    bankDetails: { type: bankDetailsSchema, required: true },
     tenant: {
       type: Schema.Types.ObjectId,
       ref: "Tenant",
