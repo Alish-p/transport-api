@@ -1,6 +1,12 @@
 import asyncHandler from 'express-async-handler';
 import UserModel from '../user/user.model.js';
 import Tenant from '../tenant/tenant.model.js';
+import Driver from '../driver/driver.model.js';
+import Customer from '../customer/customer.model.js';
+import Subtrip from '../subtrip/subtrip.model.js';
+import Transporter from '../transporter/transporter.model.js';
+import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
+import Invoice from '../invoice/invoice.model.js';
 
 // Build a permissions object with every boolean permission set to true
 function buildFullPermissionsFromSchema() {
@@ -189,12 +195,46 @@ const deleteTenantPayment = asyncHandler(async (req, res) => {
   return res.status(200).json(tenant);
 });
 
-// Fetch any tenant by id (superuser)
+// Fetch any tenant by id (superuser) with users and summary stats
 const fetchTenantDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
+
   const tenant = await Tenant.findById(id);
   if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
-  return res.status(200).json(tenant);
+
+  const [users, driverCount, customerCount, subtripCount, transporterCount, tpCount, invoiceAgg] = await Promise.all([
+    UserModel.find({ tenant: id }, { password: 0 }).sort({ name: 1 }),
+    Driver.countDocuments({ tenant: id }),
+    Customer.countDocuments({ tenant: id }),
+    Subtrip.countDocuments({ tenant: id }),
+    Transporter.countDocuments({ tenant: id }),
+    TransporterPayment.countDocuments({ tenant: id }),
+    Invoice.aggregate([
+      { $match: { tenant: tenant._id } },
+      { $group: { _id: null, total: { $sum: '$netTotal' } } },
+    ]),
+  ]);
+
+  const totalInvoiceGenerated = Array.isArray(invoiceAgg) && invoiceAgg.length > 0 ? invoiceAgg[0].total || 0 : 0;
+
+  return res.status(200).json({
+    tenant,
+    users,
+    stats: {
+      counts: {
+        drivers: driverCount,
+        customers: customerCount,
+        users: users.length,
+        subtrips: subtripCount,
+        transporters: transporterCount,
+        transporterPayments: tpCount,
+      },
+      totals: {
+        invoiceGenerated: totalInvoiceGenerated,
+      },
+      subscription: tenant.subscription || null,
+    },
+  });
 });
 
 export {
