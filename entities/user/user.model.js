@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema(
     address: { type: String, required: true },
     password: { type: String, required: true },
     designation: { type: String, required: true },
+    // Role-based access: 'user' (default) or 'super' (platform admin)
+    role: { type: String, enum: ['user', 'super'], default: 'user', index: true },
     tenant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Tenant",

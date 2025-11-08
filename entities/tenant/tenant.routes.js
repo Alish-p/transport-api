@@ -1,31 +1,24 @@
 import { Router } from 'express';
 import {
-  createTenant,
-  fetchTenants,
   fetchTenantById,
   updateTenant,
   getLogoUploadUrl,
   setTenantLogo,
 } from './tenant.controller.js';
+// Superuser-only tenant actions have moved under /api/super routes.
 import { tenantSchema } from './tenant.validation.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 
-router.post('/', createTenant);
+// Note: Superuser-only tenant management routes moved to /api/super
 router.get(
   '/mytenant',
   authenticate,
   fetchTenantById,
 );
-router.get(
-  '/',
-  authenticate,
-  checkPermission('tenant', 'view'),
-  pagination,
-  fetchTenants,
-);
+// Tenant-scoped listing is not available here; super list moved to /api/super
 
 router.put(
   '/mytenant',
@@ -48,6 +41,7 @@ router.put(
   checkPermission('tenant', 'update'),
   setTenantLogo,
 );
-// Delete operation is disabled for tenants
+
+// All payment history and super-only details moved to /api/super
 
 export default router;

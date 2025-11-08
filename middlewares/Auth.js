@@ -66,4 +66,13 @@ function checkPermission(resource, action) {
   };
 }
 
-export { authenticate, admin, checkPermission };
+// Superuser-only guard
+const requireSuperuser = (req, res, next) => {
+  if (req.user && (req.user.role === 'super' || req.user.isSuperAdmin === true)) {
+    return next();
+  }
+  const err = new Error('Not authorized: superuser only');
+  err.status = 403;
+  return next(err);
+};
+export { authenticate, admin, checkPermission, requireSuperuser };

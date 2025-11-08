@@ -1,24 +1,21 @@
 import { Schema, model } from 'mongoose';
 import defaults from './tenant.constants.js';
 
-const paymentHistorySchema = new Schema(
-  {
-    amount: { type: Number, required: true },
-    paymentDate: { type: Date, required: true },
-    paymentMethod: {
-      type: String,
-      enum: ["UPI", "Card", "BankTransfer", "Cash"],
-      required: true,
-    },
-    status: {
-      type: String,
-      enum: ["SUCCESS", "FAILED", "PENDING"],
-      default: "PENDING",
-    },
-    notes: String,
+const paymentHistorySchema = new Schema({
+  amount: { type: Number, required: true, min: 0 },
+  paymentDate: { type: Date, required: true },
+  paymentMethod: {
+    type: String,
+    enum: ["UPI", "Card", "BankTransfer", "Cash"],
+    required: true,
   },
-  { _id: false }
-);
+  status: {
+    type: String,
+    enum: ["SUCCESS", "FAILED", "PENDING"],
+    default: "PENDING",
+  },
+  notes: String,
+});
 
 const integrationSchema = new Schema(
   {

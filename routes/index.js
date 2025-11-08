@@ -25,6 +25,7 @@ import ewayBillRouter from '../entities/ewaybill/ewaybill.routes.js';
 import publicRouter from './public.routes.js';
 import lookupRouter from '../entities/lookup/gst.routes.js';
 import challanRouter from '../entities/challan/challan.routes.js';
+import superuserRouter from '../entities/superuser/superuser.routes.js';
 
 const router = express.Router();
 
@@ -53,6 +54,8 @@ router.use('/ewaybill', ewayBillRouter);
 router.use('/challans', challanRouter);
 router.use('/public', publicRouter);
 router.use('/lookup', lookupRouter);
+// Superuser-only endpoints
+router.use('/super', superuserRouter);
 
 // authentication
 router.use('/account', authRouter);

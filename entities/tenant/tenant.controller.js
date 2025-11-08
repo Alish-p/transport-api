@@ -12,45 +12,8 @@ function sanitizeSegment(input, toLower = true) {
   return toLower ? str.toLowerCase() : str;
 }
 
-// Create Tenant
-const createTenant = asyncHandler(async (req, res) => {
-  const tenant = new Tenant({ ...req.body });
-  const newTenant = await tenant.save();
-  res.status(201).json(newTenant);
-});
-
-// Fetch Tenants with pagination and search
-const fetchTenants = asyncHandler(async (req, res) => {
-  try {
-    const { search } = req.query;
-    const { limit, skip } = req.pagination;
-
-    const query = {};
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { slug: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    const [tenants, total] = await Promise.all([
-      Tenant.find(query).sort({ name: 1 }).skip(skip).limit(limit),
-      Tenant.countDocuments(query),
-    ]);
-
-    res.status(200).json({
-      tenants,
-      total,
-      startRange: skip + 1,
-      endRange: skip + tenants.length,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "An error occurred while fetching paginated tenants",
-      error: error.message,
-    });
-  }
-});
+// Note: Superuser-only create/list/delete/payment handlers moved to
+// entities/superuser/superuser.controller.js
 
 // Fetch Tenant by ID
 const fetchTenantById = asyncHandler(async (req, res) => {
@@ -72,12 +35,7 @@ const updateTenant = asyncHandler(async (req, res) => {
   res.status(200).json(tenant);
 });
 
-// Delete Tenant
-const deleteTenant = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const tenant = await Tenant.findByIdAndDelete(id);
-  res.status(200).json(tenant);
-});
+// Tenant-scoped delete is not exposed; superuser delete moved to superuser controller
 
 // ====== Branding: Tenant Logo ======
 
@@ -173,11 +131,10 @@ const setTenantLogo = asyncHandler(async (req, res) => {
 
 
 export {
-  createTenant,
-  fetchTenants,
   fetchTenantById,
   updateTenant,
-  deleteTenant,
   getLogoUploadUrl,
-  setTenantLogo
+  setTenantLogo,
 };
+
+// Superuser-only fetch by id moved to superuser controller

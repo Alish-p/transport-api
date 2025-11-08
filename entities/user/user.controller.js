@@ -3,8 +3,13 @@ import UserModel from './user.model.js';
 
 // Create User
 const createUser = asyncHandler(async (req, res) => {
+  const body = { ...req.body };
+  // Prevent privilege escalation: only superuser can set role
+  if (!(req.user && req.user.role === 'super')) {
+    delete body.role;
+  }
   const newUser = await new UserModel({
-    ...req.body,
+    ...body,
     tenant: req.tenant,
   }).save();
   res.status(201).json(newUser);
@@ -44,17 +49,26 @@ const deleteUser = asyncHandler(async (req, res) => {
 
 // Update User
 const updateUser = asyncHandler(async (req, res) => {
+  const body = { ...req.body };
+  // Prevent role changes here; use dedicated role endpoint
+  if (!(req.user && req.user.role === 'super')) {
+    delete body.role;
+  }
   const user = await UserModel.findOneAndUpdate(
     { _id: req.params.id, tenant: req.tenant },
-    req.body,
+    body,
     { new: true }
   );
   res.status(200).json(user);
 });
 
-export { createUser,
+export {
+  createUser,
   fetchUsers,
   fetchUsersLastSeen,
   fetchUser,
   deleteUser,
-  updateUser, };
+  updateUser,
+};
+
+

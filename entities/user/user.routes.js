@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import { authenticate, checkPermission, requireSuperuser } from '../../middlewares/Auth.js';
 import {
   createUser,
   fetchUsers,
@@ -17,4 +17,5 @@ router.get("/last-seen", authenticate, fetchUsersLastSeen);
 router.delete("/:id", authenticate, checkPermission("user", "delete"), deleteUser);
 router.put("/:id", authenticate, checkPermission("user", "update"), updateUser);
 router.get("/:id", authenticate, fetchUser);
+
 export default router;
