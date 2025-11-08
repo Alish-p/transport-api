@@ -99,6 +99,10 @@ const tenantSchema = new Schema(
     slug: { type: String, required: true, unique: true },
     tagline: String,
     theme: String,
+    // Branding
+    logoKey: { type: String, default: null }, // S3 object key for logo
+    logoUrl: { type: String, default: null }, // Public URL (CloudFront/CDN or S3 public)
+    logoUpdatedAt: { type: Date, default: null },
     address: {
       line1: { type: String, required: true },
       line2: String,
