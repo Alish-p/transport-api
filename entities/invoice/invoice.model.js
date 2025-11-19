@@ -95,6 +95,7 @@ const invoiceSchema = new Schema(
 
     // Optional metadata
     notes: String,
+    cancellationRemarks: { type: String },
     meta: {
       createdBy: {
         _id: { type: Schema.Types.ObjectId, ref: "User" },

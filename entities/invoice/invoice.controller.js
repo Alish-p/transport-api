@@ -294,6 +294,7 @@ const fetchInvoice = asyncHandler(async (req, res) => {
 // Mark Invoice as Cancelled
 const cancelInvoice = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const { cancellationRemarks } = req.body;
 
   const session = await Invoice.startSession();
   session.startTransaction();
@@ -301,7 +302,12 @@ const cancelInvoice = asyncHandler(async (req, res) => {
   try {
     const invoice = await Invoice.findOneAndUpdate(
       { _id: id, tenant: req.tenant },
-      { $set: { invoiceStatus: INVOICE_STATUS.CANCELLED } },
+      {
+        $set: {
+          invoiceStatus: INVOICE_STATUS.CANCELLED,
+          ...(cancellationRemarks && { cancellationRemarks }),
+        },
+      },
       { new: true, session }
     );
 
