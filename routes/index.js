@@ -27,6 +27,7 @@ import challanRouter from '../entities/challan/challan.routes.js';
 import superuserRouter from '../entities/superuser/superuser.routes.js';
 import partRouter from '../entities/part/part.routes.js';
 import partLocationRouter from '../entities/part/partLocation.routes.js';
+import purchaseOrderRouter from '../entities/purchaseOrder/purchaseOrder.routes.js';
 import vendorRouter from '../entities/vendor/vendor.routes.js';
 
 const router = express.Router();
@@ -55,9 +56,13 @@ router.use('/ewaybill', ewayBillRouter);
 router.use('/challans', challanRouter);
 router.use('/public', publicRouter);
 router.use('/lookup', lookupRouter);
+
+//Vehicle Maintenance 
 router.use('/parts', partRouter);
 router.use('/part-locations', partLocationRouter);
 router.use('/vendors', vendorRouter);
+router.use('/purchase-orders', purchaseOrderRouter);
+
 // Superuser-only endpoints
 router.use('/super', superuserRouter);
 

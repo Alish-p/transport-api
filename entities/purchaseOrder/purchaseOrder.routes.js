@@ -47,14 +47,14 @@ router.put(
 router.put(
   '/:id/approve',
   authenticate,
-  checkPermission('purchaseOrder', 'approve'),
+  checkPermission('purchaseOrder', 'update'),
   approvePurchaseOrder,
 );
 
 router.put(
   '/:id/reject',
   authenticate,
-  checkPermission('purchaseOrder', 'approve'),
+  checkPermission('purchaseOrder', 'update'),
   rejectPurchaseOrder,
 );
 

@@ -116,6 +116,18 @@ const userSchema = new mongoose.Schema(
         update: { type: Boolean, default: false },
         delete: { type: Boolean, default: false },
       },
+      purchaseOrder: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
+      vendor: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
       tenant: {
         view: { type: Boolean, default: false },
         update: { type: Boolean, default: false },
