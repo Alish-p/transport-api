@@ -54,6 +54,8 @@ function calculateTotals({
 
   return {
     subtotal,
+    discountAmount,
+    taxAmount,
     total,
   };
 }
@@ -112,7 +114,7 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
     amount: line.quantityOrdered * line.unitCost,
   }));
 
-  const { subtotal, total } = calculateTotals({
+  const { subtotal, discountAmount, taxAmount, total } = calculateTotals({
     lines: normalizedLines,
     discountType,
     discount,
@@ -133,6 +135,8 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
     shipping: shipping ?? 0,
     taxType: taxType || PURCHASE_ORDER_TAX_TYPES.FIXED,
     tax: tax ?? 0,
+    discountAmount,
+    taxAmount,
     total,
     status: PURCHASE_ORDER_STATUS.PENDING_APPROVAL,
     createdBy: req.user?._id,
@@ -328,7 +332,7 @@ const updatePurchaseOrder = asyncHandler(async (req, res) => {
     order.tax = tax;
   }
 
-  const { subtotal, total } = calculateTotals({
+  const { subtotal, discountAmount, taxAmount, total } = calculateTotals({
     lines: order.lines,
     discountType: order.discountType,
     discount: order.discount,
@@ -338,6 +342,8 @@ const updatePurchaseOrder = asyncHandler(async (req, res) => {
   });
 
   order.subtotal = subtotal;
+  order.discountAmount = discountAmount;
+  order.taxAmount = taxAmount;
   order.total = total;
 
   const updated = await order.save();
@@ -544,4 +550,3 @@ export {
   payPurchaseOrder,
   receivePurchaseOrder,
 };
-

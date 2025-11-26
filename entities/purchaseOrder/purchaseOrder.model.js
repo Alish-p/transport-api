@@ -56,6 +56,8 @@ const purchaseOrderSchema = new Schema(
       default: PURCHASE_ORDER_DISCOUNT_TYPES.FIXED,
     },
     discount: { type: Number, default: 0, min: 0 },
+    // Effective discount amount after applying type
+    discountAmount: { type: Number, default: 0, min: 0 },
 
     shipping: { type: Number, default: 0, min: 0 },
 
@@ -65,6 +67,8 @@ const purchaseOrderSchema = new Schema(
       default: PURCHASE_ORDER_TAX_TYPES.FIXED,
     },
     tax: { type: Number, default: 0, min: 0 },
+    // Effective tax amount after applying type
+    taxAmount: { type: Number, default: 0, min: 0 },
 
     total: { type: Number, required: true, min: 0 },
 
@@ -92,4 +96,3 @@ const purchaseOrderSchema = new Schema(
 purchaseOrderSchema.index({ tenant: 1, vendor: 1, createdAt: -1 });
 
 export default model('PurchaseOrder', purchaseOrderSchema);
-

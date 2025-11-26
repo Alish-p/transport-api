@@ -51,6 +51,8 @@ Financial fields:
 - `discount` (`Number`, default `0`, `>= 0`):
   - Interpreted depending on `discountType`.
   - Discount amount will never exceed `subtotal`.
+- `discountAmount` (`Number`, default `0`, `>= 0`):
+  - The **effective** discount amount applied after evaluating `discountType` and `discount`.
 - `shipping` (`Number`, default `0`, `>= 0`): Shipping/freight charges added after discount.
 - `taxType` (`String`, enum, default `"fixed"`):
   - From `PURCHASE_ORDER_TAX_TYPES`:
@@ -58,6 +60,8 @@ Financial fields:
     - `"fixed"` — `tax` is a fixed amount.
 - `tax` (`Number`, default `0`, `>= 0`):
   - Interpreted based on `taxType`.
+- `taxAmount` (`Number`, default `0`, `>= 0`):
+  - The **effective** tax amount applied after evaluating `taxType` and `tax`.
 - `total` (`Number`, required, `>= 0`):
   - `total = (subtotal - discountAmount) + taxAmount + shipping`.
 
@@ -442,4 +446,3 @@ This completes the Purchase Order module with:
 - Strict edit rules after receiving
 
 Use this as the basis for your vehicle maintenance inventory UI. 
-
