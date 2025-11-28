@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import Part from './part.model.js';
 import PartLocation from './partLocation.model.js';
 import { PART_SEARCH_FIELDS, PART_LOCATION_SEARCH_FIELDS } from './part.constants.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 
 // ─── PARTS CRUD ────────────────────────────────────────────────────────────────
 
@@ -50,20 +50,42 @@ const fetchParts = asyncHandler(async (req, res) => {
       query.inventoryLocation = inventoryLocation;
     }
 
-    const [parts, total] = await Promise.all([
+    const [parts, total, stats] = await Promise.all([
       Part.find(query)
         .populate('inventoryLocation', 'name address')
         .sort({ name: 1 })
         .skip(skip)
         .limit(limit),
       Part.countDocuments(query),
+      Part.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: null,
+            totalQuantityItems: { $sum: '$quantity' },
+            outOfStockItems: {
+              $sum: {
+                $cond: [{ $eq: ['$quantity', 0] }, 1, 0],
+              },
+            },
+            totalInventoryValue: {
+              $sum: { $multiply: ['$quantity', '$unitCost'] },
+            },
+          },
+        },
+      ]),
     ]);
+
+    const totals = stats[0] || {};
 
     res.status(200).json({
       parts,
       total,
       startRange: skip + 1,
       endRange: skip + parts.length,
+      totalQuantityItems: totals.totalQuantityItems || 0,
+      outOfStockItems: totals.outOfStockItems || 0,
+      totalInventoryValue: totals.totalInventoryValue || 0,
     });
   } catch (error) {
     res.status(500).json({
@@ -229,4 +251,3 @@ export {
   updatePartLocation,
   deletePartLocation,
 };
-

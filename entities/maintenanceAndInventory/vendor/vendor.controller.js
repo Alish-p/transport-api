@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import Vendor from './vendor.model.js';
 import { VENDOR_SEARCH_FIELDS } from './vendor.constants.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 
 // Create Vendor
 const createVendor = asyncHandler(async (req, res) => {

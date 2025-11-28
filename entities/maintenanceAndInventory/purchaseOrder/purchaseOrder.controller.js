@@ -9,7 +9,7 @@ import {
   PURCHASE_ORDER_DISCOUNT_TYPES,
   PURCHASE_ORDER_TAX_TYPES,
 } from './purchaseOrder.constants.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 
 const { ObjectId } = mongoose.Types;
 
@@ -151,7 +151,7 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
 
 const fetchPurchaseOrders = asyncHandler(async (req, res) => {
   try {
-    const { vendor, status, fromDate, toDate } = req.query;
+    const { vendor, status, fromDate, toDate, part } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -170,6 +170,10 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
       query.createdAt = {};
       if (fromDate) query.createdAt.$gte = new Date(fromDate);
       if (toDate) query.createdAt.$lte = new Date(toDate);
+    }
+
+    if (part) {
+      query['lines.part'] = new ObjectId(part);
     }
 
     const [orders, total] = await Promise.all([

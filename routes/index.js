@@ -1,5 +1,7 @@
 import express from 'express';
 
+import { authenticate } from '../middlewares/Auth.js';
+
 import customerRouter from '../entities/customer/customer.routes.js';
 import dashboardRouter from '../entities/dashboard/dashboard.routes.js';
 import driverRouter from '../entities/driver/driver.routes.js';
@@ -25,10 +27,7 @@ import publicRouter from './public.routes.js';
 import lookupRouter from '../entities/lookup/gst.routes.js';
 import challanRouter from '../entities/challan/challan.routes.js';
 import superuserRouter from '../entities/superuser/superuser.routes.js';
-import partRouter from '../entities/part/part.routes.js';
-import partLocationRouter from '../entities/part/partLocation.routes.js';
-import purchaseOrderRouter from '../entities/purchaseOrder/purchaseOrder.routes.js';
-import vendorRouter from '../entities/vendor/vendor.routes.js';
+import maintenanceAndInventoryRouter from '../entities/maintenanceAndInventory/maintenanceAndInventory.routes.js';
 
 const router = express.Router();
 
@@ -57,11 +56,8 @@ router.use('/challans', challanRouter);
 router.use('/public', publicRouter);
 router.use('/lookup', lookupRouter);
 
-//Vehicle Maintenance 
-router.use('/parts', partRouter);
-router.use('/part-locations', partLocationRouter);
-router.use('/vendors', vendorRouter);
-router.use('/purchase-orders', purchaseOrderRouter);
+//Vehicle Maintenance & Inventory
+router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);
 
 // Superuser-only endpoints
 router.use('/super', superuserRouter);

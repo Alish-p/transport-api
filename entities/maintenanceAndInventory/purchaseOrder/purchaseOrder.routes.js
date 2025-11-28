@@ -14,9 +14,9 @@ import {
   purchaseOrderReceiveSchema,
   purchaseOrderPaySchema,
 } from './purchaseOrder.validation.js';
-import { authenticate, checkPermission } from '../../middlewares/Auth.js';
-import pagination from '../../middlewares/pagination.js';
-import validate from '../../middlewares/validate.js';
+import { authenticate, checkPermission } from '../../../middlewares/Auth.js';
+import pagination from '../../../middlewares/pagination.js';
+import validate from '../../../middlewares/validate.js';
 
 const router = Router();
 
