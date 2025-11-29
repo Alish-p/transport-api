@@ -5,6 +5,8 @@ import {
   fetchPartById,
   updatePart,
   deletePart,
+  adjustStock,
+  fetchInventoryActivities,
 } from './part.controller.js';
 import { checkPermission } from '../../../middlewares/Auth.js';
 import pagination from '../../../middlewares/pagination.js';
@@ -17,6 +19,7 @@ router.post(
   createPart,
 );
 
+router.get('/activities', pagination, fetchInventoryActivities);
 router.get('/', pagination, fetchParts);
 router.get('/:id', fetchPartById);
 
@@ -24,6 +27,12 @@ router.put(
   '/:id',
   checkPermission('part', 'update'),
   updatePart,
+);
+
+router.post(
+  '/:id/adjust-stock',
+  checkPermission('part', 'update'),
+  adjustStock,
 );
 
 router.delete(

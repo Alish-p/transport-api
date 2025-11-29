@@ -10,6 +10,11 @@ import {
   PURCHASE_ORDER_TAX_TYPES,
 } from './purchaseOrder.constants.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
+import { recordInventoryActivity } from '../part/inventory.utils.js';
+import {
+  INVENTORY_ACTIVITY_TYPES,
+  SOURCE_DOCUMENT_TYPES,
+} from '../part/inventoryActivity.model.js';
 
 const { ObjectId } = mongoose.Types;
 
@@ -449,99 +454,138 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { lines } = req.body;
 
-  const order = await PurchaseOrder.findOne({
-    _id: id,
-    tenant: req.tenant,
-  });
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (!order) {
-    return res.status(404).json({ message: 'Purchase order not found' });
-  }
+  try {
+    const order = await PurchaseOrder.findOne({
+      _id: id,
+      tenant: req.tenant,
+    }).session(session);
 
-  if (order.status === PURCHASE_ORDER_STATUS.REJECTED) {
-    return res.status(400).json({
-      message: 'Cannot receive items for a rejected purchase order',
-    });
-  }
-
-  if (
-    ![
-      PURCHASE_ORDER_STATUS.APPROVED,
-      PURCHASE_ORDER_STATUS.PURCHASED,
-    ].includes(order.status)
-  ) {
-    return res.status(400).json({
-      message:
-        'Only approved or purchased purchase orders can be received',
-    });
-  }
-
-  const updatesMap = new Map();
-  lines.forEach((line) => {
-    updatesMap.set(line.lineId, line.quantityReceived);
-  });
-
-  const invalidLineIds = [];
-  const partIncrements = [];
-
-  order.lines.forEach((line) => {
-    const lineIdStr = line._id.toString();
-    if (!updatesMap.has(lineIdStr)) return;
-
-    const newReceived = updatesMap.get(lineIdStr);
-    const currentReceived = line.quantityReceived || 0;
-    const maxQty = line.quantityOrdered || 0;
-
-    if (newReceived < currentReceived || newReceived > maxQty) {
-      invalidLineIds.push(lineIdStr);
-      return;
+    if (!order) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: 'Purchase order not found' });
     }
 
-    const delta = newReceived - currentReceived;
-    if (delta > 0) {
-      line.quantityReceived = newReceived;
-      partIncrements.push({
-        partId: line.part,
-        delta,
+    if (order.status === PURCHASE_ORDER_STATUS.REJECTED) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: 'Cannot receive items for a rejected purchase order',
       });
     }
-  });
 
-  if (invalidLineIds.length > 0) {
-    return res.status(400).json({
-      message:
-        'Invalid quantity updates: cannot decrease received quantity or exceed ordered quantity',
-      invalidLines: invalidLineIds,
+    if (
+      ![
+        PURCHASE_ORDER_STATUS.APPROVED,
+        PURCHASE_ORDER_STATUS.PURCHASED,
+        PURCHASE_ORDER_STATUS.RECEIVED, // Allow partial receipts even if marked received (though usually it flips to received only when full)
+      ].includes(order.status)
+    ) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message:
+          'Only approved or purchased purchase orders can be received',
+      });
+    }
+
+    const updatesMap = new Map();
+    lines.forEach((line) => {
+      updatesMap.set(line.lineId, line.quantityReceived);
+    });
+
+    const invalidLineIds = [];
+    const inventoryUpdates = [];
+
+    for (const line of order.lines) {
+      const lineIdStr = line._id.toString();
+      if (!updatesMap.has(lineIdStr)) continue;
+
+      const newReceived = updatesMap.get(lineIdStr);
+      const currentReceived = line.quantityReceived || 0;
+      const maxQty = line.quantityOrdered || 0;
+
+      if (newReceived < currentReceived || newReceived > maxQty) {
+        invalidLineIds.push(lineIdStr);
+        continue;
+      }
+
+      const delta = newReceived - currentReceived;
+      if (delta > 0) {
+        line.quantityReceived = newReceived;
+        inventoryUpdates.push({
+          partId: line.part,
+          delta,
+          lineId: line._id,
+        });
+      }
+    }
+
+    if (invalidLineIds.length > 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message:
+          'Invalid quantity updates: cannot decrease received quantity or exceed ordered quantity',
+        invalidLines: invalidLineIds,
+      });
+    }
+
+    if (!inventoryUpdates.length) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: 'No quantity changes detected for this purchase order',
+      });
+    }
+
+    // Process inventory updates
+    for (const update of inventoryUpdates) {
+      await recordInventoryActivity(
+        {
+          tenant: req.tenant,
+          partId: update.partId,
+          locationId: order.partLocation,
+          type: INVENTORY_ACTIVITY_TYPES.PURCHASE_RECEIPT,
+          direction: 'IN',
+          quantityChange: update.delta,
+          performedBy: req.user._id,
+          sourceDocumentType: SOURCE_DOCUMENT_TYPES.PURCHASE_ORDER,
+          sourceDocumentId: order._id,
+          sourceDocumentLineId: update.lineId,
+          reason: 'Purchase Order Receipt',
+        },
+        session
+      );
+    }
+
+    const allFullyReceived = order.lines.every(
+      (line) =>
+        (line.quantityReceived || 0) >= (line.quantityOrdered || 0),
+    );
+
+    if (allFullyReceived) {
+      order.status = PURCHASE_ORDER_STATUS.RECEIVED;
+      order.receivedAt = new Date();
+    }
+
+    const updated = await order.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json(updated);
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({
+      message: 'An error occurred while receiving purchase order',
+      error: error.message,
     });
   }
-
-  if (!partIncrements.length) {
-    return res.status(400).json({
-      message: 'No quantity changes detected for this purchase order',
-    });
-  }
-
-  await Promise.all(
-    partIncrements.map((u) =>
-      Part.updateOne(
-        { _id: u.partId, tenant: req.tenant },
-        { $inc: { quantity: u.delta } },
-      ),
-    ),
-  );
-
-  const allFullyReceived = order.lines.every(
-    (line) =>
-      (line.quantityReceived || 0) >= (line.quantityOrdered || 0),
-  );
-
-  if (allFullyReceived) {
-    order.status = PURCHASE_ORDER_STATUS.RECEIVED;
-    order.receivedAt = new Date();
-  }
-
-  const updated = await order.save();
-  res.status(200).json(updated);
 });
 
 export {

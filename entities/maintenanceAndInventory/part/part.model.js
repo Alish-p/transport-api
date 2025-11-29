@@ -10,12 +10,6 @@ const partSchema = new Schema(
     manufacturer: { type: String, trim: true },
     unitCost: { type: Number, required: true, min: 0 },
     measurementUnit: { type: String, required: true, trim: true },
-    inventoryLocation: {
-      type: Schema.Types.ObjectId,
-      ref: 'PartLocation',
-      required: true,
-    },
-    quantity: { type: Number, required: true, min: 0 },
     tenant: {
       type: Schema.Types.ObjectId,
       ref: 'Tenant',

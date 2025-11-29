@@ -4,6 +4,11 @@ import WorkOrder from './workOrder.model.js';
 import Part from '../part/part.model.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 import { WORK_ORDER_STATUS } from './workOrder.constants.js';
+import { recordInventoryActivity } from '../part/inventory.utils.js';
+import {
+  INVENTORY_ACTIVITY_TYPES,
+  SOURCE_DOCUMENT_TYPES,
+} from '../part/inventoryActivity.model.js';
 
 const { ObjectId } = mongoose.Types;
 
@@ -236,92 +241,97 @@ const updateWorkOrder = asyncHandler(async (req, res) => {
 const closeWorkOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const workOrder = await WorkOrder.findOne({
-    _id: id,
-    tenant: req.tenant,
-  });
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (!workOrder) {
-    return res.status(404).json({ message: 'Work order not found' });
-  }
-
-  if (workOrder.status === WORK_ORDER_STATUS.COMPLETED) {
-    return res
-      .status(400)
-      .json({ message: 'Work order is already completed' });
-  }
-
-  // Aggregate total consumption per part for inventory-managed items
-  const consumptionByPart = new Map();
-  (workOrder.parts || []).forEach((line) => {
-    if (!line.part) return;
-    const key = line.part.toString();
-    const current = consumptionByPart.get(key) || 0;
-    consumptionByPart.set(key, current + (line.quantity || 0));
-  });
-
-  const partIds = Array.from(consumptionByPart.keys()).map((id) => new ObjectId(id));
-
-  if (partIds.length > 0) {
-    const parts = await Part.find({
-      _id: { $in: partIds },
+  try {
+    const workOrder = await WorkOrder.findOne({
+      _id: id,
       tenant: req.tenant,
-    });
+    }).session(session);
 
-    if (parts.length !== partIds.length) {
-      return res.status(400).json({
-        message:
-          'One or more parts referenced in this work order are missing for this tenant',
-      });
+    if (!workOrder) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: 'Work order not found' });
     }
 
-    // Validate stock
-    const insufficient = [];
-    parts.forEach((p) => {
-      const required = consumptionByPart.get(p._id.toString()) || 0;
-      if ((p.quantity || 0) < required) {
-        insufficient.push({
-          partId: p._id.toString(),
-          available: p.quantity || 0,
-          required,
-        });
+    if (workOrder.status === WORK_ORDER_STATUS.COMPLETED) {
+      await session.abortTransaction();
+      session.endSession();
+      return res
+        .status(400)
+        .json({ message: 'Work order is already completed' });
+    }
+
+    // Process parts consumption
+    if (workOrder.parts && workOrder.parts.length > 0) {
+      for (const line of workOrder.parts) {
+        if (!line.part) continue; // Skip non-part items if any
+
+        if (!line.partLocation) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            message: `Part location is missing for part ${line.part} in work order line`,
+          });
+        }
+
+        // Consume stock
+        // recordInventoryActivity handles the check and decrement
+        try {
+          await recordInventoryActivity(
+            {
+              tenant: req.tenant,
+              partId: line.part,
+              locationId: line.partLocation,
+              type: INVENTORY_ACTIVITY_TYPES.WORK_ORDER_ISSUE,
+              direction: 'OUT',
+              quantityChange: -Math.abs(line.quantity), // Ensure negative
+              performedBy: req.user._id,
+              sourceDocumentType: SOURCE_DOCUMENT_TYPES.WORK_ORDER,
+              sourceDocumentId: workOrder._id,
+              sourceDocumentLineId: line._id,
+              reason: 'Work Order Consumption',
+            },
+            session
+          );
+        } catch (err) {
+          // Catch insufficient stock error from utility
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            message: `Failed to consume part ${line.part}: ${err.message}`,
+          });
+        }
       }
-    });
-
-    if (insufficient.length > 0) {
-      return res.status(400).json({
-        message:
-          'Insufficient stock for one or more parts to close this work order',
-        insufficient,
-      });
     }
 
-    // Apply stock decrements
-    await Promise.all(
-      parts.map((p) => {
-        const required = consumptionByPart.get(p._id.toString()) || 0;
-        if (!required) return null;
-        return Part.updateOne(
-          { _id: p._id, tenant: req.tenant },
-          { $inc: { quantity: -required } },
-        );
-      }),
-    );
+    workOrder.status = WORK_ORDER_STATUS.COMPLETED;
+    workOrder.completedDate = workOrder.completedDate || new Date();
+    workOrder.closedBy = req.user?._id;
+
+    const { partsCost, totalCost } = calculateCosts({
+      parts: workOrder.parts,
+      labourCharge: workOrder.labourCharge,
+    });
+    workOrder.partsCost = partsCost;
+    workOrder.totalCost = totalCost;
+
+    const updated = await workOrder.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json(updated);
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({
+      message: 'An error occurred while closing work order',
+      error: error.message,
+    });
   }
-
-  workOrder.status = WORK_ORDER_STATUS.COMPLETED;
-  workOrder.completedDate = workOrder.completedDate || new Date();
-  workOrder.closedBy = req.user?._id;
-
-  const { partsCost, totalCost } = calculateCosts({
-    parts: workOrder.parts,
-    labourCharge: workOrder.labourCharge,
-  });
-  workOrder.partsCost = partsCost;
-  workOrder.totalCost = totalCost;
-
-  const updated = await workOrder.save();
-  res.status(200).json(updated);
 });
 
 // ─── DELETE WORK ORDER ────────────────────────────────────────────────────────
