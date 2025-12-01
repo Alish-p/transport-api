@@ -28,6 +28,7 @@ import lookupRouter from '../entities/lookup/gst.routes.js';
 import challanRouter from '../entities/challan/challan.routes.js';
 import superuserRouter from '../entities/superuser/superuser.routes.js';
 import maintenanceAndInventoryRouter from '../entities/maintenanceAndInventory/maintenanceAndInventory.routes.js';
+import optionRouter from '../entities/option/option.routes.js';
 
 const router = express.Router();
 
@@ -55,6 +56,7 @@ router.use('/ewaybill', ewayBillRouter);
 router.use('/challans', challanRouter);
 router.use('/public', publicRouter);
 router.use('/lookup', lookupRouter);
+router.use('/options', optionRouter);
 
 //Vehicle Maintenance & Inventory
 router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);

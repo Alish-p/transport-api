@@ -6,6 +6,7 @@ import {
   updatePart,
   deletePart,
   adjustStock,
+  transferStock,
   fetchInventoryActivities,
 } from './part.controller.js';
 import { checkPermission } from '../../../middlewares/Auth.js';
@@ -33,6 +34,12 @@ router.post(
   '/:id/adjust-stock',
   checkPermission('part', 'update'),
   adjustStock,
+);
+
+router.post(
+  '/:id/transfer-stock',
+  checkPermission('part', 'update'),
+  transferStock,
 );
 
 router.delete(

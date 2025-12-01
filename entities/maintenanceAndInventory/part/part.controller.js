@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import Part from './part.model.js';
 import PartLocation from './partLocation.model.js';
 import PartInventory from './partInventory.model.js';
@@ -94,7 +95,7 @@ const createPart = asyncHandler(async (req, res) => {
 
 const fetchParts = asyncHandler(async (req, res) => {
   try {
-    const { search, category, manufacturer } = req.query;
+    const { search, category, manufacturer, inventoryLocation } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -113,20 +114,88 @@ const fetchParts = asyncHandler(async (req, res) => {
       query.manufacturer = { $regex: manufacturer, $options: 'i' };
     }
 
+    // Clone query for aggregations (Mongoose does not auto-cast inside $match)
+    const aggQuery = { ...query };
+
+    // Build aggregation pipeline for inventory totals (respecting filters)
+    const inventoryTotalsPipeline = [
+      { $match: aggQuery },
+      {
+        $lookup: {
+          from: 'partinventories',
+          localField: '_id',
+          foreignField: 'part',
+          as: 'inventories',
+        },
+      },
+      {
+        $unwind: {
+          path: '$inventories',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ];
+
+    if (inventoryLocation && mongoose.Types.ObjectId.isValid(inventoryLocation)) {
+      inventoryTotalsPipeline.push({
+        $match: {
+          'inventories.inventoryLocation': new mongoose.Types.ObjectId(inventoryLocation),
+        },
+      });
+    }
+
+    inventoryTotalsPipeline.push(
+      {
+        $group: {
+          _id: '$_id',
+          unitCost: { $first: '$unitCost' },
+          totalQuantity: {
+            $sum: {
+              $ifNull: ['$inventories.quantity', 0],
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalQuantityItems: { $sum: '$totalQuantity' },
+          outOfStockItems: {
+            $sum: {
+              $cond: [{ $eq: ['$totalQuantity', 0] }, 1, 0],
+            },
+          },
+          totalInventoryValue: {
+            $sum: { $multiply: ['$totalQuantity', '$unitCost'] },
+          },
+        },
+      },
+    );
+
     // Fetch parts with pagination
-    const [parts, total] = await Promise.all([
+    const [parts, total, inventoryTotalsAgg] = await Promise.all([
       Part.find(query)
         .sort({ name: 1 })
         .skip(skip)
         .limit(limit)
         .lean(),
       Part.countDocuments(query),
+      Part.aggregate(inventoryTotalsPipeline),
     ]);
 
     // Fetch inventory summary for these parts
     const partIds = parts.map(p => p._id);
+    const inventoryMatch = {
+      part: { $in: partIds },
+      tenant: req.tenant,
+    };
+
+    if (inventoryLocation && mongoose.Types.ObjectId.isValid(inventoryLocation)) {
+      inventoryMatch.inventoryLocation = new mongoose.Types.ObjectId(inventoryLocation);
+    }
+
     const inventoryStats = await PartInventory.aggregate([
-      { $match: { part: { $in: partIds }, tenant: req.tenant } },
+      { $match: inventoryMatch },
       {
         $group: {
           _id: '$part',
@@ -135,6 +204,13 @@ const fetchParts = asyncHandler(async (req, res) => {
         }
       }
     ]);
+
+    const inventoryTotals =
+      inventoryTotalsAgg[0] || {
+        totalQuantityItems: 0,
+        outOfStockItems: 0,
+        totalInventoryValue: 0,
+      };
 
     // Map stats back to parts
     const partsWithStats = parts.map(part => {
@@ -151,9 +227,9 @@ const fetchParts = asyncHandler(async (req, res) => {
       total,
       startRange: skip + 1,
       endRange: skip + parts.length,
-      totalQuantityItems: 0,
-      outOfStockItems: 0,
-      totalInventoryValue: 0,
+      totalQuantityItems: inventoryTotals.totalQuantityItems || 0,
+      outOfStockItems: inventoryTotals.outOfStockItems || 0,
+      totalInventoryValue: inventoryTotals.totalInventoryValue || 0,
     });
   } catch (error) {
     res.status(500).json({
@@ -251,7 +327,7 @@ const deletePart = asyncHandler(async (req, res) => {
 
 const adjustStock = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { inventoryLocation, quantityChange, reason, type } = req.body;
+  const { inventoryLocation, quantityChange, reason, } = req.body;
 
   if (!inventoryLocation || quantityChange === undefined) {
     return res.status(400).json({ message: 'inventoryLocation and quantityChange are required' });
@@ -272,7 +348,7 @@ const adjustStock = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Invalid quantityChange' });
   }
 
-  const activityType = type || INVENTORY_ACTIVITY_TYPES.MANUAL_ADJUSTMENT;
+  const activityType = INVENTORY_ACTIVITY_TYPES.MANUAL_ADJUSTMENT;
   const direction = change >= 0 ? 'IN' : 'OUT';
 
   try {
@@ -291,6 +367,85 @@ const adjustStock = asyncHandler(async (req, res) => {
     res.status(200).json(partInventory);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+});
+
+const transferStock = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { fromLocationId, toLocationId, quantity, reason } = req.body;
+
+  if (!fromLocationId || !toLocationId || quantity === undefined) {
+    return res.status(400).json({ message: 'fromLocationId, toLocationId, and quantity are required' });
+  }
+
+  if (fromLocationId === toLocationId) {
+    return res.status(400).json({ message: 'Source and destination locations must be different' });
+  }
+
+  const qty = Number(quantity);
+  if (isNaN(qty) || qty <= 0) {
+    return res.status(400).json({ message: 'Quantity must be a positive number' });
+  }
+
+  const part = await Part.findOne({ _id: id, tenant: req.tenant });
+  if (!part) {
+    return res.status(404).json({ message: 'Part not found' });
+  }
+
+  // Verify locations
+  const [sourceLoc, destLoc] = await Promise.all([
+    PartLocation.findOne({ _id: fromLocationId, tenant: req.tenant }),
+    PartLocation.findOne({ _id: toLocationId, tenant: req.tenant }),
+  ]);
+
+  if (!sourceLoc) return res.status(404).json({ message: 'Source location not found' });
+  if (!destLoc) return res.status(404).json({ message: 'Destination location not found' });
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // 1. Deduct from source
+    await recordInventoryActivity(
+      {
+        tenant: req.tenant,
+        partId: id,
+        locationId: fromLocationId,
+        type: INVENTORY_ACTIVITY_TYPES.TRANSFER_OUT,
+        direction: 'OUT',
+        quantityChange: -qty,
+        performedBy: req.user._id,
+        sourceDocumentType: SOURCE_DOCUMENT_TYPES.TRANSFER,
+        reason: reason || 'Stock Transfer',
+        meta: { toLocationId, toLocationName: destLoc.name },
+      },
+      session
+    );
+
+    // 2. Add to destination
+    await recordInventoryActivity(
+      {
+        tenant: req.tenant,
+        partId: id,
+        locationId: toLocationId,
+        type: INVENTORY_ACTIVITY_TYPES.TRANSFER_IN,
+        direction: 'IN',
+        quantityChange: qty,
+        performedBy: req.user._id,
+        sourceDocumentType: SOURCE_DOCUMENT_TYPES.TRANSFER,
+        reason: reason || 'Stock Transfer',
+        meta: { fromLocationId, fromLocationName: sourceLoc.name },
+      },
+      session
+    );
+
+    await session.commitTransaction();
+    res.status(200).json({ message: 'Stock transferred successfully' });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({ message: error.message });
+  } finally {
+    session.endSession();
   }
 });
 
@@ -455,5 +610,6 @@ export {
   updatePartLocation,
   deletePartLocation,
   adjustStock,
+  transferStock,
   fetchInventoryActivities,
 };
