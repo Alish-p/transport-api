@@ -1,6 +1,17 @@
 import asyncHandler from 'express-async-handler';
 import Option from './option.model.js';
 
+const formatString = (str) => {
+    if (!str) return str;
+    return str
+        .trim()
+        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+        .toLowerCase()
+        .split(' ')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+};
+
 // @desc    Get options by group
 // @route   GET /api/options/:group
 // @access  Private
@@ -23,10 +34,13 @@ export const createOption = asyncHandler(async (req, res) => {
         return res.status(400).json({ message: 'Group, label, and value are required' });
     }
 
+    const formattedLabel = formatString(label);
+    const formattedValue = formatString(value);
+
     const optionExists = await Option.findOne({
         tenant: req.tenant,
         group,
-        value,
+        value: formattedValue,
     });
 
     if (optionExists) {
@@ -36,8 +50,8 @@ export const createOption = asyncHandler(async (req, res) => {
     const option = await Option.create({
         tenant: req.tenant,
         group,
-        label,
-        value,
+        label: formattedLabel,
+        value: formattedValue,
         isFixed: false, // User created options are never fixed
     });
 
@@ -66,7 +80,9 @@ export const updateOption = asyncHandler(async (req, res) => {
         return res.status(403).json({ message: 'Cannot edit a fixed system option' });
     }
 
-    option.label = label || option.label;
+    if (label) {
+        option.label = formatString(label);
+    }
     if (isActive !== undefined) option.isActive = isActive;
 
     const updatedOption = await option.save();
@@ -105,13 +121,14 @@ export const seedOptions = asyncHandler(async (req, res) => {
 
     const results = [];
     for (const opt of options) {
-        const exists = await Option.findOne({ tenant: req.tenant, group, value: opt.value });
+        const formattedValue = formatString(opt.value);
+        const exists = await Option.findOne({ tenant: req.tenant, group, value: formattedValue });
         if (!exists) {
             const newOpt = await Option.create({
                 tenant: req.tenant,
                 group,
-                label: opt.label,
-                value: opt.value,
+                label: formatString(opt.label),
+                value: formattedValue,
                 isFixed: opt.isFixed || false,
             });
             results.push(newOpt);
