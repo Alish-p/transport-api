@@ -29,6 +29,7 @@ import challanRouter from '../entities/challan/challan.routes.js';
 import superuserRouter from '../entities/superuser/superuser.routes.js';
 import maintenanceAndInventoryRouter from '../entities/maintenanceAndInventory/maintenanceAndInventory.routes.js';
 import optionRouter from '../entities/option/option.routes.js';
+import activityRouter from '../entities/activity/activity.routes.js';
 
 const router = express.Router();
 
@@ -57,6 +58,7 @@ router.use('/challans', challanRouter);
 router.use('/public', publicRouter);
 router.use('/lookup', lookupRouter);
 router.use('/options', optionRouter);
+router.use('/activities', activityRouter);
 
 //Vehicle Maintenance & Inventory
 router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);

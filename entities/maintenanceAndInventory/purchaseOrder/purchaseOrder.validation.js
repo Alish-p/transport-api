@@ -37,9 +37,9 @@ const purchaseOrderReceiveSchema = z.object({
       .array(
         z.object({
           lineId: z.string().min(1, 'lineId is required'),
-          quantityReceived: z
+          quantityToReceive: z
             .number()
-            .nonnegative('Quantity received cannot be negative'),
+            .positive('Quantity to receive must be positive'),
         }),
       )
       .min(1, 'At least one line update is required'),

@@ -4,6 +4,7 @@ import {
   PURCHASE_ORDER_DISCOUNT_TYPES,
   PURCHASE_ORDER_TAX_TYPES,
 } from './purchaseOrder.constants.js';
+import activityLoggerPlugin from '../../../utils/plugins/activity-logger.plugin.js';
 
 const purchaseOrderLineSchema = new Schema(
   {
@@ -92,6 +93,8 @@ const purchaseOrderSchema = new Schema(
   },
   { timestamps: true },
 );
+
+purchaseOrderSchema.plugin(activityLoggerPlugin);
 
 purchaseOrderSchema.index({ tenant: 1, vendor: 1, createdAt: -1 });
 

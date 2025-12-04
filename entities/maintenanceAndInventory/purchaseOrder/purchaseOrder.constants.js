@@ -4,6 +4,7 @@ export const PURCHASE_ORDER_STATUS = {
   PURCHASED: 'purchased',
   REJECTED: 'rejected',
   RECEIVED: 'received',
+  PARTIAL_RECEIVED: 'partial-received',
 };
 
 export const PURCHASE_ORDER_DISCOUNT_TYPES = {

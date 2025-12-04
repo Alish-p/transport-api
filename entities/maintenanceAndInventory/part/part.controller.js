@@ -13,6 +13,8 @@ import InventoryActivity, {
   INVENTORY_ACTIVITY_TYPES,
   SOURCE_DOCUMENT_TYPES,
 } from './inventoryActivity.model.js';
+import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
+import WorkOrder from '../workOrder/workOrder.model.js';
 
 // ─── PARTS CRUD ────────────────────────────────────────────────────────────────
 
@@ -306,9 +308,29 @@ const updatePart = asyncHandler(async (req, res) => {
 const deletePart = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  // Check if there is any stock? 
-  // For now, just delete the master part. 
-  // Ideally we should check if it's used in POs/WOs or has stock.
+  // Check if part is used in any Purchase Order
+  const usedInPO = await PurchaseOrder.exists({
+    'lines.part': id,
+    tenant: req.tenant,
+  });
+
+  if (usedInPO) {
+    return res.status(400).json({
+      message: 'Cannot delete part because it is used in one or more Purchase Orders.',
+    });
+  }
+
+  // Check if part is used in any Work Order
+  const usedInWO = await WorkOrder.exists({
+    'parts.part': id,
+    tenant: req.tenant,
+  });
+
+  if (usedInWO) {
+    return res.status(400).json({
+      message: 'Cannot delete part because it is used in one or more Work Orders.',
+    });
+  }
 
   const part = await Part.findOneAndDelete({
     _id: id,

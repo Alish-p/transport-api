@@ -148,6 +148,7 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
     tenant: req.tenant,
   });
 
+  po._user = req.user;
   const savedPo = await po.save();
   res.status(201).json(savedPo);
 });
@@ -156,7 +157,7 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
 
 const fetchPurchaseOrders = asyncHandler(async (req, res) => {
   try {
-    const { vendor, status, fromDate, toDate, part } = req.query;
+    const { vendor, status, fromDate, toDate, part, partLocation } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -181,19 +182,63 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
       query['lines.part'] = new ObjectId(part);
     }
 
-    const [orders, total] = await Promise.all([
+    if (partLocation) {
+      query.partLocation = new ObjectId(partLocation);
+    }
+
+    const aggQuery = { ...query };
+
+    const [orders, totalsAgg] = await Promise.all([
       PurchaseOrder.find(query)
         .populate('vendor', 'name phone address')
         .populate('partLocation', 'name address')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      PurchaseOrder.countDocuments(query),
+      PurchaseOrder.aggregate([
+        { $match: aggQuery },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+            amount: { $sum: '$total' },
+          },
+        },
+      ]),
     ]);
+
+    const totals = {
+      all: { count: 0, amount: 0 },
+      pendingApproval: { count: 0, amount: 0 },
+      approved: { count: 0, amount: 0 },
+      purchased: { count: 0, amount: 0 },
+      rejected: { count: 0, amount: 0 },
+      received: { count: 0, amount: 0 },
+      partialReceived: { count: 0, amount: 0 },
+    };
+
+    const statusMap = {
+      [PURCHASE_ORDER_STATUS.PENDING_APPROVAL]: 'pendingApproval',
+      [PURCHASE_ORDER_STATUS.APPROVED]: 'approved',
+      [PURCHASE_ORDER_STATUS.PURCHASED]: 'purchased',
+      [PURCHASE_ORDER_STATUS.REJECTED]: 'rejected',
+      [PURCHASE_ORDER_STATUS.RECEIVED]: 'received',
+      [PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED]: 'partialReceived',
+    };
+
+    totalsAgg.forEach((t) => {
+      const key = statusMap[t._id];
+      if (key) {
+        totals[key] = { count: t.count, amount: t.amount };
+      }
+      totals.all.count += t.count;
+      totals.all.amount += t.amount;
+    });
 
     res.status(200).json({
       purchaseOrders: orders,
-      total,
+      totals,
+      total: totals.all.count,
       startRange: skip + 1,
       endRange: skip + orders.length,
     });
@@ -316,13 +361,17 @@ const updatePurchaseOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    order.lines = lines.map((line) => ({
-      part: line.part,
-      quantityOrdered: line.quantityOrdered,
-      quantityReceived: line.quantityReceived ?? 0,
-      unitCost: line.unitCost,
-      amount: line.quantityOrdered * line.unitCost,
-    }));
+    order.lines = lines.map((line) => {
+      const newLine = {
+        part: line.part,
+        quantityOrdered: line.quantityOrdered,
+        quantityReceived: line.quantityReceived ?? 0,
+        unitCost: line.unitCost,
+        amount: line.quantityOrdered * line.unitCost,
+      };
+      if (line._id) newLine._id = line._id;
+      return newLine;
+    });
   }
 
   if (typeof discountType !== 'undefined') {
@@ -355,6 +404,7 @@ const updatePurchaseOrder = asyncHandler(async (req, res) => {
   order.taxAmount = taxAmount;
   order.total = total;
 
+  order._user = req.user;
   const updated = await order.save();
   res.status(200).json(updated);
 });
@@ -383,6 +433,7 @@ const approvePurchaseOrder = asyncHandler(async (req, res) => {
   order.approvedBy = req.user?._id;
   order.approvedAt = new Date();
 
+  order._user = req.user;
   const updated = await order.save();
   res.status(200).json(updated);
 });
@@ -411,6 +462,7 @@ const rejectPurchaseOrder = asyncHandler(async (req, res) => {
   order.approvedAt = new Date();
   order.rejectionReason = reason || order.rejectionReason;
 
+  order._user = req.user;
   const updated = await order.save();
   res.status(200).json(updated);
 });
@@ -444,6 +496,7 @@ const payPurchaseOrder = asyncHandler(async (req, res) => {
     order.paymentReference = paymentReference;
   }
 
+  order._user = req.user;
   const updated = await order.save();
   res.status(200).json(updated);
 });
@@ -481,20 +534,22 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
       ![
         PURCHASE_ORDER_STATUS.APPROVED,
         PURCHASE_ORDER_STATUS.PURCHASED,
-        PURCHASE_ORDER_STATUS.RECEIVED, // Allow partial receipts even if marked received (though usually it flips to received only when full)
+        PURCHASE_ORDER_STATUS.RECEIVED,
+        PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED,
       ].includes(order.status)
     ) {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         message:
-          'Only approved or purchased purchase orders can be received',
+          'Only approved, purchased, or partially received purchase orders can be received',
       });
     }
 
     const updatesMap = new Map();
     lines.forEach((line) => {
-      updatesMap.set(line.lineId, line.quantityReceived);
+      const id = line.lineId || line._id || line.id;
+      if (id) updatesMap.set(id.toString(), line);
     });
 
     const invalidLineIds = [];
@@ -504,24 +559,30 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
       const lineIdStr = line._id.toString();
       if (!updatesMap.has(lineIdStr)) continue;
 
-      const newReceived = updatesMap.get(lineIdStr);
+      const updateData = updatesMap.get(lineIdStr);
       const currentReceived = line.quantityReceived || 0;
       const maxQty = line.quantityOrdered || 0;
 
-      if (newReceived < currentReceived || newReceived > maxQty) {
+      const qtyToReceive = Number(updateData.quantityToReceive);
+
+      if (isNaN(qtyToReceive) || qtyToReceive <= 0) {
+        continue;
+      }
+
+      const newReceived = currentReceived + qtyToReceive;
+
+      if (newReceived > maxQty) {
         invalidLineIds.push(lineIdStr);
         continue;
       }
 
-      const delta = newReceived - currentReceived;
-      if (delta > 0) {
-        line.quantityReceived = newReceived;
-        inventoryUpdates.push({
-          partId: line.part,
-          delta,
-          lineId: line._id,
-        });
-      }
+      const delta = qtyToReceive;
+      line.quantityReceived = newReceived;
+      inventoryUpdates.push({
+        partId: line.part,
+        delta,
+        lineId: line._id,
+      });
     }
 
     if (invalidLineIds.length > 0) {
@@ -538,7 +599,8 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
-        message: 'No quantity changes detected for this purchase order',
+        message:
+          'No quantity changes detected. Use "quantityToReceive" for incremental updates.',
       });
     }
 
@@ -567,11 +629,18 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
         (line.quantityReceived || 0) >= (line.quantityOrdered || 0),
     );
 
+    const isPartiallyReceived = order.lines.some(
+      (line) => (line.quantityReceived || 0) > 0
+    );
+
     if (allFullyReceived) {
       order.status = PURCHASE_ORDER_STATUS.RECEIVED;
       order.receivedAt = new Date();
+    } else if (isPartiallyReceived) {
+      order.status = PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED;
     }
 
+    order._user = req.user;
     const updated = await order.save({ session });
 
     await session.commitTransaction();
