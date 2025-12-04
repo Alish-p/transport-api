@@ -1,5 +1,7 @@
 import express from 'express';
 
+import { authenticate } from '../middlewares/Auth.js';
+
 import customerRouter from '../entities/customer/customer.routes.js';
 import dashboardRouter from '../entities/dashboard/dashboard.routes.js';
 import driverRouter from '../entities/driver/driver.routes.js';
@@ -25,6 +27,9 @@ import publicRouter from './public.routes.js';
 import lookupRouter from '../entities/lookup/gst.routes.js';
 import challanRouter from '../entities/challan/challan.routes.js';
 import superuserRouter from '../entities/superuser/superuser.routes.js';
+import maintenanceAndInventoryRouter from '../entities/maintenanceAndInventory/maintenanceAndInventory.routes.js';
+import optionRouter from '../entities/option/option.routes.js';
+import activityRouter from '../entities/activity/activity.routes.js';
 
 const router = express.Router();
 
@@ -52,6 +57,12 @@ router.use('/ewaybill', ewayBillRouter);
 router.use('/challans', challanRouter);
 router.use('/public', publicRouter);
 router.use('/lookup', lookupRouter);
+router.use('/options', optionRouter);
+router.use('/activities', activityRouter);
+
+//Vehicle Maintenance & Inventory
+router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);
+
 // Superuser-only endpoints
 router.use('/super', superuserRouter);
 

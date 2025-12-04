@@ -27,7 +27,7 @@ const expenseSchema = new Schema({
 });
 
 expenseSchema.pre("validate", function (next) {
-  if (this.expenseType === "Diesel") {
+  if (this.expenseType === "Diesel" || this.expenseType === "diesel") {
     this.dieselLtr = this.dieselLtr || undefined;
     this.dieselPrice = this.dieselPrice || undefined;
     this.pumpCd = this.pumpCd || undefined;

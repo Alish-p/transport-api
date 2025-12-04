@@ -77,6 +77,9 @@ const integrationSchema = new Schema(
         },
       },
     },
+    maintenanceAndInventory: {
+      enabled: { type: Boolean, default: false },
+    },
   },
   { _id: false }
 );
