@@ -33,7 +33,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
     scheduledStartDate,
     actualStartDate,
     completedDate,
-    assignedTo,
+
     odometerReading,
     issues,
     labourCharge,
@@ -61,7 +61,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
     scheduledStartDate,
     actualStartDate,
     completedDate,
-    assignedTo,
+
     odometerReading,
     issues,
     labourCharge: labourCharge ?? 0,
@@ -114,7 +114,7 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
     const [orders, total] = await Promise.all([
       WorkOrder.find(query)
         .populate('vehicle', 'vehicleNo vehicleType')
-        .populate('assignedTo', 'name')
+
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -145,7 +145,7 @@ const fetchWorkOrderById = asyncHandler(async (req, res) => {
     tenant: req.tenant,
   })
     .populate('vehicle', 'vehicleNo vehicleType')
-    .populate('assignedTo', 'name')
+    .populate('issues.assignedTo', 'name')
     .populate('createdBy', 'name')
     .populate('closedBy', 'name')
     .populate('parts.part', 'partNumber name manufacturer measurementUnit')
@@ -169,7 +169,7 @@ const updateWorkOrder = asyncHandler(async (req, res) => {
     scheduledStartDate,
     actualStartDate,
     completedDate,
-    assignedTo,
+
     odometerReading,
     issues,
     labourCharge,
@@ -198,9 +198,7 @@ const updateWorkOrder = asyncHandler(async (req, res) => {
   if (typeof completedDate !== 'undefined') {
     workOrder.completedDate = completedDate;
   }
-  if (typeof assignedTo !== 'undefined') {
-    workOrder.assignedTo = assignedTo;
-  }
+
   if (typeof odometerReading !== 'undefined') {
     workOrder.odometerReading = odometerReading;
   }

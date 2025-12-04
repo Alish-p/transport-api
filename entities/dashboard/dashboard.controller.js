@@ -1033,13 +1033,30 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
         },
       },
       {
+        $lookup: {
+          from: "trips",
+          localField: "tripId",
+          foreignField: "_id",
+          as: "trip",
+        },
+      },
+      {
+        $unwind: {
+          path: "$trip",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
         $addFields: {
-          distance: {
+          tripDistance: {
             $cond: [
               {
-                $and: [{ $ne: ["$startKm", null] }, { $ne: ["$endKm", null] }],
+                $and: [
+                  { $ne: ["$trip.startKm", null] },
+                  { $ne: ["$trip.endKm", null] },
+                ],
               },
-              { $abs: { $subtract: ["$endKm", "$startKm"] } },
+              { $abs: { $subtract: ["$trip.endKm", "$trip.startKm"] } },
               0,
             ],
           },
@@ -1050,7 +1067,12 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
                   $filter: {
                     input: "$expenses",
                     as: "e",
-                    cond: { $eq: ["$$e.expenseType", "diesel"] },
+                    cond: {
+                      $or: [
+                        { $eq: ["$$e.expenseType", "diesel"] },
+                        { $eq: ["$$e.expenseType", "Diesel"] },
+                      ],
+                    },
                   },
                 },
                 as: "d",
@@ -1062,12 +1084,23 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
       },
       {
         $group: {
-          _id: "$vehicle._id",
+          _id: { $ifNull: ["$tripId", "$_id"] },
+          vehicleId: { $first: "$vehicle._id" },
           vehicleNo: { $first: "$vehicle.vehicleNo" },
           subtripCount: { $sum: 1 },
           totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
-          totalKm: { $sum: "$distance" },
+          tripDistance: { $first: "$tripDistance" },
           totalDiesel: { $sum: "$dieselUsed" },
+        },
+      },
+      {
+        $group: {
+          _id: "$vehicleId",
+          vehicleNo: { $first: "$vehicleNo" },
+          subtripCount: { $sum: "$subtripCount" },
+          totalLoadingWeight: { $sum: "$totalLoadingWeight" },
+          totalKm: { $sum: "$tripDistance" },
+          totalDiesel: { $sum: "$totalDiesel" },
         },
       },
       {

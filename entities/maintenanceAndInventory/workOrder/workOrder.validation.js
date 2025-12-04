@@ -21,9 +21,16 @@ const workOrderCreateSchema = z.object({
     scheduledStartDate: z.coerce.date().optional(),
     actualStartDate: z.coerce.date().optional(),
     completedDate: z.coerce.date().optional(),
-    assignedTo: z.string().optional(),
+
     odometerReading: z.number().nonnegative().optional(),
-    issues: z.array(z.string()).optional(),
+    issues: z
+      .array(
+        z.object({
+          issue: z.string(),
+          assignedTo: z.string().optional(),
+        })
+      )
+      .optional(),
     labourCharge: z.number().nonnegative().optional(),
     parts: z.array(partLineSchema).optional(),
     description: z.string().optional(),
@@ -38,9 +45,16 @@ const workOrderUpdateSchema = z.object({
     scheduledStartDate: z.coerce.date().optional(),
     actualStartDate: z.coerce.date().optional(),
     completedDate: z.coerce.date().optional(),
-    assignedTo: z.string().optional(),
+
     odometerReading: z.number().nonnegative().optional(),
-    issues: z.array(z.string()).optional(),
+    issues: z
+      .array(
+        z.object({
+          issue: z.string(),
+          assignedTo: z.string().optional(),
+        })
+      )
+      .optional(),
     labourCharge: z.number().nonnegative().optional(),
     parts: z.array(partLineSchema).optional(),
     description: z.string().optional(),

@@ -40,14 +40,19 @@ const workOrderSchema = new Schema(
     actualStartDate: { type: Date },
     completedDate: { type: Date },
 
-    assignedTo: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-    },
+
 
     odometerReading: { type: Number },
 
-    issues: [{ type: String }],
+    issues: [
+      {
+        issue: { type: String },
+        assignedTo: {
+          type: Schema.Types.ObjectId,
+          ref: 'User',
+        },
+      },
+    ],
 
     labourCharge: { type: Number, default: 0, min: 0 },
 
