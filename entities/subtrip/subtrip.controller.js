@@ -185,19 +185,27 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       driverId,
       vehicleId,
       transporterId,
-      isOwn,
+      vehicleOwnership,
       fromDate,
       toDate,
       subtripEndFromDate,
       subtripEndToDate,
       expiringIn,
       materials,
+      subtripType,
     } = req.query;
 
     const { limit, skip } = req.pagination;
 
-    // Base query ensures we only consider loaded subtrips and tenant matches
-    const query = addTenantToQuery(req, { isEmpty: false });
+    // Base query with tenant filter
+    const query = addTenantToQuery(req);
+
+    // Handle subtripType filter (Default to Loaded/isEmpty:false if not specified or 'Loaded')
+    if (subtripType === "Empty") {
+      query.isEmpty = true;
+    } else {
+      query.isEmpty = false;
+    }
 
     if (subtripNo) {
       const escaped = String(subtripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -263,12 +271,12 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       query.driverId = driverId;
     }
 
-    const hasIsOwnFilter = typeof isOwn !== "undefined";
-    if (transporterId || vehicleId || hasIsOwnFilter) {
+    if (transporterId || vehicleId || vehicleOwnership) {
       const vehicleSearch = {};
       if (transporterId) vehicleSearch.transporter = transporterId;
       if (vehicleId) vehicleSearch._id = vehicleId;
-      if (hasIsOwnFilter) vehicleSearch.isOwn = isOwn === true || isOwn === "true";
+      if (vehicleOwnership === "Market") vehicleSearch.isOwn = false;
+      if (vehicleOwnership === "Own") vehicleSearch.isOwn = true;
 
       const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select("_id");
       if (!vehicles.length) {
