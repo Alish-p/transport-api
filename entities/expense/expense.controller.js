@@ -74,6 +74,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       endDate,
       expenseType,
       expenseCategory,
+      vehicleType,
     } = req.query;
 
     const { limit, skip } = req.pagination;
@@ -97,10 +98,12 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       if (endDate) query.date.$lte = new Date(endDate);
     }
 
-    if (vehicleId || transporterId) {
+    if (vehicleId || transporterId || vehicleType) {
       const vehicleQuery = {};
       if (vehicleId) vehicleQuery._id = vehicleId;
       if (transporterId) vehicleQuery.transporter = transporterId;
+      if (vehicleType === "Market") vehicleQuery.isOwn = false;
+      if (vehicleType === "Own") vehicleQuery.isOwn = true;
 
       const vehicles = await Vehicle.find(
         addTenantToQuery(req, vehicleQuery)
