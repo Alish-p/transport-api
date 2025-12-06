@@ -7,6 +7,8 @@ import Subtrip from '../subtrip/subtrip.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 import Invoice from '../invoice/invoice.model.js';
+import Option from '../option/option.model.js';
+import { DEFAULT_TENANT_OPTIONS } from '../option/option.defaults.js';
 
 // Build a permissions object with every boolean permission set to true
 function buildFullPermissionsFromSchema() {
@@ -52,6 +54,30 @@ const createUserForTenant = asyncHandler(async (req, res) => {
 const createTenant = asyncHandler(async (req, res) => {
   const tenant = new Tenant({ ...req.body });
   const newTenant = await tenant.save();
+
+  // Seed default options
+  try {
+    const optionDocs = [];
+    for (const groupDef of DEFAULT_TENANT_OPTIONS) {
+      const { group, options } = groupDef;
+      for (const opt of options) {
+        optionDocs.push({
+          tenant: newTenant._id,
+          group,
+          label: opt,
+          value: opt,
+          isFixed: false,
+        });
+      }
+    }
+    if (optionDocs.length > 0) {
+      await Option.insertMany(optionDocs);
+    }
+  } catch (error) {
+    console.error('Error seeding default options:', error);
+    // We don't fail the tenant creation if seeding fails, but we log it.
+  }
+
   res.status(201).json(newTenant);
 });
 
