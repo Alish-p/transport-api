@@ -39,6 +39,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
     labourCharge,
     parts,
     description,
+    category,
   } = req.body;
 
   const normalizedParts = (Array.isArray(parts) ? parts : []).map((line) => ({
@@ -68,7 +69,9 @@ const createWorkOrder = asyncHandler(async (req, res) => {
     parts: normalizedParts,
     partsCost,
     totalCost,
+
     description,
+    category,
     createdBy: req.user?._id,
     tenant: req.tenant,
   });
@@ -81,7 +84,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
 
 const fetchWorkOrders = asyncHandler(async (req, res) => {
   try {
-    const { vehicle, status, priority, fromDate, toDate, part } = req.query;
+    const { vehicle, status, priority, category, fromDate, toDate, part } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -99,6 +102,11 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
     if (priority) {
       const priorities = Array.isArray(priority) ? priority : [priority];
       query.priority = { $in: priorities };
+    }
+
+    if (category) {
+      const categories = Array.isArray(category) ? category : [category];
+      query.category = { $in: categories };
     }
 
     if (fromDate || toDate) {
@@ -175,6 +183,7 @@ const updateWorkOrder = asyncHandler(async (req, res) => {
     labourCharge,
     parts,
     description,
+    category,
   } = req.body;
 
   const workOrder = await WorkOrder.findOne({
@@ -220,6 +229,9 @@ const updateWorkOrder = asyncHandler(async (req, res) => {
   }
   if (typeof description !== 'undefined') {
     workOrder.description = description;
+  }
+  if (typeof category !== 'undefined') {
+    workOrder.category = category;
   }
 
   const { partsCost, totalCost } = calculateCosts({

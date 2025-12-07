@@ -8,6 +8,7 @@ import {
   rejectPurchaseOrder,
   payPurchaseOrder,
   receivePurchaseOrder,
+  deletePurchaseOrder,
 } from './purchaseOrder.controller.js';
 import {
   purchaseOrderCreateSchema,
@@ -74,6 +75,14 @@ router.put(
   checkPermission('purchaseOrder', 'update'),
   validate(purchaseOrderReceiveSchema),
   receivePurchaseOrder,
+);
+
+// Delete
+router.delete(
+  '/:id',
+  authenticate,
+  checkPermission('purchaseOrder', 'delete'),
+  deletePurchaseOrder,
 );
 
 export default router;

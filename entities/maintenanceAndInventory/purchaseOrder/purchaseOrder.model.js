@@ -98,4 +98,21 @@ purchaseOrderSchema.plugin(activityLoggerPlugin);
 
 purchaseOrderSchema.index({ tenant: 1, vendor: 1, createdAt: -1 });
 
+purchaseOrderSchema.pre('findOneAndDelete', async function (next) {
+  const doc = await this.model.findOne(this.getQuery());
+  const restrictedStatuses = [
+    PURCHASE_ORDER_STATUS.PURCHASED,
+    PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED,
+    PURCHASE_ORDER_STATUS.RECEIVED,
+  ];
+  if (doc && restrictedStatuses.includes(doc.status)) {
+    return next(
+      new Error(
+        'Cannot delete a purchase order that is purchased, partially received, or received.',
+      ),
+    );
+  }
+  next();
+});
+
 export default model('PurchaseOrder', purchaseOrderSchema);

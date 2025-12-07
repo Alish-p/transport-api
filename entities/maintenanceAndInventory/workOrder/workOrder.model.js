@@ -33,8 +33,9 @@ const workOrderSchema = new Schema(
     },
     priority: {
       type: String,
-      enum: Object.values(WORK_ORDER_PRIORITY),
-      default: WORK_ORDER_PRIORITY.NON_SCHEDULED,
+    },
+    category: {
+      type: String,
     },
     scheduledStartDate: { type: Date },
     actualStartDate: { type: Date },
@@ -84,6 +85,14 @@ const workOrderSchema = new Schema(
 );
 
 workOrderSchema.index({ tenant: 1, vehicle: 1, createdAt: -1 });
+
+workOrderSchema.pre('findOneAndDelete', async function (next) {
+  const doc = await this.model.findOne(this.getQuery());
+  if (doc && doc.status === WORK_ORDER_STATUS.COMPLETED) {
+    return next(new Error('Cannot delete a completed work order.'));
+  }
+  next();
+});
 
 export default model('WorkOrder', workOrderSchema);
 

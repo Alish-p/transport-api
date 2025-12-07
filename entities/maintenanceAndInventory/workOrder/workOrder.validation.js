@@ -34,6 +34,7 @@ const workOrderCreateSchema = z.object({
     labourCharge: z.number().nonnegative().optional(),
     parts: z.array(partLineSchema).optional(),
     description: z.string().optional(),
+    category: z.string().optional(),
   }),
 });
 
@@ -58,6 +59,7 @@ const workOrderUpdateSchema = z.object({
     labourCharge: z.number().nonnegative().optional(),
     parts: z.array(partLineSchema).optional(),
     description: z.string().optional(),
+    category: z.string().optional(),
   }),
 });
 

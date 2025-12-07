@@ -657,6 +657,32 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
   }
 });
 
+// ─── DELETE ──────────────────────────────────────────────────────────────────
+
+const deletePurchaseOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // The pre('findOneAndDelete') hook in the model handles status checks
+  // and will throw an error if the PO cannot be deleted.
+  const deletedOrder = await PurchaseOrder.findOneAndDelete({
+    _id: id,
+    tenant: req.tenant,
+  });
+
+  if (!deletedOrder) {
+    // If the hook didn't throw but no document was found (or it was filtered out?)
+    // Actually if the hook throws, we go to catch block (asyncHandler).
+    // If we are here, it means either it was deleted or it wasn't found.
+    // However, findOneAndDelete returns the document *before* deletion (or after depending on options) if found.
+    // If not found, it returns null.
+    return res.status(404).json({ message: 'Purchase order not found' });
+  }
+
+  res
+    .status(200)
+    .json({ message: 'Purchase order deleted successfully', id: deletedOrder._id });
+});
+
 export {
   createPurchaseOrder,
   fetchPurchaseOrders,
@@ -666,4 +692,5 @@ export {
   rejectPurchaseOrder,
   payPurchaseOrder,
   receivePurchaseOrder,
+  deletePurchaseOrder,
 };
