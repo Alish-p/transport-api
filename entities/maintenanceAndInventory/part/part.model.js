@@ -16,6 +16,7 @@ const partSchema = new Schema(
       required: true,
       index: true,
     },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

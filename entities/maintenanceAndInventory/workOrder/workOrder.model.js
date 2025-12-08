@@ -14,6 +14,13 @@ const workOrderPartSchema = new Schema(
     quantity: { type: Number, required: true, min: 0 },
     price: { type: Number, required: true, min: 0 },
     amount: { type: Number, required: true, min: 0 },
+    partSnapshot: {
+      partNumber: String,
+      name: String,
+      measurementUnit: String,
+      manufacturer: String,
+      category: String,
+    },
   },
   { _id: true },
 );

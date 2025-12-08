@@ -42,13 +42,39 @@ const createWorkOrder = asyncHandler(async (req, res) => {
     category,
   } = req.body;
 
-  const normalizedParts = (Array.isArray(parts) ? parts : []).map((line) => ({
-    part: line.part ? new ObjectId(line.part) : undefined,
-    partLocation: line.partLocation ? new ObjectId(line.partLocation) : undefined,
-    quantity: line.quantity,
-    price: line.price,
-    amount: line.quantity * line.price,
-  }));
+  const partIds = (Array.isArray(parts) ? parts : [])
+    .filter(p => p.part)
+    .map(p => new ObjectId(p.part));
+
+  const fetchedParts = await Part.find({
+    _id: { $in: partIds },
+    tenant: req.tenant,
+  });
+
+  const partMap = fetchedParts.reduce((acc, part) => {
+    acc[part._id.toString()] = part;
+    return acc;
+  }, {});
+
+  const normalizedParts = (Array.isArray(parts) ? parts : []).map((line) => {
+    const partId = line.part ? line.part.toString() : null;
+    const part = partId ? partMap[partId] : null;
+
+    return {
+      part: line.part ? new ObjectId(line.part) : undefined,
+      partLocation: line.partLocation ? new ObjectId(line.partLocation) : undefined,
+      quantity: line.quantity,
+      price: line.price,
+      amount: line.quantity * line.price,
+      partSnapshot: part ? {
+        partNumber: part.partNumber,
+        name: part.name,
+        measurementUnit: part.measurementUnit,
+        manufacturer: part.manufacturer,
+        category: part.category,
+      } : undefined,
+    };
+  });
 
   const { partsCost, totalCost } = calculateCosts({
     parts: normalizedParts,
@@ -218,13 +244,39 @@ const updateWorkOrder = asyncHandler(async (req, res) => {
     workOrder.labourCharge = labourCharge;
   }
   if (Array.isArray(parts)) {
-    const normalizedParts = parts.map((line) => ({
-      part: line.part ? new ObjectId(line.part) : undefined,
-      partLocation: line.partLocation ? new ObjectId(line.partLocation) : undefined,
-      quantity: line.quantity,
-      price: line.price,
-      amount: line.quantity * line.price,
-    }));
+    const partIds = parts
+      .filter(p => p.part)
+      .map(p => new ObjectId(p.part));
+
+    const fetchedParts = await Part.find({
+      _id: { $in: partIds },
+      tenant: req.tenant,
+    });
+
+    const partMap = fetchedParts.reduce((acc, part) => {
+      acc[part._id.toString()] = part;
+      return acc;
+    }, {});
+
+    const normalizedParts = parts.map((line) => {
+      const partId = line.part ? line.part.toString() : null;
+      const part = partId ? partMap[partId] : null;
+
+      return {
+        part: line.part ? new ObjectId(line.part) : undefined,
+        partLocation: line.partLocation ? new ObjectId(line.partLocation) : undefined,
+        quantity: line.quantity,
+        price: line.price,
+        amount: line.quantity * line.price,
+        partSnapshot: part ? {
+          partNumber: part.partNumber,
+          name: part.name,
+          measurementUnit: part.measurementUnit,
+          manufacturer: part.manufacturer,
+          category: part.category,
+        } : undefined,
+      };
+    });
     workOrder.parts = normalizedParts;
   }
   if (typeof description !== 'undefined') {

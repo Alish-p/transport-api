@@ -128,5 +128,19 @@ export const DEFAULT_TENANT_OPTIONS = [
             "Ford",
             "Other"
         ]
+    },
+    {
+        group: 'partCategory',
+        options: [
+            'Belts',
+            'Brakes',
+            'Electrical',
+            'Filters',
+            'Fluids',
+            'Miscellaneous',
+            'Suspension',
+            'Tires',
+            'Wiring'
+        ]
     }
 ];

@@ -30,6 +30,7 @@ const fetchVendors = asyncHandler(async (req, res) => {
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
+    query.isActive = { $ne: false };
 
     if (search) {
       query.$or = VENDOR_SEARCH_FIELDS.map((field) => ({
@@ -75,7 +76,11 @@ const updateVendor = asyncHandler(async (req, res) => {
 // Delete Vendor
 const deleteVendor = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const vendor = await Vendor.findOneAndDelete({ _id: id, tenant: req.tenant });
+  const vendor = await Vendor.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    { isActive: false },
+    { new: true }
+  );
 
   if (!vendor) {
     return res.status(404).json({ message: 'Vendor not found' });

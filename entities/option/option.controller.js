@@ -1,5 +1,12 @@
 import asyncHandler from 'express-async-handler';
 import Option from './option.model.js';
+import Part from '../maintenanceAndInventory/part/part.model.js';
+import Vehicle from '../vehicle/vehicle.model.js';
+
+const USAGE_MODELS = {
+    part: Part,
+    vehicle: Vehicle,
+};
 
 const formatString = (str) => {
     if (!str) return str;
@@ -17,9 +24,67 @@ const formatString = (str) => {
 // @access  Private
 export const getOptions = asyncHandler(async (req, res) => {
     const { group } = req.params;
+    const { usageFor, usageField } = req.query;
+
     const options = await Option.find({ tenant: req.tenant, group, isActive: true })
         .sort({ label: 1 })
         .select('label value isFixed _id');
+
+    // If usage tracking is requested
+    if (usageFor && usageField) {
+        let Model;
+
+        // Dynamic model selection
+        // We need to map usageFor string to actual Mongoose models
+        // To avoid circular dependencies or complex imports, we can import them at the top
+        // or use a mapping.
+        switch (usageFor) {
+            case 'part':
+                // We need to ensure Part is imported. 
+                // Since we can't easily do dynamic imports inside the function without async/await and path issues in some envs,
+                // it is better to import them at top level.
+                // But I will use the USAGE_MODELS map defined outside.
+                Model = USAGE_MODELS[usageFor];
+                break;
+            case 'vehicle':
+                Model = USAGE_MODELS[usageFor];
+                break;
+            default:
+                break;
+        }
+
+        if (Model) {
+            // Aggregate counts on the target collection
+            const counts = await Model.aggregate([
+                { $match: { tenant: req.tenant } },
+                { $group: { _id: `$${usageField}`, count: { $sum: 1 } } }
+            ]);
+
+            // Create a map for O(1) lookup
+            const countMap = counts.reduce((acc, curr) => {
+                if (curr._id) {
+                    acc[curr._id] = curr.count;
+                }
+                return acc;
+            }, {});
+
+            const optionsWithUsage = options.map((opt) => {
+                const count = countMap[opt.value] || 0;
+                const optObj = opt.toObject();
+
+                optObj.usageFor = usageFor;
+                optObj.usageCount = count;
+
+                // Simple pluralization
+                const suffix = count === 1 ? usageFor : `${usageFor}s`;
+                optObj.usageLabel = `${count} ${suffix}`;
+
+                return optObj;
+            });
+
+            return res.status(200).json(optionsWithUsage);
+        }
+    }
 
     res.status(200).json(options);
 });

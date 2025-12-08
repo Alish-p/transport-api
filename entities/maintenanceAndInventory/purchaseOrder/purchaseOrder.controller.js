@@ -99,25 +99,40 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
     (id) => new ObjectId(id),
   );
 
-  const partsCount = await Part.countDocuments({
+  const parts = await Part.find({
     _id: { $in: partIds },
     tenant: req.tenant,
   });
 
-  if (partsCount !== partIds.length) {
+  if (parts.length !== partIds.length) {
     return res.status(400).json({
       message:
         'One or more parts are invalid or do not belong to this tenant',
     });
   }
 
-  const normalizedLines = lines.map((line) => ({
-    part: line.part,
-    quantityOrdered: line.quantityOrdered,
-    quantityReceived: line.quantityReceived ?? 0,
-    unitCost: line.unitCost,
-    amount: line.quantityOrdered * line.unitCost,
-  }));
+  const partMap = parts.reduce((acc, part) => {
+    acc[part._id.toString()] = part;
+    return acc;
+  }, {});
+
+  const normalizedLines = lines.map((line) => {
+    const part = partMap[line.part.toString()];
+    return {
+      part: line.part,
+      quantityOrdered: line.quantityOrdered,
+      quantityReceived: line.quantityReceived ?? 0,
+      unitCost: line.unitCost,
+      amount: line.quantityOrdered * line.unitCost,
+      partSnapshot: {
+        partNumber: part.partNumber,
+        name: part.name,
+        measurementUnit: part.measurementUnit,
+        manufacturer: part.manufacturer,
+        category: part.category,
+      },
+    };
+  });
 
   const { subtotal, discountAmount, taxAmount, total } = calculateTotals({
     lines: normalizedLines,
@@ -130,7 +145,17 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
 
   const po = new PurchaseOrder({
     vendor,
+    vendorSnapshot: {
+      name: existingVendor.name,
+      phone: existingVendor.phone,
+      address: existingVendor.address,
+      bankDetails: existingVendor.bankDetails,
+    },
     partLocation,
+    partLocationSnapshot: {
+      name: existingLocation.name,
+      address: existingLocation.address,
+    },
     description,
     lines: normalizedLines,
     subtotal,
@@ -327,6 +352,12 @@ const updatePurchaseOrder = asyncHandler(async (req, res) => {
         .json({ message: 'Vendor not found for this tenant' });
     }
     order.vendor = vendor;
+    order.vendorSnapshot = {
+      name: existingVendor.name,
+      phone: existingVendor.phone,
+      address: existingVendor.address,
+      bankDetails: existingVendor.bankDetails,
+    };
   }
 
   if (partLocation && partLocation.toString() !== order.partLocation.toString()) {
@@ -340,6 +371,10 @@ const updatePurchaseOrder = asyncHandler(async (req, res) => {
         .json({ message: 'Part location not found for this tenant' });
     }
     order.partLocation = partLocation;
+    order.partLocationSnapshot = {
+      name: existingLocation.name,
+      address: existingLocation.address,
+    };
   }
 
   if (typeof description !== 'undefined') {
@@ -350,24 +385,37 @@ const updatePurchaseOrder = asyncHandler(async (req, res) => {
     const partIds = [...new Set(lines.map((l) => l.part))].map(
       (pid) => new ObjectId(pid),
     );
-    const partsCount = await Part.countDocuments({
+    const parts = await Part.find({
       _id: { $in: partIds },
       tenant: req.tenant,
     });
-    if (partsCount !== partIds.length) {
+    if (parts.length !== partIds.length) {
       return res.status(400).json({
         message:
           'One or more parts are invalid or do not belong to this tenant',
       });
     }
 
+    const partMap = parts.reduce((acc, part) => {
+      acc[part._id.toString()] = part;
+      return acc;
+    }, {});
+
     order.lines = lines.map((line) => {
+      const part = partMap[line.part.toString()];
       const newLine = {
         part: line.part,
         quantityOrdered: line.quantityOrdered,
         quantityReceived: line.quantityReceived ?? 0,
         unitCost: line.unitCost,
         amount: line.quantityOrdered * line.unitCost,
+        partSnapshot: {
+          partNumber: part.partNumber,
+          name: part.name,
+          measurementUnit: part.measurementUnit,
+          manufacturer: part.manufacturer,
+          category: part.category,
+        },
       };
       if (line._id) newLine._id = line._id;
       return newLine;

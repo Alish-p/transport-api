@@ -17,6 +17,13 @@ const purchaseOrderLineSchema = new Schema(
     quantityReceived: { type: Number, default: 0, min: 0 },
     unitCost: { type: Number, required: true, min: 0 },
     amount: { type: Number, required: true, min: 0 },
+    partSnapshot: {
+      partNumber: String,
+      name: String,
+      measurementUnit: String,
+      manufacturer: String,
+      category: String,
+    },
   },
   { _id: true },
 );
@@ -28,10 +35,26 @@ const purchaseOrderSchema = new Schema(
       ref: 'Vendor',
       required: true,
     },
+    vendorSnapshot: {
+      name: String,
+      phone: String,
+      address: String,
+      bankDetails: {
+        name: String,
+        branch: String,
+        ifsc: String,
+        place: String,
+        accNo: String,
+      },
+    },
     partLocation: {
       type: Schema.Types.ObjectId,
       ref: 'PartLocation',
       required: true,
+    },
+    partLocationSnapshot: {
+      name: String,
+      address: String,
     },
     status: {
       type: String,

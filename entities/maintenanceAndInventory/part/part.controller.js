@@ -101,6 +101,7 @@ const fetchParts = asyncHandler(async (req, res) => {
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
+    query.isActive = { $ne: false };
 
     if (search) {
       query.$or = PART_SEARCH_FIELDS.map((field) => ({
@@ -308,43 +309,17 @@ const updatePart = asyncHandler(async (req, res) => {
 const deletePart = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  // Check if part is used in any Purchase Order
-  const usedInPO = await PurchaseOrder.exists({
-    'lines.part': id,
-    tenant: req.tenant,
-  });
-
-  if (usedInPO) {
-    return res.status(400).json({
-      message: 'Cannot delete part because it is used in one or more Purchase Orders.',
-    });
-  }
-
-  // Check if part is used in any Work Order
-  const usedInWO = await WorkOrder.exists({
-    'parts.part': id,
-    tenant: req.tenant,
-  });
-
-  if (usedInWO) {
-    return res.status(400).json({
-      message: 'Cannot delete part because it is used in one or more Work Orders.',
-    });
-  }
-
-  const part = await Part.findOneAndDelete({
-    _id: id,
-    tenant: req.tenant,
-  });
+  const part = await Part.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    { isActive: false },
+    { new: true }
+  );
 
   if (!part) {
     return res.status(404).json({ message: 'Part not found' });
   }
 
-  // Cleanup inventory records?
-  // await PartInventory.deleteMany({ part: id, tenant: req.tenant });
-
-  res.status(200).json(part);
+  res.status(200).json({ message: 'Part deleted successfully (soft delete)', id: part._id });
 });
 
 const adjustStock = asyncHandler(async (req, res) => {
@@ -548,6 +523,7 @@ const fetchPartLocations = asyncHandler(async (req, res) => {
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
+    query.isActive = { $ne: false };
 
     if (search) {
       query.$or = PART_LOCATION_SEARCH_FIELDS.map((field) => ({
@@ -608,10 +584,11 @@ const updatePartLocation = asyncHandler(async (req, res) => {
 const deletePartLocation = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const location = await PartLocation.findOneAndDelete({
-    _id: id,
-    tenant: req.tenant,
-  });
+  const location = await PartLocation.findOneAndUpdate(
+    { _id: id, tenant: req.tenant },
+    { isActive: false },
+    { new: true }
+  );
 
   if (!location) {
     return res.status(404).json({ message: 'Part location not found' });
