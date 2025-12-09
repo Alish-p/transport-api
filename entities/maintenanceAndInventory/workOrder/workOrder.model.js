@@ -1,5 +1,6 @@
 import { Schema, model } from 'mongoose';
 import { WORK_ORDER_STATUS, WORK_ORDER_PRIORITY } from './workOrder.constants.js';
+import CounterModel from '../../../model/Counter.js';
 
 const workOrderPartSchema = new Schema(
   {
@@ -27,6 +28,7 @@ const workOrderPartSchema = new Schema(
 
 const workOrderSchema = new Schema(
   {
+    workOrderNo: { type: String, required: true },
     vehicle: {
       type: Schema.Types.ObjectId,
       ref: 'Vehicle',
@@ -91,7 +93,33 @@ const workOrderSchema = new Schema(
   { timestamps: true },
 );
 
+workOrderSchema.index({ tenant: 1, workOrderNo: 1 }, { unique: true });
 workOrderSchema.index({ tenant: 1, vehicle: 1, createdAt: -1 });
+
+workOrderSchema.pre('validate', async function (next) {
+  if (!this.isNew) {
+    return next();
+  }
+  try {
+    const counterQuery = CounterModel.findOneAndUpdate(
+      { model: 'WorkOrder', tenant: this.tenant },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: 'WorkOrder' } },
+      { new: true, upsert: true },
+    );
+
+    const session = this.$session();
+    if (session) {
+      counterQuery.session(session);
+    }
+
+    const counter = await counterQuery;
+
+    const workOrderNo = counter ? `WO-${counter.seq}` : 'WO-1';
+    this.workOrderNo = this.workOrderNo || workOrderNo;
+  } catch (error) {
+    return next(error);
+  }
+});
 
 workOrderSchema.pre('findOneAndDelete', async function (next) {
   const doc = await this.model.findOne(this.getQuery());

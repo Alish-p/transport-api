@@ -5,6 +5,7 @@ import {
   PURCHASE_ORDER_TAX_TYPES,
 } from './purchaseOrder.constants.js';
 import activityLoggerPlugin from '../../../utils/plugins/activity-logger.plugin.js';
+import CounterModel from '../../../model/Counter.js';
 
 const purchaseOrderLineSchema = new Schema(
   {
@@ -30,6 +31,7 @@ const purchaseOrderLineSchema = new Schema(
 
 const purchaseOrderSchema = new Schema(
   {
+    purchaseOrderNo: { type: String, required: true },
     vendor: {
       type: Schema.Types.ObjectId,
       ref: 'Vendor',
@@ -119,7 +121,33 @@ const purchaseOrderSchema = new Schema(
 
 purchaseOrderSchema.plugin(activityLoggerPlugin);
 
+purchaseOrderSchema.index({ tenant: 1, purchaseOrderNo: 1 }, { unique: true });
 purchaseOrderSchema.index({ tenant: 1, vendor: 1, createdAt: -1 });
+
+purchaseOrderSchema.pre('validate', async function (next) {
+  if (!this.isNew) {
+    return next();
+  }
+  try {
+    const counterQuery = CounterModel.findOneAndUpdate(
+      { model: 'PurchaseOrder', tenant: this.tenant },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: 'PurchaseOrder' } },
+      { new: true, upsert: true },
+    );
+
+    const session = this.$session();
+    if (session) {
+      counterQuery.session(session);
+    }
+
+    const counter = await counterQuery;
+
+    const purchaseOrderNo = counter ? `PO-${counter.seq}` : 'PO-1';
+    this.purchaseOrderNo = this.purchaseOrderNo || purchaseOrderNo;
+  } catch (error) {
+    return next(error);
+  }
+});
 
 purchaseOrderSchema.pre('findOneAndDelete', async function (next) {
   const doc = await this.model.findOne(this.getQuery());
