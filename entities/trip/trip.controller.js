@@ -5,6 +5,7 @@ import Vehicle from "../vehicle/vehicle.model.js";
 import Subtrip from "../subtrip/subtrip.model.js";
 import Expense from "../expense/expense.model.js";
 import { TRIP_STATUS } from "./trip.constants.js";
+import { SUBTRIP_STATUS } from "../subtrip/subtrip.constants.js";
 import { addTenantToQuery } from "../../utils/tenant-utils.js";
 
 // Fetch Trips with pagination and search
@@ -19,6 +20,8 @@ const fetchTrips = asyncHandler(async (req, res) => {
       toDate,
       status,
       isOwn,
+      isTripSheetReady,
+      numberOfSubtrips,
     } = req.query;
 
     const { limit, skip } = req.pagination || {};
@@ -43,6 +46,28 @@ const fetchTrips = asyncHandler(async (req, res) => {
     if (status) {
       const statuses = Array.isArray(status) ? status : [status];
       query.tripStatus = { $in: statuses };
+    }
+
+    if (numberOfSubtrips) {
+      const size = parseInt(numberOfSubtrips);
+      if (query.subtrips) {
+        query.subtrips = { $all: [query.subtrips], $size: size };
+      } else {
+        query.subtrips = { $size: size };
+      }
+    }
+
+    if (isTripSheetReady === "true") {
+      const tripsWithNonBilledSubtrips = await Subtrip.find({
+        tenant: req.tenant,
+        subtripStatus: { $ne: SUBTRIP_STATUS.BILLED },
+        tripId: { $ne: null },
+      }).distinct("tripId");
+
+      query._id = { $nin: tripsWithNonBilledSubtrips };
+      // Ensure the trip has at least one subtrip
+      query["subtrips.0"] = { $exists: true };
+      query.tripStatus = TRIP_STATUS.CLOSED;
     }
 
     // If filtering by ownership and/or specific vehicle, resolve matching vehicles first
