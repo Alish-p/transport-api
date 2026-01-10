@@ -242,9 +242,9 @@ const createJob = asyncHandler(async (req, res) => {
             autoClosedEmptySubtripIds = empties.map((s) => s._id.toString());
           }
 
-          // Close previous trip with endKm = providedStartKm and toDate = fromDate
+          // Close previous trip with endKm = providedStartKm and toDate = now
           activeTrip.tripStatus = TRIP_STATUS.CLOSED;
-          activeTrip.toDate = new Date(fromDate);
+          activeTrip.toDate = new Date();
           activeTrip.endKm = providedStartKm;
           await activeTrip.save({ session });
 
