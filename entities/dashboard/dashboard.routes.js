@@ -17,6 +17,7 @@ import {
   getInvoiceAmountSummary,
   getDailySummary,
   getVehicleDocumentStatusSummary,
+  getExpiringDocuments,
 } from './dashboard.controller.js';
 
 const router = Router();
@@ -61,5 +62,6 @@ router.get(
 );
 router.get("/daily-summary", authenticate, getDailySummary);
 router.get("/vehicle-documents-summary", authenticate, getVehicleDocumentStatusSummary);
+router.get("/expiring-documents-list", authenticate, getExpiringDocuments);
 
 export default router;
