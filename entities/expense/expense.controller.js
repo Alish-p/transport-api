@@ -3,6 +3,7 @@ import asyncHandler from "express-async-handler";
 import Expense from "./expense.model.js";
 import Subtrip from "../subtrip/subtrip.model.js";
 import Vehicle from "../vehicle/vehicle.model.js";
+import Pump from "../pump/pump.model.js";
 import { EXPENSE_CATEGORIES } from "./expense.constants.js";
 import { addTenantToQuery } from "../../utils/tenant-utils.js";
 import {
@@ -353,6 +354,20 @@ const exportExpenses = asyncHandler(async (req, res) => {
     query.vehicleId = { $in: vehicles.map((v) => v._id) };
   }
 
+  // Pre-fetch related data in bulk to avoid populate overhead in cursor
+  const [vehiclesData, pumpsData, subtripsData] = await Promise.all([
+    Vehicle.find({ tenant: req.tenant })
+      .select("vehicleNo transporter")
+      .populate("transporter", "transportName")
+      .lean(),
+    Pump.find({ tenant: req.tenant }).select("name").lean(),
+    Subtrip.find({ tenant: req.tenant }).select("subtripNo").lean(),
+  ]);
+
+  const vehicleMap = new Map(vehiclesData.map((v) => [v._id.toString(), v]));
+  const pumpMap = new Map(pumpsData.map((p) => [p._id.toString(), p]));
+  const subtripMap = new Map(subtripsData.map((s) => [s._id.toString(), s]));
+
   res.setHeader(
     "Content-Type",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -372,35 +387,31 @@ const exportExpenses = asyncHandler(async (req, res) => {
   worksheet.columns = exportColumns;
 
   const cursor = Expense.find(query)
-    .populate({
-      path: "vehicleId",
-      select: "vehicleNo transporter",
-      populate: { path: "transporter", select: "transportName" },
-    })
-    .populate({ path: "pumpCd", select: "name" })
-    .populate({ path: "subtripId", select: "subtripNo" })
     .sort({ date: -1 })
+    .lean()
     .cursor();
 
   for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
     const row = {};
+    const populatedVehicle = doc.vehicleId ? vehicleMap.get(doc.vehicleId.toString()) : null;
+    const populatedPump = doc.pumpCd ? pumpMap.get(doc.pumpCd.toString()) : null;
+    const populatedSubtrip = doc.subtripId ? subtripMap.get(doc.subtripId.toString()) : null;
+
     exportColumns.forEach((col) => {
       const key = col.key;
-      if (key === 'date') row[key] = doc.date ? doc.date.toISOString().split('T')[0] : '';
-      else if (key === 'vehicleNo') row[key] = doc.vehicleId?.vehicleNo || '-';
-      else if (key === 'transporter') row[key] = doc.vehicleId?.transporter?.transportName || '-';
-      else if (key === 'pumpCd') row[key] = doc.pumpCd?.name || '-';
-      else if (key === 'subtripId') row[key] = doc.subtripId?.subtripNo || '-';
-      else if (key === 'remark') row[key] = doc.remarks || '-'; // Map backend 'remarks' to 'remark' key in loop if needed, but schema says 'remarks'
-      else row[key] = doc[key] || (doc.remarks && key === 'remark' ? doc.remarks : '-');
+      if (key === 'date') row[key] = doc.date ? new Date(doc.date).toISOString().split('T')[0] : '';
+      else if (key === 'vehicleNo') row[key] = populatedVehicle?.vehicleNo || '-';
+      else if (key === 'transporter') row[key] = populatedVehicle?.transporter?.transportName || '-';
+      else if (key === 'pumpCd') row[key] = populatedPump?.name || '-';
+      else if (key === 'subtripId') row[key] = populatedSubtrip?.subtripNo || '-';
+      else if (key === 'remark') row[key] = doc.remarks || '-';
+      else if (key === 'dieselPrice') row[key] = doc.dieselPrice || '-';
+      else row[key] = doc[key] || '-';
     });
 
-    // Special handling for schema field name mismatch if any remaining
-    // Schema has 'remarks', mapping uses 'remark' key for consistency with old default?
-    // Let's stick to mapped keys.
-    // If key is 'remark' but doc has 'remarks':
-    if (exportColumns.find(c => c.key === 'remark') && doc.remarks) {
-      row['remark'] = doc.remarks;
+    // Handle the specific column mapping for Frontend 'remarks' -> Backend 'remarks'
+    if (row.remark === '-' && doc.remarks) {
+      row.remark = doc.remarks;
     }
 
     worksheet.addRow(row).commit();
