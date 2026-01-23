@@ -993,7 +993,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
       else if (key === 'freightAmount') row[key] = freight;
       else if (key === 'totalExpenses') row[key] = totalExpenses;
       else if (key === 'profitAndLoss') row[key] = profitAndLoss;
-      else row[key] = doc[col.key === 'subtripNo' ? '_id' : key] !== undefined ? doc[col.key === 'subtripNo' ? '_id' : key] : (doc[key] || '-');
+      else row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
 
       // Fix specific mapping if needed (e.g. key mismatch)
       // _id mapped to subtripNo in MAPPING key, wait. 
