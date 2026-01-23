@@ -203,17 +203,32 @@ const createJob = asyncHandler(async (req, res) => {
       }
 
       if (tripDecision === 'attach') {
-        if (!activeTrip) {
-          const err = new Error('No active trip to attach for this vehicle');
-          err.status = 400;
-          throw err;
+
+        // If a specific trip ID provided (e.g. attaching to a closed/billed trip from UI), fetch it
+        if (providedTripId && (!activeTrip || String(providedTripId) !== String(activeTrip._id))) {
+          const specificTrip = await Trip.findOne({ _id: providedTripId, tenant: req.tenant }).session(
+            session
+          );
+          if (!specificTrip) {
+            const err = new Error('Provided tripId not found');
+            err.status = 404;
+            throw err;
+          }
+          if (String(specificTrip.vehicleId) !== String(vehicleId)) {
+            const err = new Error('Provided trip does not belong to this vehicle');
+            err.status = 400;
+            throw err;
+          }
+          tripToUse = specificTrip;
+        } else {
+          // Default to active trip
+          if (!activeTrip) {
+            const err = new Error('No active trip to attach for this vehicle');
+            err.status = 400;
+            throw err;
+          }
+          tripToUse = activeTrip;
         }
-        if (providedTripId && String(providedTripId) !== String(activeTrip._id)) {
-          const err = new Error('Provided tripId does not match active trip');
-          err.status = 400;
-          throw err;
-        }
-        tripToUse = activeTrip;
       } else if (tripDecision === 'new') {
         // If there is an active trip, we must close it and require startKm input 
         if (activeTrip) {

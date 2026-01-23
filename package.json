@@ -19,6 +19,7 @@
     "cors": "^2.8.5",
     "dayjs": "^1.11.19",
     "dotenv": "^16.0.0",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "express-async-handler": "^1.2.0",
     "express-rate-limit": "^7.5.0",

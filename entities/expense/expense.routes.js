@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createExpense,
   fetchPaginatedExpenses,
+  exportExpenses,
   fetchExpense,
   updateExpense,
   deleteExpense,
@@ -19,6 +20,7 @@ router.post(
   checkPermission("expense", "create"),
   createExpense,
 );
+router.get("/export", authenticate, exportExpenses);
 router.get("/pagination", authenticate, pagination, fetchPaginatedExpenses);
 router.get("/:id", authenticate, fetchExpense);
 router.put(

@@ -245,4 +245,167 @@ export {
   updateExpense,
   deleteExpense,
   fetchPaginatedExpenses,
+  exportExpenses,
 };
+
+// Export Expenses to Excel
+const exportExpenses = asyncHandler(async (req, res) => {
+  const {
+    vehicleId,
+    transporterId,
+    subtripId,
+    pumpId,
+    tripId,
+    startDate,
+    endDate,
+    expenseType,
+    expenseCategory,
+    vehicleType,
+    columns, // Comma separated column IDs
+  } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  if (tripId) query.tripId = tripId;
+  if (subtripId) query.subtripId = subtripId;
+  if (pumpId) query.pumpCd = new mongoose.Types.ObjectId(pumpId);
+  if (expenseType) {
+    const expenseTypeArray = Array.isArray(expenseType)
+      ? expenseType
+      : [expenseType];
+    query.expenseType = { $in: expenseTypeArray };
+  }
+  if (expenseCategory) query.expenseCategory = expenseCategory;
+
+  if (startDate || endDate) {
+    query.date = {};
+    if (startDate) query.date.$gte = new Date(startDate);
+    if (endDate) query.date.$lte = new Date(endDate);
+  }
+
+  // Column Mapping
+  const COLUMN_MAPPING = {
+    subtripId: { header: 'LR No', key: 'subtripId', width: 20 },
+    vehicleNo: { header: 'Vehicle No', key: 'vehicleNo', width: 20 },
+    expenseType: { header: 'Expense Type', key: 'expenseType', width: 20 },
+    date: { header: 'Date', key: 'date', width: 20 },
+    remarks: { header: 'Remarks', key: 'remark', width: 30 }, // Frontend 'remarks' -> Backend 'remark'
+    dieselRate: { header: 'Diesel Rate (₹/Ltr)', key: 'dieselPrice', width: 15 }, // Frontend 'dieselRate' -> Backend 'dieselPrice'
+    dieselLtr: { header: 'Diesel (Ltr)', key: 'dieselLtr', width: 15 },
+    paidThrough: { header: 'Paid Through', key: 'paidThrough', width: 20 },
+    expenseCategory: { header: 'Expense Category', key: 'expenseCategory', width: 20 },
+    pumpCd: { header: 'Pump Code', key: 'pumpCd', width: 20 },
+    transporter: { header: 'Transporter', key: 'transporter', width: 20 },
+    slipNo: { header: 'Slip No', key: 'slipNo', width: 20 },
+    authorisedBy: { header: 'Authorised By', key: 'authorisedBy', width: 20 },
+    amount: { header: 'Amount', key: 'amount', width: 15 },
+    paymentMode: { header: 'Payment Mode', key: 'paymentMode', width: 15 }, // Extra backend field
+    refNo: { header: 'Reference', key: 'refNo', width: 20 }, // Extra backend field
+  };
+
+  // Determine Columns
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col); // Filter out undefined mappings
+  }
+
+  // Fallback to default columns if no valid columns provided
+  if (exportColumns.length === 0) {
+    exportColumns = [
+      COLUMN_MAPPING.date,
+      COLUMN_MAPPING.vehicleNo,
+      COLUMN_MAPPING.expenseType,
+      COLUMN_MAPPING.amount,
+      COLUMN_MAPPING.paymentMode,
+      COLUMN_MAPPING.refNo,
+      COLUMN_MAPPING.remarks,
+    ];
+  }
+
+  if (vehicleId || transporterId || vehicleType) {
+    const vehicleQuery = {};
+    if (vehicleId) vehicleQuery._id = vehicleId;
+    if (transporterId) vehicleQuery.transporter = transporterId;
+    if (vehicleType === "Market") vehicleQuery.isOwn = false;
+    if (vehicleType === "Own") vehicleQuery.isOwn = true;
+
+    const vehicles = await Vehicle.find(
+      addTenantToQuery(req, vehicleQuery)
+    ).select("_id");
+
+    if (!vehicles.length) {
+      // Return empty excel if no vehicles found to match
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+        stream: res,
+        useStyles: true,
+      });
+      const worksheet = workbook.addWorksheet('Expenses');
+      worksheet.columns = exportColumns;
+      worksheet.commit();
+      await workbook.commit();
+      return;
+    }
+
+    query.vehicleId = { $in: vehicles.map((v) => v._id) };
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=Expenses.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Expenses');
+  worksheet.columns = exportColumns;
+
+  const cursor = Expense.find(query)
+    .populate({
+      path: "vehicleId",
+      select: "vehicleNo transporter",
+      populate: { path: "transporter", select: "transportName" },
+    })
+    .populate({ path: "pumpCd", select: "name" })
+    .populate({ path: "subtripId", select: "subtripNo" })
+    .sort({ date: -1 })
+    .cursor();
+
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    const row = {};
+    exportColumns.forEach((col) => {
+      const key = col.key;
+      if (key === 'date') row[key] = doc.date ? doc.date.toISOString().split('T')[0] : '';
+      else if (key === 'vehicleNo') row[key] = doc.vehicleId?.vehicleNo || '-';
+      else if (key === 'transporter') row[key] = doc.vehicleId?.transporter?.transportName || '-';
+      else if (key === 'pumpCd') row[key] = doc.pumpCd?.name || '-';
+      else if (key === 'subtripId') row[key] = doc.subtripId?.subtripNo || '-';
+      else if (key === 'remark') row[key] = doc.remarks || '-'; // Map backend 'remarks' to 'remark' key in loop if needed, but schema says 'remarks'
+      else row[key] = doc[key] || (doc.remarks && key === 'remark' ? doc.remarks : '-');
+    });
+
+    // Special handling for schema field name mismatch if any remaining
+    // Schema has 'remarks', mapping uses 'remark' key for consistency with old default?
+    // Let's stick to mapped keys.
+    // If key is 'remark' but doc has 'remarks':
+    if (exportColumns.find(c => c.key === 'remark') && doc.remarks) {
+      row['remark'] = doc.remarks;
+    }
+
+    worksheet.addRow(row).commit();
+  }
+
+  worksheet.commit();
+  await workbook.commit();
+});
