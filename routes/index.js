@@ -3,6 +3,7 @@ import express from 'express';
 import { authenticate } from '../middlewares/Auth.js';
 
 import customerRouter from '../entities/customer/customer.routes.js';
+import customerTargetRouter from '../entities/customerTarget/customerTarget.routes.js';
 import dashboardRouter from '../entities/dashboard/dashboard.routes.js';
 import driverRouter from '../entities/driver/driver.routes.js';
 import driverSalaryRouter from '../entities/driverSalary/driverSalary.routes.js';
@@ -62,6 +63,10 @@ router.use('/activities', activityRouter);
 
 //Vehicle Maintenance & Inventory
 router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);
+
+// Customer Target
+router.use('/customer-targets', customerTargetRouter);
+
 
 // Superuser-only endpoints
 router.use('/super', superuserRouter);
