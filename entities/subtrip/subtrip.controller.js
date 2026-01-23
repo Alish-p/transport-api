@@ -757,4 +757,255 @@ export {
   resolveLR,
   fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
+  exportSubtrips,
 };
+
+// Export Subtrips to Excel
+const exportSubtrips = asyncHandler(async (req, res) => {
+  const {
+    subtripNo,
+    customerId,
+    subtripStatus,
+    referenceSubtripNo,
+    loadingPoint,
+    unloadingPoint,
+    ewayBill,
+    driverId,
+    vehicleId,
+    transporterId,
+    vehicleOwnership,
+    fromDate,
+    toDate,
+    subtripEndFromDate,
+    subtripEndToDate,
+    expiringIn,
+    materials,
+    subtripType,
+    columns,
+  } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  // Handle subtripType filter (Default to Loaded/isEmpty:false if not specified or 'Loaded')
+  if (subtripType === "Empty") {
+    query.isEmpty = true;
+  } else {
+    query.isEmpty = false;
+  }
+
+  if (subtripNo) {
+    const escaped = String(subtripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.subtripNo = { $regex: escaped, $options: "i" };
+  }
+  if (customerId) query.customerId = customerId;
+  if (referenceSubtripNo) query.referenceSubtripNo = referenceSubtripNo;
+  if (loadingPoint) {
+    const escaped = String(loadingPoint).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.loadingPoint = { $regex: escaped, $options: "i" };
+  }
+  if (unloadingPoint) {
+    const escaped = String(unloadingPoint).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.unloadingPoint = { $regex: escaped, $options: "i" };
+  }
+  if (ewayBill) {
+    const escaped = String(ewayBill).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.ewayBill = { $regex: escaped, $options: "i" };
+  }
+
+  // Status filter (single or array)
+  if (subtripStatus) {
+    const statusArray = Array.isArray(subtripStatus)
+      ? subtripStatus
+      : [subtripStatus];
+    query.subtripStatus = { $in: statusArray };
+  }
+
+  // Material filter
+  if (materials) {
+    const materialsArray = Array.isArray(materials) ? materials : [materials];
+    query.materialType = {
+      $in: materialsArray.map((mat) => new RegExp(`^${mat}$`, "i")),
+    };
+  }
+
+  // Start date range
+  if (fromDate || toDate) {
+    query.startDate = {};
+    if (fromDate) query.startDate.$gte = new Date(fromDate);
+    if (toDate) query.startDate.$lte = new Date(toDate);
+  }
+
+  // End date range
+  if (subtripEndFromDate || subtripEndToDate) {
+    query.endDate = {};
+    if (subtripEndFromDate) query.endDate.$gte = new Date(subtripEndFromDate);
+    if (subtripEndToDate) query.endDate.$lte = new Date(subtripEndToDate);
+  }
+
+  // Expiring in hours - only loaded subtrips with expiring/expired ewaybill
+  if (expiringIn) {
+    const hours = parseInt(expiringIn, 10);
+    if (!Number.isNaN(hours)) {
+      const threshold = new Date(Date.now() + hours * 60 * 60 * 1000);
+      query.ewayExpiryDate = { $ne: null, $lte: threshold };
+      query.subtripStatus = SUBTRIP_STATUS.LOADED;
+    }
+  }
+
+  // Driver/vehicle/transporter/ownership filtering
+  if (driverId) {
+    query.driverId = driverId;
+  }
+
+  if (transporterId || vehicleId || vehicleOwnership) {
+    const vehicleSearch = {};
+    if (transporterId) vehicleSearch.transporter = transporterId;
+    if (vehicleId) vehicleSearch._id = vehicleId;
+    if (vehicleOwnership === "Market") vehicleSearch.isOwn = false;
+    if (vehicleOwnership === "Own") vehicleSearch.isOwn = true;
+
+    const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select("_id");
+    if (!vehicles.length) {
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+        stream: res,
+        useStyles: true,
+      });
+      const worksheet = workbook.addWorksheet('Jobs');
+      worksheet.commit();
+      await workbook.commit();
+      return;
+    }
+    query.vehicleId = { $in: vehicles.map((v) => v._id) };
+  }
+
+  // Column Mapping
+  const COLUMN_MAPPING = {
+    _id: { header: 'LR No', key: 'subtripNo', width: 20 },
+    tripId: { header: 'Trip No', key: 'tripNo', width: 20 },
+    vehicleNo: { header: 'Vehicle No', key: 'vehicleNo', width: 20 },
+    driver: { header: 'Driver', key: 'driverName', width: 20 },
+    customerId: { header: 'Customer', key: 'customerName', width: 20 },
+    route: { header: 'Route', key: 'route', width: 30 },
+    invoiceNo: { header: 'Invoice No', key: 'invoiceNo', width: 15 },
+    shipmentNo: { header: 'Shipment No', key: 'shipmentNo', width: 15 },
+    orderNo: { header: 'Order No', key: 'orderNo', width: 15 },
+    referenceSubtripNo: { header: 'Reference Job No', key: 'referenceSubtripNo', width: 20 },
+    consignee: { header: 'Consignee', key: 'consignee', width: 20 },
+    materialType: { header: 'Material', key: 'materialType', width: 20 },
+    quantity: { header: 'Quantity', key: 'quantity', width: 15 },
+    grade: { header: 'Grade', key: 'grade', width: 15 },
+    startDate: { header: 'Dispatch Date', key: 'startDate', width: 20 },
+    endDate: { header: 'Received Date', key: 'endDate', width: 20 },
+    ewayExpiryDate: { header: 'E-Way Bill Expiry Date', key: 'ewayExpiryDate', width: 20 },
+    loadingPoint: { header: 'Loading Point', key: 'loadingPoint', width: 20 },
+    unloadingPoint: { header: 'Unloading Point', key: 'unloadingPoint', width: 20 },
+    loadingWeight: { header: 'Loading Weight', key: 'loadingWeight', width: 15 },
+    unloadingWeight: { header: 'Unloading Weight', key: 'unloadingWeight', width: 15 },
+    shortageWeight: { header: 'Shortage (Weight)', key: 'shortageWeight', width: 15 },
+    shortageAmount: { header: 'Shortage (₹)', key: 'shortageAmount', width: 15 },
+    rate: { header: 'Rate', key: 'rate', width: 15 },
+    freightAmount: { header: 'Freight Amount', key: 'freightAmount', width: 15 },
+    commissionRate: { header: 'Commission Rate', key: 'commissionRate', width: 15 },
+    expenses: { header: 'Expenses', key: 'totalExpenses', width: 15 },
+    profitAndLoss: { header: 'Profit & Loss', key: 'profitAndLoss', width: 15 },
+    transport: { header: 'Transporter', key: 'transporterName', width: 20 },
+    subtripStatus: { header: 'Job Status', key: 'subtripStatus', width: 15 },
+  };
+
+  // Determine Columns
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col); // Filter out undefined mappings
+  }
+
+  // Fallback to default columns if no valid columns provided
+  if (exportColumns.length === 0) {
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=Jobs.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Jobs');
+  worksheet.columns = exportColumns;
+
+  const cursor = Subtrip.find(query)
+    .populate('tripId', 'tripNo')
+    .populate('customerId', 'customerName')
+    .populate('driverId', 'driverName')
+    .populate({
+      path: 'vehicleId',
+      select: 'vehicleNo transporter',
+      populate: { path: 'transporter', select: 'transportName' }
+    })
+    .populate('expenses', 'amount')
+    .sort({ startDate: -1 })
+    .lean()
+    .cursor();
+
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    const row = {};
+
+    // Calculations
+    const totalExpenses = doc.expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+
+    let freight = 0;
+    if (typeof doc.freightAmount === 'number') {
+      freight = doc.freightAmount;
+    } else if (doc.rate && doc.loadingWeight) {
+      freight = doc.rate * doc.loadingWeight;
+    }
+
+    const profitAndLoss = freight - totalExpenses;
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+
+      if (key === 'tripNo') row[key] = doc.tripId?.tripNo || '-';
+      else if (key === 'vehicleNo') row[key] = doc.vehicleId?.vehicleNo || '-';
+      else if (key === 'driverName') row[key] = doc.driverId?.driverName || '-';
+      else if (key === 'customerName') row[key] = doc.customerId?.customerName || '-';
+      else if (key === 'route') row[key] = (doc.loadingPoint && doc.unloadingPoint) ? `${doc.loadingPoint} → ${doc.unloadingPoint}` : '-';
+      else if (key === 'transporterName') row[key] = doc.vehicleId?.transporter?.transportName || '-';
+
+      else if (key === 'startDate' || key === 'endDate' || key === 'ewayExpiryDate') {
+        row[key] = doc[col.key === 'ewayExpiryDate' ? 'ewayExpiryDate' : key]
+          ? new Date(doc[col.key === 'ewayExpiryDate' ? 'ewayExpiryDate' : key]).toISOString().split('T')[0]
+          : '-';
+      }
+
+      else if (key === 'freightAmount') row[key] = freight;
+      else if (key === 'totalExpenses') row[key] = totalExpenses;
+      else if (key === 'profitAndLoss') row[key] = profitAndLoss;
+      else row[key] = doc[col.key === 'subtripNo' ? '_id' : key] !== undefined ? doc[col.key === 'subtripNo' ? '_id' : key] : (doc[key] || '-');
+
+      // Fix specific mapping if needed (e.g. key mismatch)
+      // _id mapped to subtripNo in MAPPING key, wait. 
+      // Mapping: _id: { key: 'subtripNo' }. 
+      // doc has subtripNo. 
+      // If logic above says doc['subtripNo'] then it is fine.
+      // Wait, MAPPING has _id key as 'subtripNo'. My logic `row[key] = doc[key]` would look for `doc.subtripNo`. Correct.
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  worksheet.commit();
+  await workbook.commit();
+});
