@@ -11,7 +11,6 @@ const customerTargetSchema = new Schema(
         customer: {
             type: Schema.Types.ObjectId,
             ref: 'Customer',
-            required: true,
         },
         materialTarget: {
             material: { type: String, required: true },

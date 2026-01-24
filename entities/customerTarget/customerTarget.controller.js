@@ -99,7 +99,9 @@ export const getTargets = async (req, res, next) => {
                     {
                         $match: {
                             tenant: new mongoose.Types.ObjectId(tenant),
-                            customerId: new mongoose.Types.ObjectId(target.customer._id),
+                            ...(target.customer?._id && {
+                                customerId: new mongoose.Types.ObjectId(target.customer._id),
+                            }),
                             materialType: target.materialTarget.material,
                             subtripStatus: {
                                 $in: [
