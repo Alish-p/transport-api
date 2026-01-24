@@ -959,6 +959,13 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     .lean()
     .cursor();
 
+  let totalFreight = 0;
+  let totalExpensesSum = 0;
+  let totalProfitSum = 0;
+  let totalLoadingWeight = 0;
+  let totalUnloadingWeight = 0;
+  let totalShortageWeight = 0;
+
   for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
     const row = {};
 
@@ -973,6 +980,14 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     }
 
     const profitAndLoss = freight - totalExpenses;
+
+    // Accumulate totals
+    totalFreight += freight;
+    totalExpensesSum += totalExpenses;
+    totalProfitSum += profitAndLoss;
+    totalLoadingWeight += (doc.loadingWeight || 0);
+    totalUnloadingWeight += (doc.unloadingWeight || 0);
+    totalShortageWeight += (doc.shortageWeight || 0);
 
     exportColumns.forEach((col) => {
       const key = col.key;
@@ -990,9 +1005,10 @@ const exportSubtrips = asyncHandler(async (req, res) => {
           : '-';
       }
 
-      else if (key === 'freightAmount') row[key] = freight;
-      else if (key === 'totalExpenses') row[key] = totalExpenses;
-      else if (key === 'profitAndLoss') row[key] = profitAndLoss;
+      else if (key === 'freightAmount') row[key] = Math.round(freight * 100) / 100;
+      else if (key === 'totalExpenses') row[key] = Math.round(totalExpenses * 100) / 100;
+      else if (key === 'profitAndLoss') row[key] = Math.round(profitAndLoss * 100) / 100;
+      else if (typeof doc[key] === 'number') row[key] = Math.round(doc[key] * 100) / 100;
       else row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
 
       // Fix specific mapping if needed (e.g. key mismatch)
@@ -1005,6 +1021,24 @@ const exportSubtrips = asyncHandler(async (req, res) => {
 
     worksheet.addRow(row).commit();
   }
+
+  // Add Totals Row
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    const key = col.key;
+    if (key === 'subtripNo') totalRow[key] = 'TOTAL';
+    else if (key === 'freightAmount') totalRow[key] = Math.round(totalFreight * 100) / 100;
+    else if (key === 'totalExpenses') totalRow[key] = Math.round(totalExpensesSum * 100) / 100;
+    else if (key === 'profitAndLoss') totalRow[key] = Math.round(totalProfitSum * 100) / 100;
+    else if (key === 'loadingWeight') totalRow[key] = Math.round(totalLoadingWeight * 100) / 100;
+    else if (key === 'unloadingWeight') totalRow[key] = Math.round(totalUnloadingWeight * 100) / 100;
+    else if (key === 'shortageWeight') totalRow[key] = Math.round(totalShortageWeight * 100) / 100;
+    else totalRow[key] = '';
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
 
   worksheet.commit();
   await workbook.commit();
