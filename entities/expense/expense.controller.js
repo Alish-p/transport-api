@@ -161,10 +161,12 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
     };
 
     totalsAgg.forEach((t) => {
-      totals[t._id] = { count: t.count, amount: t.amount };
+      totals[t._id] = { count: t.count, amount: Math.round(t.amount * 100) / 100 };
       totals.all.count += t.count;
       totals.all.amount += t.amount;
     });
+
+    totals.all.amount = Math.round(totals.all.amount * 100) / 100;
 
     res.status(200).json({
       expenses,
@@ -390,6 +392,8 @@ const exportExpenses = asyncHandler(async (req, res) => {
     .sort({ date: -1 })
     .lean()
     .cursor();
+  let totalAmount = 0;
+  let totalDieselLtr = 0;
 
   for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
     const row = {};
@@ -405,7 +409,17 @@ const exportExpenses = asyncHandler(async (req, res) => {
       else if (key === 'pumpCd') row[key] = populatedPump?.name || '-';
       else if (key === 'subtripId') row[key] = populatedSubtrip?.subtripNo || '-';
       else if (key === 'remark') row[key] = doc.remarks || '-';
-      else if (key === 'dieselPrice') row[key] = doc.dieselPrice || '-';
+      else if (key === 'dieselPrice') row[key] = typeof doc.dieselPrice === 'number' ? Math.round(doc.dieselPrice * 100) / 100 : '-';
+      else if (key === 'amount') {
+        const val = typeof doc.amount === 'number' ? Math.round(doc.amount * 100) / 100 : 0;
+        row[key] = val || '-';
+        totalAmount += val;
+      }
+      else if (key === 'dieselLtr') {
+        const val = typeof doc.dieselLtr === 'number' ? Math.round(doc.dieselLtr * 100) / 100 : 0;
+        row[key] = val || '-';
+        totalDieselLtr += val;
+      }
       else row[key] = doc[key] || '-';
     });
 
@@ -416,6 +430,19 @@ const exportExpenses = asyncHandler(async (req, res) => {
 
     worksheet.addRow(row).commit();
   }
+
+  // Add Totals Row
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    if (col.key === 'date') totalRow[col.key] = 'TOTAL';
+    else if (col.key === 'amount') totalRow[col.key] = Math.round(totalAmount * 100) / 100;
+    else if (col.key === 'dieselLtr') totalRow[col.key] = Math.round(totalDieselLtr * 100) / 100;
+    else totalRow[col.key] = '';
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
 
   worksheet.commit();
   await workbook.commit();

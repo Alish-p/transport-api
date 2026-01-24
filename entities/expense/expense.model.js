@@ -13,7 +13,12 @@ const expenseSchema = new Schema({
     required: true,
   },
   expenseType: { type: String, required: true },
-  amount: { type: Number, required: true },
+  amount: {
+    type: Number,
+    required: true,
+    set: (v) => Math.round(v * 100) / 100,
+    get: (v) => Math.round(v * 100) / 100,
+  },
   remarks: { type: String },
   dieselLtr: { type: Number },
   dieselPrice: { type: Number },
@@ -24,6 +29,10 @@ const expenseSchema = new Schema({
   adblueLiters: { type: Number },
   adbluePrice: { type: Number },
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+}, {
+  toJSON: { getters: true },
+  toObject: { getters: true },
+  runSettersOnQuery: true,
 });
 
 expenseSchema.pre("validate", function (next) {
