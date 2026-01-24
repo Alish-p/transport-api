@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import PurchaseOrder from './purchaseOrder.model.js';
 import Vendor from '../vendor/vendor.model.js';
 import PartLocation from '../part/partLocation.model.js';
+import PartInventory from '../part/partInventory.model.js';
 import Part from '../part/part.model.js';
 import {
   PURCHASE_ORDER_STATUS,
@@ -654,6 +655,47 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
 
     // Process inventory updates
     for (const update of inventoryUpdates) {
+      // Calculate and update Average Unit Cost
+      const lineItem = order.lines.find(
+        (l) => l._id.toString() === update.lineId.toString()
+      );
+      const incomingCost = lineItem ? Number(lineItem.unitCost) || 0 : 0;
+      const incomingQty = Number(update.delta) || 0;
+
+      let partInventory = await PartInventory.findOne({
+        tenant: req.tenant,
+        part: update.partId,
+        inventoryLocation: order.partLocation,
+      }).session(session);
+
+      if (partInventory) {
+        // Calculate Weighted Average
+        const currentQty = partInventory.quantity || 0;
+        const currentCost = partInventory.averageUnitCost || 0;
+
+        // Only recalculate if we are adding stock
+        if (incomingQty > 0) {
+          const totalValue = (currentQty * currentCost) + (incomingQty * incomingCost);
+          const newTotalQty = currentQty + incomingQty;
+          // Avoid division by zero
+          const newAvgCost = newTotalQty > 0 ? totalValue / newTotalQty : incomingCost;
+
+          partInventory.averageUnitCost = newAvgCost;
+          await partInventory.save({ session });
+        }
+      } else {
+        // Initialize inventory with cost
+        partInventory = new PartInventory({
+          tenant: req.tenant,
+          part: update.partId,
+          inventoryLocation: order.partLocation,
+          quantity: 0, // Will be incremented by recordInventoryActivity
+          averageUnitCost: incomingCost,
+          threshold: 0
+        });
+        await partInventory.save({ session });
+      }
+
       await recordInventoryActivity(
         {
           tenant: req.tenant,

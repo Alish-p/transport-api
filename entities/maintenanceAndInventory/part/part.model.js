@@ -9,6 +9,7 @@ const partSchema = new Schema(
     photo: { type: String, trim: true },
     manufacturer: { type: String, trim: true },
     unitCost: { type: Number, required: true, min: 0 },
+    averageUnitCost: { type: Number, default: 0, min: 0 },
     measurementUnit: { type: String, required: true, trim: true },
     tenant: {
       type: Schema.Types.ObjectId,

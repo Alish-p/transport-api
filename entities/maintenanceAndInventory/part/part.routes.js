@@ -8,6 +8,7 @@ import {
   adjustStock,
   transferStock,
   fetchInventoryActivities,
+  checkPartPrice,
 } from './part.controller.js';
 import { checkPermission } from '../../../middlewares/Auth.js';
 import pagination from '../../../middlewares/pagination.js';
@@ -20,6 +21,8 @@ router.post(
   createPart,
 );
 
+// This needs to be before /:id to avoid conflict
+router.get('/price-check', checkPartPrice);
 router.get('/activities', pagination, fetchInventoryActivities);
 router.get('/', pagination, fetchParts);
 router.get('/:id', fetchPartById);

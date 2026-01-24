@@ -19,25 +19,47 @@ import WorkOrder from '../workOrder/workOrder.model.js';
 // ─── PARTS CRUD ────────────────────────────────────────────────────────────────
 
 const createPart = asyncHandler(async (req, res) => {
-  const { initialInventory, inventoryLocation } = req.body;
+  const { initialInventory, inventory, inventoryLocation } = req.body;
+  const inventoryData = initialInventory || inventory;
 
-  const part = new Part({ ...req.body, tenant: req.tenant });
+  const part = new Part({
+    ...req.body,
+    tenant: req.tenant,
+    averageUnitCost: req.body.unitCost,
+  });
   const newPart = await part.save();
 
   // Handle initial inventory creation
-  const inventoryItems = [];
+  // We want to ensure ALL active locations get a PartInventory record.
+  // We'll merge any user-provided data (quantities/thresholds) with the full list of locations.
+  const activeLocations = await PartLocation.find({
+    tenant: req.tenant,
+    isActive: { $ne: false },
+  }).select('_id');
 
-  // Case 1: Array of inventory settings provided
-  if (Array.isArray(initialInventory) && initialInventory.length > 0) {
-    inventoryItems.push(...initialInventory);
-  }
-  // Case 2: Legacy/Simple mode - single location provided
-  else if (inventoryLocation) {
-    inventoryItems.push({
-      inventoryLocation,
-      quantity: 0,
-      threshold: 0
-    });
+  const inventoryItems = activeLocations.map((loc) => {
+    const locId = loc._id.toString();
+    const provided = (Array.isArray(inventoryData) ? inventoryData : []).find(
+      (item) => (item.inventoryLocation || item.id || '').toString() === locId
+    );
+
+    return {
+      inventoryLocation: loc._id,
+      quantity: provided ? Number(provided.quantity) || 0 : 0,
+      threshold: provided ? Number(provided.threshold) || 0 : 0,
+    };
+  });
+
+  // Also handle any specific locations provided that might not have been in activeLocations (legacy/specific)
+  if (inventoryLocation) {
+    const locId = inventoryLocation.toString();
+    if (!inventoryItems.find((item) => item.inventoryLocation.toString() === locId)) {
+      inventoryItems.push({
+        inventoryLocation,
+        quantity: 0,
+        threshold: 0,
+      });
+    }
   }
 
   if (inventoryItems.length > 0) {
@@ -66,7 +88,8 @@ const createPart = asyncHandler(async (req, res) => {
           part: newPart._id,
           inventoryLocation: item.inventoryLocation,
           quantity: 0, // Start at 0, then add if needed
-          threshold: threshold
+          threshold: threshold,
+          averageUnitCost: newPart.unitCost,
         });
         await partInventory.save();
 
@@ -597,6 +620,34 @@ const deletePartLocation = asyncHandler(async (req, res) => {
   res.status(200).json(location);
 });
 
+const checkPartPrice = asyncHandler(async (req, res) => {
+  const { partId, locationId } = req.query;
+
+  if (!partId) {
+    return res.status(400).json({ message: 'partId is required' });
+  }
+
+  const part = await Part.findOne({ _id: partId, tenant: req.tenant });
+  if (!part) {
+    return res.status(404).json({ message: 'Part not found' });
+  }
+
+  let price = part.averageUnitCost || part.unitCost || 0;
+
+  if (locationId) {
+    const inventory = await PartInventory.findOne({
+      part: partId,
+      inventoryLocation: locationId,
+      tenant: req.tenant,
+    });
+    if (inventory && inventory.averageUnitCost > 0) {
+      price = inventory.averageUnitCost;
+    }
+  }
+
+  res.status(200).json({ unitCost: price });
+});
+
 export {
   createPart,
   fetchParts,
@@ -611,4 +662,5 @@ export {
   adjustStock,
   transferStock,
   fetchInventoryActivities,
+  checkPartPrice,
 };
