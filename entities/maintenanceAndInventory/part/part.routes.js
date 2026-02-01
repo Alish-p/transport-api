@@ -5,6 +5,7 @@ import {
   fetchPartById,
   updatePart,
   deletePart,
+  getPartPriceHistory,
 } from './part.controller.js';
 
 import { checkPermission } from '../../../middlewares/Auth.js';
@@ -33,6 +34,6 @@ router.delete(
   checkPermission('part', 'delete'),
   deletePart,
 );
+router.get('/:id/price-history', getPartPriceHistory);
 
 export default router;
-

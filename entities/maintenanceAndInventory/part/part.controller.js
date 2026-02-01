@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Part from './part.model.js';
 import PartLocation from '../partLocation/partLocation.model.js';
 import PartStock from '../partStock/partStock.model.js';
+import PartTransaction from '../partTransaction/partTransaction.model.js';
 import { PART_SEARCH_FIELDS } from './part.constants.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 
@@ -101,6 +102,7 @@ const createPart = asyncHandler(async (req, res) => {
             performedBy: req.user._id,
             sourceDocumentType: SOURCE_DOCUMENT_TYPES.MANUAL,
             reason: 'Initial Stock',
+            meta: { unitCost: req.body.unitCost },
           });
         }
       }
@@ -176,6 +178,10 @@ const fetchParts = asyncHandler(async (req, res) => {
               $ifNull: ['$inventories.quantity', 0],
             },
           },
+          // If filtered by location, we have a unique threshold. 
+          // If not, this might be ambiguous, but taking max or sum is a heuristic.
+          // Usually threshold is per location.
+          threshold: { $max: '$inventories.threshold' },
         },
       },
       {
@@ -185,6 +191,24 @@ const fetchParts = asyncHandler(async (req, res) => {
           outOfStockItems: {
             $sum: {
               $cond: [{ $eq: ['$totalQuantity', 0] }, 1, 0],
+            },
+          },
+          lowStockItems: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $lt: ['$totalQuantity', '$threshold'] },
+                    // Optional: Exclude out of stock from low stock if desired. 
+                    // But "Low Stock" usually implies attention needed.
+                    // The user asked for "Out of stock items, low stock items and all".
+                    // Let's treat them as overlapping sets unless specified.
+                    // A part with 0 quantity and threshold 5 is BOTH Out of Stock AND Low Stock.
+                  ]
+                },
+                1,
+                0
+              ],
             },
           },
           totalInventoryValue: {
@@ -222,6 +246,7 @@ const fetchParts = asyncHandler(async (req, res) => {
         $group: {
           _id: '$part',
           totalQuantity: { $sum: '$quantity' },
+          threshold: { $max: '$threshold' },
           locations: { $addToSet: '$inventoryLocation' } // Just to know how many locations
         }
       }
@@ -231,6 +256,7 @@ const fetchParts = asyncHandler(async (req, res) => {
       inventoryTotalsAgg[0] || {
         totalQuantityItems: 0,
         outOfStockItems: 0,
+        lowStockItems: 0,
         totalInventoryValue: 0,
       };
 
@@ -240,6 +266,7 @@ const fetchParts = asyncHandler(async (req, res) => {
       return {
         ...part,
         totalQuantity: stats ? stats.totalQuantity : 0,
+        threshold: stats ? stats.threshold : 0,
         locationCount: stats ? stats.locations.length : 0
       };
     });
@@ -251,6 +278,7 @@ const fetchParts = asyncHandler(async (req, res) => {
       endRange: skip + parts.length,
       totalQuantityItems: inventoryTotals.totalQuantityItems || 0,
       outOfStockItems: inventoryTotals.outOfStockItems || 0,
+      lowStockItems: inventoryTotals.lowStockItems || 0,
       totalInventoryValue: inventoryTotals.totalInventoryValue || 0,
     });
   } catch (error) {
@@ -341,10 +369,76 @@ const deletePart = asyncHandler(async (req, res) => {
   res.status(200).json({ message: 'Part deleted successfully (soft delete)', id: part._id });
 });
 
+const getPartPriceHistory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // 1. Fetch the part to get its initial pricing context
+  const part = await Part.findOne({ _id: id, tenant: req.tenant }).lean();
+  if (!part) {
+    return res.status(404).json({ message: 'Part not found' });
+  }
+
+  // 2. Fetch relevant transactions (Purchase Receipts and Initial Stock)
+  const transactions = await PartTransaction.find({
+    part: id,
+    tenant: req.tenant,
+    type: { $in: [INVENTORY_ACTIVITY_TYPES.PURCHASE_RECEIPT, INVENTORY_ACTIVITY_TYPES.INITIAL] },
+  })
+    .sort({ createdAt: 1 })
+    .lean();
+
+  // 3. Manually populate Purchase Orders since sourceDocumentId lacks a ref in schema
+  const poIds = transactions
+    .filter(tx => tx.type === INVENTORY_ACTIVITY_TYPES.PURCHASE_RECEIPT && tx.sourceDocumentId)
+    .map(tx => tx.sourceDocumentId);
+
+  const purchaseOrders = await PurchaseOrder.find({
+    _id: { $in: poIds },
+    tenant: req.tenant
+  }).lean();
+
+  // 4. Map transactions to history format
+  const history = transactions.map((tx) => {
+    if (tx.type === INVENTORY_ACTIVITY_TYPES.INITIAL) {
+      return {
+        date: tx.createdAt,
+        price: tx.meta?.unitCost || part.unitCost || 0, // Fallback to part's unitCost
+        quantity: tx.quantityChange,
+        vendor: 'Initial Stock',
+        type: 'initial'
+      };
+    }
+
+    if (tx.type === INVENTORY_ACTIVITY_TYPES.PURCHASE_RECEIPT) {
+      const po = purchaseOrders.find(p => p._id.toString() === (tx.sourceDocumentId || '').toString());
+      if (!po || !po.lines) return null;
+
+      const line = po.lines.find(
+        (l) => l._id.toString() === (tx.sourceDocumentLineId || '').toString()
+      );
+
+      if (!line) return null;
+
+      return {
+        date: tx.createdAt,
+        price: line.unitCost,
+        quantity: tx.quantityChange,
+        vendor: po.vendorSnapshot?.name || 'Unknown Vendor',
+        type: 'purchase'
+      };
+    }
+
+    return null;
+  }).filter(Boolean);
+
+  res.status(200).json(history);
+});
+
 export {
   createPart,
   fetchParts,
   fetchPartById,
   updatePart,
   deletePart,
+  getPartPriceHistory,
 };

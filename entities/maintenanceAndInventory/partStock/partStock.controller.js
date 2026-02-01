@@ -195,31 +195,8 @@ const fetchInventoryActivities = asyncHandler(async (req, res) => {
     }
 });
 
-const checkPartPrice = asyncHandler(async (req, res) => {
-    const { partId, locationId } = req.query;
-
-    if (!partId) {
-        return res.status(400).json({ message: 'partId is required' });
-    }
-
-    const part = await Part.findOne({
-        _id: new mongoose.Types.ObjectId(partId),
-        tenant: req.tenant
-    });
-
-    if (!part) {
-        return res.status(404).json({ message: 'Part not found' });
-    }
-
-    // Default to global average or unit cost
-    let price = part.averageUnitCost || part.unitCost || 0;
-
-    res.status(200).json({ unitCost: price });
-});
-
 export {
     adjustStock,
     transferStock,
     fetchInventoryActivities,
-    checkPartPrice,
 };

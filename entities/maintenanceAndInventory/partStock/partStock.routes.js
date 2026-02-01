@@ -3,7 +3,6 @@ import {
     adjustStock,
     transferStock,
     fetchInventoryActivities,
-    checkPartPrice,
 } from './partStock.controller.js';
 import { checkPermission } from '../../../middlewares/Auth.js';
 import pagination from '../../../middlewares/pagination.js';
@@ -12,9 +11,6 @@ const router = Router();
 
 // Transactions History
 router.get('/transactions', pagination, fetchInventoryActivities);
-
-// Price Check
-router.get('/price-check', checkPartPrice);
 
 // Stock Adjustments
 router.post(
