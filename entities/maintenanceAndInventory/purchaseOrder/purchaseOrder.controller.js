@@ -655,45 +655,52 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
 
     // Process inventory updates
     for (const update of inventoryUpdates) {
-      // Calculate and update Average Unit Cost
       const lineItem = order.lines.find(
         (l) => l._id.toString() === update.lineId.toString()
       );
       const incomingCost = lineItem ? Number(lineItem.unitCost) || 0 : 0;
       const incomingQty = Number(update.delta) || 0;
 
-      let partStock = await PartStock.findOne({
-        tenant: req.tenant,
-        part: update.partId,
-        inventoryLocation: order.partLocation,
-      }).session(session);
-
-      if (partStock) {
-        // Calculate Weighted Average
-        const currentQty = partStock.quantity || 0;
-        const currentCost = partStock.averageUnitCost || 0;
-
-        // Only recalculate if we are adding stock
-        if (incomingQty > 0) {
-          const totalValue = (currentQty * currentCost) + (incomingQty * incomingCost);
-          const newTotalQty = currentQty + incomingQty;
-          // Avoid division by zero
-          const newAvgCost = newTotalQty > 0 ? totalValue / newTotalQty : incomingCost;
-
-          partStock.averageUnitCost = newAvgCost;
-          await partStock.save({ session });
-        }
-      } else {
-        // Initialize inventory with cost
-        partStock = new PartStock({
+      // Calculate and update Tenant-Wide Average Unit Cost
+      // We only update cost if we are adding stock
+      if (incomingQty > 0) {
+        const part = await Part.findOne({
+          _id: update.partId,
           tenant: req.tenant,
-          part: update.partId,
-          inventoryLocation: order.partLocation,
-          quantity: 0, // Will be incremented by recordInventoryActivity
-          averageUnitCost: incomingCost,
-          threshold: 0
-        });
-        await partStock.save({ session });
+        }).session(session);
+
+        if (part) {
+          // Calculate Weighted Average
+          // 1. Get current total quantity across ALL locations for this tenant
+          const stockAgg = await PartStock.aggregate([
+            {
+              $match: {
+                tenant: new mongoose.Types.ObjectId(req.tenant),
+                part: part._id,
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                totalQty: { $sum: '$quantity' },
+              },
+            },
+          ]).session(session);
+
+          const currentQty = stockAgg.length > 0 ? stockAgg[0].totalQty : 0;
+          const currentAvgCost = part.averageUnitCost || 0;
+
+          const totalValue =
+            currentQty * currentAvgCost + incomingQty * incomingCost;
+          const newTotalQty = currentQty + incomingQty;
+
+          // Avoid division by zero
+          const newAvgCost =
+            newTotalQty > 0 ? totalValue / newTotalQty : incomingCost;
+
+          part.averageUnitCost = newAvgCost;
+          await part.save({ session });
+        }
       }
 
       await recordInventoryActivity(

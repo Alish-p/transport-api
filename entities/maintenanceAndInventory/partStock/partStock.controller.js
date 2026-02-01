@@ -214,20 +214,6 @@ const checkPartPrice = asyncHandler(async (req, res) => {
     // Default to global average or unit cost
     let price = part.averageUnitCost || part.unitCost || 0;
 
-    if (locationId && mongoose.Types.ObjectId.isValid(locationId)) {
-        const inventory = await PartStock.findOne({
-            part: new mongoose.Types.ObjectId(partId),
-            inventoryLocation: new mongoose.Types.ObjectId(locationId),
-            tenant: req.tenant,
-        });
-
-        // If specific inventory exists, prioritize its cost
-        // We check if it is a number (including 0) and not undefined
-        if (inventory && typeof inventory.averageUnitCost === 'number') {
-            price = inventory.averageUnitCost;
-        }
-    }
-
     res.status(200).json({ unitCost: price });
 });
 

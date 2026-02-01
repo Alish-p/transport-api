@@ -30,12 +30,6 @@ const partInventorySchema = new Schema(
             default: 0,
         },
 
-        averageUnitCost: {
-            type: Number,
-            default: 0,
-            min: 0,
-        },
-
         threshold: {
             type: Number,
             min: 0,

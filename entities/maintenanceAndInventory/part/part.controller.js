@@ -86,7 +86,6 @@ const createPart = asyncHandler(async (req, res) => {
           inventoryLocation: item.inventoryLocation,
           quantity: 0, // Start at 0, then add if needed
           threshold: threshold,
-          averageUnitCost: newPart.unitCost,
         });
         await partStock.save();
 
