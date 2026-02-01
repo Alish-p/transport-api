@@ -54,4 +54,4 @@ partInventorySchema.index(
 // Helpful for location-based queries
 partInventorySchema.index({ tenant: 1, inventoryLocation: 1 });
 
-export default model('PartInventory', partInventorySchema);
+export default model('PartStock', partInventorySchema);

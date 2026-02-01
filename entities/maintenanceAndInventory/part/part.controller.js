@@ -1,18 +1,15 @@
 import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import Part from './part.model.js';
-import PartLocation from './partLocation.model.js';
-import PartInventory from './partInventory.model.js';
-import { PART_SEARCH_FIELDS, PART_LOCATION_SEARCH_FIELDS } from './part.constants.js';
+import PartLocation from '../partLocation/partLocation.model.js';
+import PartStock from '../partStock/partStock.model.js';
+import { PART_SEARCH_FIELDS } from './part.constants.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 
 // ─── PARTS CRUD ────────────────────────────────────────────────────────────────
 
-import { recordInventoryActivity } from './inventory.utils.js';
-import InventoryActivity, {
-  INVENTORY_ACTIVITY_TYPES,
-  SOURCE_DOCUMENT_TYPES,
-} from './inventoryActivity.model.js';
+import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
+import { INVENTORY_ACTIVITY_TYPES, SOURCE_DOCUMENT_TYPES } from '../partTransaction/partTransaction.constants.js';
 import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
 import WorkOrder from '../workOrder/workOrder.model.js';
 
@@ -78,12 +75,12 @@ const createPart = asyncHandler(async (req, res) => {
         const quantity = Number(item.quantity) || 0;
         const threshold = Number(item.threshold) || 0;
 
-        // Create PartInventory record
+        // Create PartStock record
         // We can use recordInventoryActivity if quantity > 0, 
         // but we also need to set the threshold which recordInventoryActivity doesn't do by default.
         // So let's create the record first.
 
-        let partInventory = new PartInventory({
+        let partStock = new PartStock({
           tenant: req.tenant,
           part: newPart._id,
           inventoryLocation: item.inventoryLocation,
@@ -91,7 +88,7 @@ const createPart = asyncHandler(async (req, res) => {
           threshold: threshold,
           averageUnitCost: newPart.unitCost,
         });
-        await partInventory.save();
+        await partStock.save();
 
         // If there is initial stock, record it as an activity
         if (quantity > 0) {
@@ -148,7 +145,7 @@ const fetchParts = asyncHandler(async (req, res) => {
       { $match: aggQuery },
       {
         $lookup: {
-          from: 'partinventories',
+          from: 'partstocks',
           localField: '_id',
           foreignField: 'part',
           as: 'inventories',
@@ -220,7 +217,7 @@ const fetchParts = asyncHandler(async (req, res) => {
       inventoryMatch.inventoryLocation = new mongoose.Types.ObjectId(inventoryLocation);
     }
 
-    const inventoryStats = await PartInventory.aggregate([
+    const inventoryStats = await PartStock.aggregate([
       { $match: inventoryMatch },
       {
         $group: {
@@ -278,7 +275,7 @@ const fetchPartById = asyncHandler(async (req, res) => {
   }
 
   // Fetch inventory details
-  const inventory = await PartInventory.find({ part: id, tenant: req.tenant })
+  const inventory = await PartStock.find({ part: id, tenant: req.tenant })
     .populate('inventoryLocation', 'name address')
     .lean();
 
@@ -322,7 +319,7 @@ const updatePart = asyncHandler(async (req, res) => {
       }));
 
     if (bulkOps.length > 0) {
-      await PartInventory.bulkWrite(bulkOps);
+      await PartStock.bulkWrite(bulkOps);
     }
   }
 
@@ -345,322 +342,10 @@ const deletePart = asyncHandler(async (req, res) => {
   res.status(200).json({ message: 'Part deleted successfully (soft delete)', id: part._id });
 });
 
-const adjustStock = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { inventoryLocation, quantityChange, reason, } = req.body;
-
-  if (!inventoryLocation || quantityChange === undefined) {
-    return res.status(400).json({ message: 'inventoryLocation and quantityChange are required' });
-  }
-
-  const part = await Part.findOne({ _id: id, tenant: req.tenant });
-  if (!part) {
-    return res.status(404).json({ message: 'Part not found' });
-  }
-
-  const location = await PartLocation.findOne({ _id: inventoryLocation, tenant: req.tenant });
-  if (!location) {
-    return res.status(404).json({ message: 'Location not found' });
-  }
-
-  const change = Number(quantityChange);
-  if (isNaN(change)) {
-    return res.status(400).json({ message: 'Invalid quantityChange' });
-  }
-
-  const activityType = INVENTORY_ACTIVITY_TYPES.MANUAL_ADJUSTMENT;
-  const direction = change >= 0 ? 'IN' : 'OUT';
-
-  try {
-    const { partInventory } = await recordInventoryActivity({
-      tenant: req.tenant,
-      partId: id,
-      locationId: inventoryLocation,
-      type: activityType,
-      direction,
-      quantityChange: change,
-      performedBy: req.user._id,
-      sourceDocumentType: SOURCE_DOCUMENT_TYPES.MANUAL,
-      reason: reason || 'Manual Adjustment',
-    });
-
-    res.status(200).json(partInventory);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-
-const transferStock = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { fromLocationId, toLocationId, quantity, reason } = req.body;
-
-  if (!fromLocationId || !toLocationId || quantity === undefined) {
-    return res.status(400).json({ message: 'fromLocationId, toLocationId, and quantity are required' });
-  }
-
-  if (fromLocationId === toLocationId) {
-    return res.status(400).json({ message: 'Source and destination locations must be different' });
-  }
-
-  const qty = Number(quantity);
-  if (isNaN(qty) || qty <= 0) {
-    return res.status(400).json({ message: 'Quantity must be a positive number' });
-  }
-
-  const part = await Part.findOne({ _id: id, tenant: req.tenant });
-  if (!part) {
-    return res.status(404).json({ message: 'Part not found' });
-  }
-
-  // Verify locations
-  const [sourceLoc, destLoc] = await Promise.all([
-    PartLocation.findOne({ _id: fromLocationId, tenant: req.tenant }),
-    PartLocation.findOne({ _id: toLocationId, tenant: req.tenant }),
-  ]);
-
-  if (!sourceLoc) return res.status(404).json({ message: 'Source location not found' });
-  if (!destLoc) return res.status(404).json({ message: 'Destination location not found' });
-
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    // 1. Deduct from source
-    await recordInventoryActivity(
-      {
-        tenant: req.tenant,
-        partId: id,
-        locationId: fromLocationId,
-        type: INVENTORY_ACTIVITY_TYPES.TRANSFER_OUT,
-        direction: 'OUT',
-        quantityChange: -qty,
-        performedBy: req.user._id,
-        sourceDocumentType: SOURCE_DOCUMENT_TYPES.TRANSFER,
-        reason: reason || 'Stock Transfer',
-        meta: { toLocationId, toLocationName: destLoc.name },
-      },
-      session
-    );
-
-    // 2. Add to destination
-    await recordInventoryActivity(
-      {
-        tenant: req.tenant,
-        partId: id,
-        locationId: toLocationId,
-        type: INVENTORY_ACTIVITY_TYPES.TRANSFER_IN,
-        direction: 'IN',
-        quantityChange: qty,
-        performedBy: req.user._id,
-        sourceDocumentType: SOURCE_DOCUMENT_TYPES.TRANSFER,
-        reason: reason || 'Stock Transfer',
-        meta: { fromLocationId, fromLocationName: sourceLoc.name },
-      },
-      session
-    );
-
-    await session.commitTransaction();
-    res.status(200).json({ message: 'Stock transferred successfully' });
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(400).json({ message: error.message });
-  } finally {
-    session.endSession();
-  }
-});
-
-const fetchInventoryActivities = asyncHandler(async (req, res) => {
-  try {
-    const {
-      fromDate,
-      toDate,
-      part,
-      inventoryLocation,
-      type,
-      performedBy,
-    } = req.query;
-    const { limit, skip } = req.pagination;
-
-    const query = addTenantToQuery(req);
-
-    if (fromDate || toDate) {
-      query.createdAt = {};
-      if (fromDate) query.createdAt.$gte = new Date(fromDate);
-      if (toDate) query.createdAt.$lte = new Date(toDate);
-    }
-
-    if (part) {
-      query.part = part;
-    }
-
-    if (inventoryLocation) {
-      query.inventoryLocation = inventoryLocation;
-    }
-
-    if (type) {
-      query.type = type;
-    }
-
-    if (performedBy) {
-      query.performedBy = performedBy;
-    }
-
-    const [activities, total] = await Promise.all([
-      InventoryActivity.find(query)
-        .populate('part', 'partNumber name')
-        .populate('inventoryLocation', 'name')
-        .populate('performedBy', 'name email')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      InventoryActivity.countDocuments(query),
-    ]);
-
-    res.status(200).json({
-      activities,
-      total,
-      startRange: skip + 1,
-      endRange: skip + activities.length,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: 'An error occurred while fetching inventory activities',
-      error: error.message,
-    });
-  }
-});
-
-// ─── PART LOCATIONS CRUD ──────────────────────────────────────────────────────
-
-const createPartLocation = asyncHandler(async (req, res) => {
-  const partLocation = new PartLocation({ ...req.body, tenant: req.tenant });
-  const newLocation = await partLocation.save();
-
-  res.status(201).json(newLocation);
-});
-
-const fetchPartLocations = asyncHandler(async (req, res) => {
-  try {
-    const { search } = req.query;
-    const { limit, skip } = req.pagination;
-
-    const query = addTenantToQuery(req);
-    query.isActive = { $ne: false };
-
-    if (search) {
-      query.$or = PART_LOCATION_SEARCH_FIELDS.map((field) => ({
-        [field]: { $regex: search, $options: 'i' },
-      }));
-    }
-
-    const [locations, total] = await Promise.all([
-      PartLocation.find(query).sort({ name: 1 }).skip(skip).limit(limit),
-      PartLocation.countDocuments(query),
-    ]);
-
-    res.status(200).json({
-      locations,
-      total,
-      startRange: skip + 1,
-      endRange: skip + locations.length,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: 'An error occurred while fetching paginated part locations',
-      error: error.message,
-    });
-  }
-});
-
-const fetchPartLocationById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const location = await PartLocation.findOne({
-    _id: id,
-    tenant: req.tenant,
-  });
-
-  if (!location) {
-    return res.status(404).json({ message: 'Part location not found' });
-  }
-
-  res.status(200).json(location);
-});
-
-const updatePartLocation = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const location = await PartLocation.findOneAndUpdate(
-    { _id: id, tenant: req.tenant },
-    req.body,
-    { new: true },
-  );
-
-  if (!location) {
-    return res.status(404).json({ message: 'Part location not found' });
-  }
-
-  res.status(200).json(location);
-});
-
-const deletePartLocation = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const location = await PartLocation.findOneAndUpdate(
-    { _id: id, tenant: req.tenant },
-    { isActive: false },
-    { new: true }
-  );
-
-  if (!location) {
-    return res.status(404).json({ message: 'Part location not found' });
-  }
-
-  res.status(200).json(location);
-});
-
-const checkPartPrice = asyncHandler(async (req, res) => {
-  const { partId, locationId } = req.query;
-
-  if (!partId) {
-    return res.status(400).json({ message: 'partId is required' });
-  }
-
-  const part = await Part.findOne({ _id: partId, tenant: req.tenant });
-  if (!part) {
-    return res.status(404).json({ message: 'Part not found' });
-  }
-
-  let price = part.averageUnitCost || part.unitCost || 0;
-
-  if (locationId) {
-    const inventory = await PartInventory.findOne({
-      part: partId,
-      inventoryLocation: locationId,
-      tenant: req.tenant,
-    });
-    if (inventory && inventory.averageUnitCost > 0) {
-      price = inventory.averageUnitCost;
-    }
-  }
-
-  res.status(200).json({ unitCost: price });
-});
-
 export {
   createPart,
   fetchParts,
   fetchPartById,
   updatePart,
   deletePart,
-  createPartLocation,
-  fetchPartLocations,
-  fetchPartLocationById,
-  updatePartLocation,
-  deletePartLocation,
-  adjustStock,
-  transferStock,
-  fetchInventoryActivities,
-  checkPartPrice,
 };

@@ -5,7 +5,7 @@ import {
   fetchPartLocationById,
   updatePartLocation,
   deletePartLocation,
-} from './part.controller.js';
+} from './partLocation.controller.js';
 import { checkPermission } from '../../../middlewares/Auth.js';
 import pagination from '../../../middlewares/pagination.js';
 

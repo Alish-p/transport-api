@@ -1,25 +1,9 @@
 import { Schema, model } from 'mongoose';
 
-export const INVENTORY_ACTIVITY_TYPES = {
-    INITIAL: 'INITIAL',
-    MANUAL_ADJUSTMENT: 'MANUAL_ADJUSTMENT',
-    PURCHASE_RECEIPT: 'PURCHASE_RECEIPT',
-    PURCHASE_RETURN: 'PURCHASE_RETURN',
-    WORK_ORDER_ISSUE: 'WORK_ORDER_ISSUE',
-    WORK_ORDER_RETURN: 'WORK_ORDER_RETURN',
-    TRANSFER_OUT: 'TRANSFER_OUT',
-    TRANSFER_IN: 'TRANSFER_IN',
-    STOCK_TAKE_ADJUSTMENT: 'STOCK_TAKE_ADJUSTMENT',
-    SYSTEM_CORRECTION: 'SYSTEM_CORRECTION',
-};
-
-export const SOURCE_DOCUMENT_TYPES = {
-    PURCHASE_ORDER: 'PURCHASE_ORDER',
-    WORK_ORDER: 'WORK_ORDER',
-    TRANSFER: 'TRANSFER',
-    MANUAL: 'MANUAL',
-    SYSTEM: 'SYSTEM',
-};
+import {
+    INVENTORY_ACTIVITY_TYPES,
+    SOURCE_DOCUMENT_TYPES,
+} from './partTransaction.constants.js';
 
 const inventoryActivitySchema = new Schema(
     {
@@ -136,4 +120,4 @@ inventoryActivitySchema.index({
     sourceDocumentId: 1,
 });
 
-export default model('InventoryActivity', inventoryActivitySchema);
+export default model('PartTransaction', inventoryActivitySchema);

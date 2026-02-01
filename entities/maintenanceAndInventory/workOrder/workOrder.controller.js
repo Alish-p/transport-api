@@ -4,11 +4,11 @@ import WorkOrder from './workOrder.model.js';
 import Part from '../part/part.model.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 import { WORK_ORDER_STATUS } from './workOrder.constants.js';
-import { recordInventoryActivity } from '../part/inventory.utils.js';
+import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
 import {
   INVENTORY_ACTIVITY_TYPES,
   SOURCE_DOCUMENT_TYPES,
-} from '../part/inventoryActivity.model.js';
+} from '../partTransaction/partTransaction.constants.js';
 
 const { ObjectId } = mongoose.Types;
 

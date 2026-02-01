@@ -1,5 +1,5 @@
-import PartInventory from './partInventory.model.js';
-import InventoryActivity from './inventoryActivity.model.js';
+import PartStock from '../partStock/partStock.model.js';
+import PartTransaction from './partTransaction.model.js';
 
 /**
  * Records an inventory activity and updates the PartInventory.
@@ -37,15 +37,15 @@ export const recordInventoryActivity = async (
     },
     session = null
 ) => {
-    // 1. Find or create the PartInventory record
-    let partInventory = await PartInventory.findOne({
+    // 1. Find or create the PartStock record
+    let partStock = await PartStock.findOne({
         tenant,
         part: partId,
         inventoryLocation: locationId,
     }).session(session);
 
-    if (!partInventory) {
-        partInventory = new PartInventory({
+    if (!partStock) {
+        partStock = new PartStock({
             tenant,
             part: partId,
             inventoryLocation: locationId,
@@ -53,23 +53,23 @@ export const recordInventoryActivity = async (
         });
     }
 
-    const quantityBefore = partInventory.quantity;
+    const quantityBefore = partStock.quantity;
     const quantityAfter = quantityBefore + quantityChange;
 
     if (quantityAfter < 0) {
         throw new Error(`Insufficient stock. Current: ${quantityBefore}, Requested change: ${quantityChange}`);
     }
 
-    // 2. Update PartInventory
-    partInventory.quantity = quantityAfter;
-    await partInventory.save({ session });
+    // 2. Update PartStock
+    partStock.quantity = quantityAfter;
+    await partStock.save({ session });
 
-    // 3. Create InventoryActivity
-    const activity = new InventoryActivity({
+    // 3. Create PartTransaction
+    const activity = new PartTransaction({
         tenant,
         part: partId,
         inventoryLocation: locationId,
-        partInventory: partInventory._id,
+        partStock: partStock._id,
         type,
         direction,
         quantityBefore,
@@ -85,5 +85,5 @@ export const recordInventoryActivity = async (
 
     await activity.save({ session });
 
-    return { partInventory, activity };
+    return { partStock, activity };
 };

@@ -1,7 +1,8 @@
 import express from 'express';
 import Tenant from '../tenant/tenant.model.js';
 import partRouter from './part/part.routes.js';
-import partLocationRouter from './part/partLocation.routes.js';
+import partLocationRouter from './partLocation/partLocation.routes.js';
+import partStockRouter from './partStock/partStock.routes.js';
 import purchaseOrderRouter from './purchaseOrder/purchaseOrder.routes.js';
 import vendorRouter from './vendor/vendor.routes.js';
 import workOrderRouter from './workOrder/workOrder.routes.js';
@@ -43,5 +44,6 @@ router.use('/part-locations', partLocationRouter);
 router.use('/purchase-orders', purchaseOrderRouter);
 router.use('/vendors', vendorRouter);
 router.use('/work-orders', workOrderRouter);
+router.use('/part-stock', partStockRouter);
 
 export default router;
