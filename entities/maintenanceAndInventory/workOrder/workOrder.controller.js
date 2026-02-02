@@ -60,19 +60,33 @@ const createWorkOrder = asyncHandler(async (req, res) => {
     const partId = line.part ? line.part.toString() : null;
     const part = partId ? partMap[partId] : null;
 
-    return {
-      part: line.part ? new ObjectId(line.part) : undefined,
-      partLocation: line.partLocation ? new ObjectId(line.partLocation) : undefined,
-      quantity: line.quantity,
-      price: line.price,
-      amount: line.quantity * line.price,
-      partSnapshot: part ? {
+    let partSnapshot;
+
+    if (part) {
+      partSnapshot = {
         partNumber: part.partNumber,
         name: part.name,
         measurementUnit: part.measurementUnit,
         manufacturer: part.manufacturer,
         category: part.category,
-      } : undefined,
+      };
+    } else {
+      // For adhoc parts, use provided info or defaults
+      partSnapshot = {
+        name: line.name || 'Custom Item',
+        // Optional: you could allow user to provide unit for adhoc parts too, 
+        // but for now relying on what's available
+      };
+    }
+
+    return {
+      part: line.part ? new ObjectId(line.part) : undefined,
+      partLocation: line.partLocation ? new ObjectId(line.partLocation) : undefined,
+      name: line.name, // Ensure name is saved for adhoc parts
+      quantity: line.quantity,
+      price: line.price,
+      amount: line.quantity * line.price,
+      partSnapshot,
     };
   });
 
@@ -262,19 +276,30 @@ const updateWorkOrder = asyncHandler(async (req, res) => {
       const partId = line.part ? line.part.toString() : null;
       const part = partId ? partMap[partId] : null;
 
-      return {
-        part: line.part ? new ObjectId(line.part) : undefined,
-        partLocation: line.partLocation ? new ObjectId(line.partLocation) : undefined,
-        quantity: line.quantity,
-        price: line.price,
-        amount: line.quantity * line.price,
-        partSnapshot: part ? {
+      let partSnapshot;
+
+      if (part) {
+        partSnapshot = {
           partNumber: part.partNumber,
           name: part.name,
           measurementUnit: part.measurementUnit,
           manufacturer: part.manufacturer,
           category: part.category,
-        } : undefined,
+        };
+      } else {
+        partSnapshot = {
+          name: line.name || 'Custom Item',
+        };
+      }
+
+      return {
+        part: line.part ? new ObjectId(line.part) : undefined,
+        partLocation: line.partLocation ? new ObjectId(line.partLocation) : undefined,
+        name: line.name,
+        quantity: line.quantity,
+        price: line.price,
+        amount: line.quantity * line.price,
+        partSnapshot,
       };
     });
     workOrder.parts = normalizedParts;
@@ -329,7 +354,7 @@ const closeWorkOrder = asyncHandler(async (req, res) => {
     // Process parts consumption
     if (workOrder.parts && workOrder.parts.length > 0) {
       for (const line of workOrder.parts) {
-        if (!line.part) continue; // Skip non-part items if any
+        if (!line.part) continue; // Skip non-part items (adhoc/provision)
 
         if (!line.partLocation) {
           await session.abortTransaction();

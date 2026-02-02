@@ -6,6 +6,7 @@ import {
 
 const partLineSchema = z.object({
   part: z.string().optional(),
+  name: z.string().optional(),
   partLocation: z.string().optional(),
   quantity: z
     .number()

@@ -12,6 +12,7 @@ const workOrderPartSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'PartLocation',
     },
+    name: { type: String },
     quantity: { type: Number, required: true, min: 0 },
     price: { type: Number, required: true, min: 0 },
     amount: { type: Number, required: true, min: 0 },
