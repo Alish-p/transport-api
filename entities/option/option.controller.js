@@ -3,9 +3,12 @@ import Option from './option.model.js';
 import Part from '../maintenanceAndInventory/part/part.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 
+import WorkOrder from '../maintenanceAndInventory/workOrder/workOrder.model.js';
+
 const USAGE_MODELS = {
     part: Part,
     vehicle: Vehicle,
+    workOrder: WorkOrder,
 };
 
 const formatString = (str) => {
@@ -49,16 +52,26 @@ export const getOptions = asyncHandler(async (req, res) => {
             case 'vehicle':
                 Model = USAGE_MODELS[usageFor];
                 break;
+            case 'workOrder':
+                Model = USAGE_MODELS[usageFor];
+                break;
             default:
                 break;
         }
 
         if (Model) {
             // Aggregate counts on the target collection
-            const counts = await Model.aggregate([
-                { $match: { tenant: req.tenant } },
-                { $group: { _id: `$${usageField}`, count: { $sum: 1 } } }
-            ]);
+            const pipeline = [{ $match: { tenant: req.tenant } }];
+
+            // Handle array unwinding if needed
+            // If checking usage of individual items within an array (e.g. issues in WorkOrder)
+            if (usageFor === 'workOrder' && usageField === 'issues.issue') {
+                pipeline.push({ $unwind: '$issues' });
+            }
+
+            pipeline.push({ $group: { _id: `$${usageField}`, count: { $sum: 1 } } });
+
+            const counts = await Model.aggregate(pipeline);
 
             // Create a map for O(1) lookup
             const countMap = counts.reduce((acc, curr) => {
