@@ -84,7 +84,7 @@ const taskSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["todo", "in-progress", "done"],
+      enum: ["todo", "in-progress", "done", "archive"],
       default: "todo",
     },
     tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },

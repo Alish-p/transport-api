@@ -1,4 +1,5 @@
 import Driver from '../entities/driver/driver.model.js';
+import { autoArchiveTasks } from '../entities/task/task.scheduler.js';
 
 // Schedule a task to run every day at local 00:00
 function scheduleAtNextMidnight(task) {
@@ -40,7 +41,14 @@ export function startDailyDriverExpiryJob() {
   scheduleAtNextMidnight(markExpiredDrivers);
 }
 
+export function startDailyTaskArchiveJob() {
+  // eslint-disable-next-line no-console
+  console.log('[Cron] Scheduling daily task archive job for 00:00 local time');
+  scheduleAtNextMidnight(autoArchiveTasks);
+}
+
 export default {
   startDailyDriverExpiryJob,
+  startDailyTaskArchiveJob,
 };
 
