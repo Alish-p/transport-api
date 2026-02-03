@@ -427,4 +427,236 @@ export {
   fetchInvoice,
   cancelInvoice,
   payInvoice,
+  exportInvoices,
 };
+
+// Export Invoices to Excel
+const exportInvoices = asyncHandler(async (req, res) => {
+  const {
+    customerId,
+    subtripId,
+    invoiceStatus,
+    issueFromDate,
+    issueToDate,
+    invoiceNo,
+    columns,
+  } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  if (customerId) {
+    const ids = Array.isArray(customerId) ? customerId : [customerId];
+    query.customerId = { $in: ids };
+  }
+
+  if (subtripId) {
+    const ids = Array.isArray(subtripId) ? subtripId : [subtripId];
+    query.invoicedSubTrips = { $in: ids };
+  }
+
+  if (invoiceStatus) {
+    const statuses = Array.isArray(invoiceStatus)
+      ? invoiceStatus
+      : [invoiceStatus];
+    query.invoiceStatus = { $in: statuses };
+  }
+
+  if (invoiceNo) {
+    query.invoiceNo = { $regex: invoiceNo, $options: "i" };
+  }
+
+  if (issueFromDate || issueToDate) {
+    query.issueDate = {};
+    if (issueFromDate) query.issueDate.$gte = new Date(issueFromDate);
+    if (issueToDate) query.issueDate.$lte = new Date(issueToDate);
+  }
+
+  // Mongoose does not cast values in aggregation pipelines
+  // Cast ObjectId fields explicitly for aggregation stage
+  const aggMatch = { ...query };
+  if (aggMatch.customerId && aggMatch.customerId.$in) {
+    aggMatch.customerId.$in = aggMatch.customerId.$in.map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
+  }
+  if (aggMatch.invoicedSubTrips && aggMatch.invoicedSubTrips.$in) {
+    aggMatch.invoicedSubTrips.$in = aggMatch.invoicedSubTrips.$in.map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
+  }
+
+  // Column Mapping
+  const COLUMN_MAPPING = {
+    _id: { header: 'Invoice ID', key: '_id', width: 25 },
+    invoiceNo: { header: 'Invoice No', key: 'invoiceNo', width: 20 },
+    customerName: { header: 'Customer', key: 'customerName', width: 25 },
+    // Frontend alias for customerName
+    customerId: { header: 'Customer', key: 'customerName', width: 25 },
+    gstNo: { header: 'Customer GST', key: 'gstNo', width: 20 },
+    issueDate: { header: 'Issue Date', key: 'issueDate', width: 15 },
+    dueDate: { header: 'Due Date', key: 'dueDate', width: 15 },
+    invoiceStatus: { header: 'Status', key: 'invoiceStatus', width: 15 },
+    totalAmountBeforeTax: { header: 'Taxable Amount', key: 'totalAmountBeforeTax', width: 15 },
+    taxAmount: { header: 'Tax Amount', key: 'taxAmount', width: 15 },
+    // Individual Tax Columns
+    cgst: { header: 'CGST', key: 'cgst', width: 15 },
+    sgst: { header: 'SGST', key: 'sgst', width: 15 },
+    igst: { header: 'IGST', key: 'igst', width: 15 },
+    netTotal: { header: 'Net Total', key: 'netTotal', width: 15 },
+    totalReceived: { header: 'Received Amount', key: 'totalReceived', width: 15 },
+    balanceAmount: { header: 'Balance', key: 'balanceAmount', width: 15 },
+    subtrips: { header: 'Jobs', key: 'subtripNos', width: 30 },
+  };
+
+  // Determine Columns
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col);
+  }
+
+  // Fallback to default columns
+  if (exportColumns.length === 0) {
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=Invoices.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Invoices');
+  worksheet.columns = exportColumns;
+
+  // Aggregate Pipeline
+  const pipeline = [
+    { $match: aggMatch },
+    { $sort: { issueDate: -1 } },
+    // Lookup Customer
+    {
+      $lookup: {
+        from: 'customers',
+        localField: 'customerId',
+        foreignField: '_id',
+        as: 'customer',
+      },
+    },
+    { $unwind: { path: '$customer', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        invoiceNo: 1,
+        customerName: '$customer.customerName',
+        gstNo: '$customer.GSTNo',
+        issueDate: 1,
+        dueDate: 1,
+        invoiceStatus: 1,
+        totalAmountBeforeTax: 1,
+        taxAmount: { $subtract: ['$netTotal', '$totalAmountBeforeTax'] },
+        // Extract taxes. taxBreakup structure: { cgst: { amount: 0 }, ... }
+        cgst: { $ifNull: ['$taxBreakup.cgst.amount', 0] },
+        sgst: { $ifNull: ['$taxBreakup.sgst.amount', 0] },
+        igst: { $ifNull: ['$taxBreakup.igst.amount', 0] },
+        netTotal: 1,
+        totalReceived: { $ifNull: ['$totalReceived', 0] },
+        // Concatenate subtrip numbers from snapshot
+        subtripNos: {
+          $reduce: {
+            input: '$subtripSnapshot',
+            initialValue: '',
+            in: {
+              $cond: [
+                { $eq: ['$$value', ''] },
+                '$$this.subtripNo',
+                { $concat: ['$$value', ', ', '$$this.subtripNo'] }
+              ]
+            }
+          }
+        }
+      },
+    },
+  ];
+
+  const cursor = Invoice.aggregate(pipeline).cursor();
+
+  let totalTaxable = 0;
+  let totalTax = 0;
+  let totalNet = 0;
+  let totalRec = 0;
+  let totalBal = 0;
+  // Tax totals
+  let totalCgst = 0;
+  let totalSgst = 0;
+  let totalIgst = 0;
+
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    const row = {};
+
+    const taxable = doc.totalAmountBeforeTax || 0;
+    const tax = doc.taxAmount || 0;
+    const net = doc.netTotal || 0;
+    const received = doc.totalReceived || 0;
+    const balance = net - received;
+
+    totalTaxable += taxable;
+    totalTax += tax;
+    totalNet += net;
+    totalRec += received;
+    totalBal += balance;
+
+    totalCgst += (doc.cgst || 0);
+    totalSgst += (doc.sgst || 0);
+    totalIgst += (doc.igst || 0);
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+      if (key === 'issueDate' || key === 'dueDate') {
+        row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
+      } else if (key === 'balanceAmount') {
+        row[key] = Math.round(balance * 100) / 100;
+      } else if (key === 'taxAmount') {
+        row[key] = Math.round(tax * 100) / 100;
+      } else if (typeof doc[key] === 'number') {
+        row[key] = Math.round(doc[key] * 100) / 100;
+      } else {
+        row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  // Footer Row
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    const key = col.key;
+    if (key === 'invoiceNo') totalRow[key] = 'TOTAL';
+    else if (key === 'totalAmountBeforeTax') totalRow[key] = Math.round(totalTaxable * 100) / 100;
+    else if (key === 'taxAmount') totalRow[key] = Math.round(totalTax * 100) / 100;
+    else if (key === 'netTotal') totalRow[key] = Math.round(totalNet * 100) / 100;
+    else if (key === 'totalReceived') totalRow[key] = Math.round(totalRec * 100) / 100;
+    else if (key === 'balanceAmount') totalRow[key] = Math.round(totalBal * 100) / 100;
+    else if (key === 'cgst') totalRow[key] = Math.round(totalCgst * 100) / 100;
+    else if (key === 'sgst') totalRow[key] = Math.round(totalSgst * 100) / 100;
+    else if (key === 'igst') totalRow[key] = Math.round(totalIgst * 100) / 100;
+    else totalRow[key] = '';
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
+
+  worksheet.commit();
+  await workbook.commit();
+});

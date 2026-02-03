@@ -151,7 +151,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       )
     );
 
-    
+
 
     // Fire WhatsApp notification (non-blocking for API correctness)
     try {
@@ -630,4 +630,221 @@ export {
   fetchTransporterPaymentReceiptPublic,
   updateTransporterPaymentReceipt,
   deleteTransporterPaymentReceipt,
+  exportTransporterPayments,
 };
+
+
+// Export Transporter Payments to Excel
+const exportTransporterPayments = asyncHandler(async (req, res) => {
+  const {
+    transporterId,
+    subtripId,
+    issueFromDate,
+    issueToDate,
+    status,
+    hasTds,
+    paymentId,
+    columns,
+  } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  if (transporterId) {
+    const ids = Array.isArray(transporterId) ? transporterId : [transporterId];
+    query.transporterId = { $in: ids };
+  }
+
+  if (subtripId) {
+    const ids = Array.isArray(subtripId) ? subtripId : [subtripId];
+    query.associatedSubtrips = { $in: ids };
+  }
+
+  if (status) {
+    const statuses = Array.isArray(status) ? status : [status];
+    query.status = { $in: statuses };
+  }
+
+  if (paymentId) {
+    query.paymentId = { $regex: paymentId, $options: "i" };
+  }
+
+  if (issueFromDate || issueToDate) {
+    query.issueDate = {};
+    if (issueFromDate) query.issueDate.$gte = new Date(issueFromDate);
+    if (issueToDate) query.issueDate.$lte = new Date(issueToDate);
+  }
+
+  if (typeof hasTds !== "undefined") {
+    const boolVal = hasTds === true || hasTds === "true" || hasTds === "1";
+    query["taxBreakup.tds.amount"] = boolVal ? { $gt: 0 } : { $lte: 0 };
+  }
+
+  const aggMatch = { ...query };
+  if (aggMatch.transporterId && aggMatch.transporterId.$in) {
+    aggMatch.transporterId.$in = aggMatch.transporterId.$in.map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
+  }
+
+  // Column Mapping
+  const COLUMN_MAPPING = {
+    _id: { header: 'ID', key: '_id', width: 25 },
+    paymentId: { header: 'Payment ID', key: 'paymentId', width: 20 },
+    transporter: { header: 'Transporter', key: 'transporterName', width: 25 },
+    subtrips: { header: 'Jobs', key: 'subtripNos', width: 30 },
+    status: { header: 'Status', key: 'status', width: 15 },
+    issueDate: { header: 'Issue Date', key: 'issueDate', width: 15 },
+    dieselTotal: { header: 'Diesel', key: 'dieselTotal', width: 15 },
+    tripAdvanceTotal: { header: 'Trip Advance', key: 'tripAdvanceTotal', width: 15 },
+    podAmount: { header: 'POD Amount', key: 'podAmount', width: 15 },
+    materialDamagesTotal: { header: 'Material Damages', key: 'materialDamagesTotal', width: 15 },
+    latePouchPenaltyTotal: { header: 'Late Pouch Penalty', key: 'latePouchPenaltyTotal', width: 15 },
+    totalShortageAmount: { header: 'Total Shortage Amount', key: 'totalShortageAmount', width: 20 },
+    cgst: { header: 'CGST(Tax)', key: 'cgst', width: 15 },
+    sgst: { header: 'SGST(Tax)', key: 'sgst', width: 15 },
+    igst: { header: 'IGST(Tax)', key: 'igst', width: 15 },
+    tds: { header: 'TDS', key: 'tds', width: 15 },
+    taxableAmount: { header: 'Taxable amount', key: 'taxableAmount', width: 15 },
+    additionalCharges: { header: 'Additional Charges', key: 'additionalChargesStr', width: 30 },
+    amount: { header: 'Amount', key: 'amount', width: 15 },
+  };
+
+  // Determine Columns
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col);
+  }
+
+  // Fallback to default columns if none selected or valid
+  if (exportColumns.length === 0) {
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=TransporterPayments.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('TransporterPayments');
+  worksheet.columns = exportColumns;
+
+  // Aggregate Pipeline
+  const pipeline = [
+    { $match: aggMatch },
+    { $sort: { issueDate: -1 } },
+    {
+      $lookup: {
+        from: 'transporters',
+        localField: 'transporterId',
+        foreignField: '_id',
+        as: 'transporter',
+      },
+    },
+    { $unwind: { path: '$transporter', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        paymentId: 1,
+        transporterName: '$transporter.transportName',
+        status: 1,
+        issueDate: 1,
+        subtripSnapshot: 1, // Needed for complex calculations
+        additionalCharges: 1, // Needed for POD calculations
+        summary: 1,
+        taxBreakup: 1,
+      },
+    },
+  ];
+
+  const cursor = TransporterPayment.aggregate(pipeline).cursor();
+
+  const totals = {};
+  exportColumns.forEach(col => {
+    totals[col.key] = 0;
+  });
+
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    const row = {};
+
+    // Helper for expenses in snapshots
+    const getExpenseTotal = (type) =>
+      (doc.subtripSnapshot || []).reduce(
+        (sum, st) =>
+          sum +
+          (st.expenses || [])
+            .filter((e) => e.expenseType === type)
+            .reduce((s, e) => s + (e.amount || 0), 0),
+        0
+      );
+
+    // Dynamic field calculation based on requested columns
+    const calculatedFields = {
+      _id: doc._id,
+      paymentId: doc.paymentId,
+      transporterName: doc.transporterName,
+      status: doc.status,
+      issueDate: doc.issueDate ? new Date(doc.issueDate).toISOString().split('T')[0] : '-',
+      subtripNos: (doc.subtripSnapshot || []).map((st) => st.subtripNo).join(', '),
+      dieselTotal: getExpenseTotal('Diesel'), // Hardcoded string match with config
+      tripAdvanceTotal: getExpenseTotal('Driver Advance'),
+      materialDamagesTotal: getExpenseTotal('Material Damages'),
+      latePouchPenaltyTotal: getExpenseTotal('Late Pouch Penalty'),
+      podAmount: (doc.additionalCharges || [])
+        .filter((ch) => (ch.label || '').toLowerCase().includes('pod'))
+        .reduce((s, ch) => s + (ch.amount || 0), 0),
+      totalShortageAmount: doc.summary?.totalShortageAmount || 0,
+      cgst: doc.taxBreakup?.cgst?.amount || 0,
+      sgst: doc.taxBreakup?.sgst?.amount || 0,
+      igst: doc.taxBreakup?.igst?.amount || 0,
+      tds: doc.taxBreakup?.tds?.amount || 0,
+      taxableAmount: doc.summary?.totalFreightAmount || 0,
+      amount: doc.summary?.netIncome || 0,
+      additionalChargesStr: (doc.additionalCharges || [])
+        .map((ch) => `${ch.label}(\u20B9${ch.amount})`)
+        .join(', '),
+    };
+
+    exportColumns.forEach((col) => {
+      const val = calculatedFields[col.key];
+      // Format numbers
+      if (typeof val === 'number') {
+        row[col.key] = Math.round(val * 100) / 100;
+        totals[col.key] += val;
+      } else {
+        row[col.key] = (val !== undefined && val !== null) ? val : '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  // Footer Row
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    if (col.key === 'paymentId') totalRow[col.key] = 'TOTAL';
+    else if (typeof totals[col.key] === 'number' && totals[col.key] !== 0) {
+      totalRow[col.key] = Math.round(totals[col.key] * 100) / 100;
+    } else {
+      totalRow[col.key] = '';
+    }
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
+
+  worksheet.commit();
+  await workbook.commit();
+});

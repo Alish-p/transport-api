@@ -6,6 +6,7 @@ import {
   fetchInvoice,
   cancelInvoice,
   payInvoice,
+  exportInvoices,
 } from './invoice.controller.js';
 
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
@@ -13,6 +14,7 @@ import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 
+router.get("/export", authenticate, exportInvoices);
 router.post(
   "/",
   authenticate,

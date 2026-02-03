@@ -6,12 +6,15 @@ import {
   updateTransporterPaymentReceipt,
   deleteTransporterPaymentReceipt,
   createBulkTransporterPaymentReceipts,
+  exportTransporterPayments,
 } from './transporterPayment.controller.js';
 
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
+
+router.get("/export", authenticate, exportTransporterPayments);
 
 router.post(
   "/",
