@@ -13,6 +13,8 @@ import { recordInventoryActivity } from '../partTransaction/partTransaction.util
 import { INVENTORY_ACTIVITY_TYPES, SOURCE_DOCUMENT_TYPES } from '../partTransaction/partTransaction.constants.js';
 import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
 import WorkOrder from '../workOrder/workOrder.model.js';
+import { PURCHASE_ORDER_STATUS } from '../purchaseOrder/purchaseOrder.constants.js';
+import { WORK_ORDER_STATUS } from '../workOrder/workOrder.constants.js';
 
 // ─── PARTS CRUD ────────────────────────────────────────────────────────────────
 
@@ -355,6 +357,44 @@ const updatePart = asyncHandler(async (req, res) => {
 
 const deletePart = asyncHandler(async (req, res) => {
   const { id } = req.params;
+
+  // Check for open Purchase Orders
+  const openPurchaseOrder = await PurchaseOrder.findOne({
+    tenant: req.tenant,
+    'lines.part': id,
+    status: {
+      $nin: [
+        PURCHASE_ORDER_STATUS.RECEIVED,
+        PURCHASE_ORDER_STATUS.REJECTED,
+        // If "cancelled" exists, it should be here too, but based on constants it's REJECTED or RECEIVED needed to close.
+        // The user said: "purchase order can be in open status if it is not received or rejected"
+      ],
+    },
+  });
+
+  if (openPurchaseOrder) {
+    res.status(400);
+    throw new Error(
+      'Part cannot be deleted as it is associated with an open Purchase Order. Please ensure all related Purchase Orders are received or rejected.'
+    );
+  }
+
+  // Check for open Work Orders
+  const openWorkOrder = await WorkOrder.findOne({
+    tenant: req.tenant,
+    'parts.part': id,
+    status: {
+      $nin: [WORK_ORDER_STATUS.COMPLETED],
+      // The user said: "work order can be in open status if it is not completed (i.e either in open / pending)"
+    },
+  });
+
+  if (openWorkOrder) {
+    res.status(400);
+    throw new Error(
+      'Part cannot be deleted as it is associated with an open Work Order. Please ensure all related Work Orders are completed.'
+    );
+  }
 
   const part = await Part.findOneAndUpdate(
     { _id: id, tenant: req.tenant },
