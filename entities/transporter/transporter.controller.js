@@ -15,25 +15,73 @@ const createTransporter = asyncHandler(async (req, res) => {
 // Fetch Transporters with pagination and search
 const fetchTransporters = asyncHandler(async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, vehicleCount } = req.query;
     const { limit, skip } = req.pagination;
 
-    const query = addTenantToQuery(req);
+    // Base match stage
+    const matchStage = {
+      tenant: req.tenant,
+    };
 
     if (search) {
-      query.$or = [
+      matchStage.$or = [
         { transportName: { $regex: search, $options: "i" } },
         { cellNo: { $regex: search, $options: "i" } },
       ];
     }
 
-    const [transporters, total] = await Promise.all([
-      Transporter.find(query)
-        .sort({ transportName: 1 })
-        .skip(skip)
-        .limit(limit),
-      Transporter.countDocuments(query),
-    ]);
+    // Aggregation pipeline
+    const pipeline = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "_id",
+          foreignField: "transporter",
+          as: "vehicles",
+        },
+      },
+      {
+        $addFields: {
+          vehicleCount: { $size: "$vehicles" },
+        },
+      },
+      // Remove vehicles array to keep response light, unless needed.
+      // But we need the count.
+      {
+        $project: {
+          vehicles: 0
+        }
+      }
+    ];
+
+    if (vehicleCount !== undefined && vehicleCount !== null && vehicleCount !== '') {
+      pipeline.push({
+        $match: {
+          vehicleCount: parseInt(vehicleCount),
+        }
+      })
+    }
+
+    // Sort stage
+    pipeline.push({ $sort: { transportName: 1 } });
+
+
+    // Facet for pagination and total count
+    const finalPipeline = [
+      ...pipeline,
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: limit }],
+        },
+      },
+    ];
+
+    const result = await Transporter.aggregate(finalPipeline);
+
+    const transporters = result[0].data;
+    const total = result[0].metadata[0]?.total || 0;
 
     res.status(200).json({
       transporters,
@@ -109,10 +157,12 @@ const deleteTransporter = asyncHandler(async (req, res) => {
   res.status(200).json(transporter);
 });
 
-export { createTransporter,
+export {
+  createTransporter,
   fetchTransporters,
   fetchTransporterById,
   fetchTransporterVehicles,
   fetchTransporterPayments,
   updateTransporter,
-  deleteTransporter, };
+  deleteTransporter,
+};

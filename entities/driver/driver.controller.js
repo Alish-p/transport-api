@@ -40,7 +40,8 @@ const quickCreateDriver = asyncHandler(async (req, res) => {
 });
 
 const fetchDrivers = asyncHandler(async (req, res) => {
-  const { search } = req.query;
+  /* eslint-disable no-unused-vars */
+  const { search, status } = req.query;
   const { limit, skip } = req.pagination;
 
   const query = addTenantToQuery({ tenant: req.tenant });
@@ -54,8 +55,27 @@ const fetchDrivers = asyncHandler(async (req, res) => {
 
   const now = new Date();
 
-  const [drivers, totalAll, validCount] = await Promise.all([
-    Driver.find(query)
+  // Clone query for filtering to preserve base query for counts
+  let filterQuery = { ...query };
+
+  if (status === 'valid') {
+    filterQuery.licenseTo = { $gte: now };
+  } else if (status === 'expired') {
+    const expiredCondition = {
+      $or: [{ licenseTo: { $lt: now } }, { licenseTo: { $exists: false } }, { licenseTo: null }],
+    };
+
+    if (filterQuery.$or) {
+      filterQuery = {
+        $and: [filterQuery, expiredCondition],
+      };
+    } else {
+      filterQuery = { ...filterQuery, ...expiredCondition };
+    }
+  }
+
+  const [drivers, totalAll, validCount, filteredCount] = await Promise.all([
+    Driver.find(filterQuery)
       .select(
         '-guarantorName -guarantorCellNo -dob -dlImage -photoImage -aadharImage -bankDetails'
       )
@@ -64,10 +84,12 @@ const fetchDrivers = asyncHandler(async (req, res) => {
       .limit(limit),
     Driver.countDocuments(query),
     Driver.countDocuments({ ...query, licenseTo: { $gte: now } }),
+    Driver.countDocuments(filterQuery),
   ]);
 
   res.status(200).json({
     drivers,
+    total: filteredCount,
     totals: {
       all: { count: totalAll },
       valid: { count: validCount },
