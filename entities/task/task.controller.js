@@ -71,6 +71,31 @@ export const updateTask = asyncHandler(async (req, res) => {
   res.json(task);
 });
 
+// @desc    Reorder tasks
+// @route   POST /api/tasks/reorder
+// @access  Private
+export const reorderTasks = asyncHandler(async (req, res) => {
+  const { tasks } = req.body; // Expects array of { _id, order, status }
+
+  if (!tasks || !Array.isArray(tasks)) {
+    res.status(400);
+    throw new Error('Invalid tasks data');
+  }
+
+  const bulkOps = tasks.map((task) => ({
+    updateOne: {
+      filter: { _id: task._id, tenant: req.tenant },
+      update: { $set: { order: task.order, status: task.status } },
+    },
+  }));
+
+  if (bulkOps.length > 0) {
+    await Task.bulkWrite(bulkOps);
+  }
+
+  res.json({ success: true, message: 'Tasks reordered successfully' });
+});
+
 // @desc    Get a single task
 // @route   GET /api/tasks/:taskId
 // @access  Private
@@ -201,7 +226,7 @@ export const fetchAllTasks = asyncHandler(async (req, res) => {
     .populate("activities.user", "name email")
     .populate("vehicle", "vehicleNo")
     .populate("driver", "driverName driverCellNo")
-    .sort({ updatedAt: -1 });
+    .sort({ order: 1, updatedAt: -1 });
 
   // Group tasks by status
   const groupedTasks = {

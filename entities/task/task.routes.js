@@ -10,6 +10,7 @@ import {
   addSubtask,
   toggleSubtaskComplete,
   deleteSubtask,
+  reorderTasks,
 } from './task.controller.js';
 import { authenticate } from '../../middlewares/Auth.js';
 
@@ -23,6 +24,7 @@ router.get("/:taskId", authenticate, getTask);
 router.delete("/:taskId", authenticate, deleteTask);
 router.post("/:taskId/activity", authenticate, addActivityToTask);
 router.get("/grouped/status", authenticate, fetchTasksByStatus);
+router.post("/reorder", authenticate, reorderTasks);
 
 // Subtask routes
 router.post("/:taskId/subtasks", authenticate, addSubtask);
