@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import WorkOrder from './workOrder.model.js';
 import Part from '../part/part.model.js';
+import Expense from '../../expense/expense.model.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 import { WORK_ORDER_STATUS } from './workOrder.constants.js';
 import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
@@ -406,6 +407,35 @@ const closeWorkOrder = asyncHandler(async (req, res) => {
     workOrder.totalCost = totalCost;
 
     const updated = await workOrder.save({ session });
+
+    // Handle Optional Expense Creation
+    if (req.body.createExpense) {
+      if (!workOrder.totalCost || workOrder.totalCost <= 0) {
+        // Decide if we want to block or just skip. 
+        // Skipping with a warning might be better, or erroring out.
+        // Let's error out to be safe if user explicitly asked for expense.
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          message: 'Cannot create expense for work order with 0 cost',
+        });
+      }
+
+      const expense = new Expense({
+        vehicleId: workOrder.vehicle,
+        date: workOrder.completedDate || new Date(),
+        expenseCategory: 'vehicle',
+        expenseType: 'Work Order', // You might want to make this a constant or configurable
+        amount: workOrder.totalCost,
+        remarks: `Created from Work Order #${workOrder.workOrderNo || workOrder._id}`,
+        tenant: req.tenant,
+        // Optional: link back to work order if Expense model supported it, 
+        // but currently it doesn't seem to have workOrderId field. 
+        // Remarks is a good fallback.
+      });
+
+      await expense.save({ session });
+    }
 
     await session.commitTransaction();
     session.endSession();
