@@ -797,7 +797,15 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     const escaped = String(subtripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     query.subtripNo = { $regex: escaped, $options: "i" };
   }
-  if (customerId) query.customerId = customerId;
+
+  // Helper helper to cast to ObjectId safely
+  async function toObjectId(id) {
+    const { Types } = await import('mongoose');
+    if (Types.ObjectId.isValid(id)) return new Types.ObjectId(id);
+    return id;
+  }
+
+  if (customerId) query.customerId = await toObjectId(customerId);
   if (referenceSubtripNo) query.referenceSubtripNo = referenceSubtripNo;
   if (loadingPoint) {
     const escaped = String(loadingPoint).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -854,13 +862,13 @@ const exportSubtrips = asyncHandler(async (req, res) => {
 
   // Driver/vehicle/transporter/ownership filtering
   if (driverId) {
-    query.driverId = driverId;
+    query.driverId = await toObjectId(driverId);
   }
 
   if (transporterId || vehicleId || vehicleOwnership) {
     const vehicleSearch = {};
-    if (transporterId) vehicleSearch.transporter = transporterId;
-    if (vehicleId) vehicleSearch._id = vehicleId;
+    if (transporterId) vehicleSearch.transporter = await toObjectId(transporterId);
+    if (vehicleId) vehicleSearch._id = await toObjectId(vehicleId);
     if (vehicleOwnership === "Market") vehicleSearch.isOwn = false;
     if (vehicleOwnership === "Own") vehicleSearch.isOwn = true;
 
@@ -919,10 +927,10 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     const columnIds = columns.split(',');
     exportColumns = columnIds
       .map((id) => COLUMN_MAPPING[id])
-      .filter((col) => col); // Filter out undefined mappings
+      .filter((col) => col);
   }
 
-  // Fallback to default columns if no valid columns provided
+  // Fallback to default columns
   if (exportColumns.length === 0) {
     exportColumns = Object.values(COLUMN_MAPPING);
   }
@@ -945,19 +953,133 @@ const exportSubtrips = asyncHandler(async (req, res) => {
   const worksheet = workbook.addWorksheet('Jobs');
   worksheet.columns = exportColumns;
 
-  const cursor = Subtrip.find(query)
-    .populate('tripId', 'tripNo')
-    .populate('customerId', 'customerName')
-    .populate('driverId', 'driverName')
-    .populate({
-      path: 'vehicleId',
-      select: 'vehicleNo transporter',
-      populate: { path: 'transporter', select: 'transportName' }
-    })
-    .populate('expenses', 'amount')
-    .sort({ startDate: -1 })
-    .lean()
-    .cursor();
+  // AGGREGATION PIPELINE
+  const pipeline = [
+    { $match: query },
+    // Sort
+    { $sort: { startDate: -1 } },
+    // Lookup Trip
+    {
+      $lookup: {
+        from: 'trips',
+        localField: 'tripId',
+        foreignField: '_id',
+        as: 'trip',
+      },
+    },
+    { $unwind: { path: '$trip', preserveNullAndEmptyArrays: true } },
+    // Lookup Customer
+    {
+      $lookup: {
+        from: 'customers',
+        localField: 'customerId',
+        foreignField: '_id',
+        as: 'customer',
+      },
+    },
+    { $unwind: { path: '$customer', preserveNullAndEmptyArrays: true } },
+    // Lookup Driver
+    {
+      $lookup: {
+        from: 'drivers',
+        localField: 'driverId',
+        foreignField: '_id',
+        as: 'driver',
+      },
+    },
+    { $unwind: { path: '$driver', preserveNullAndEmptyArrays: true } },
+    // Lookup Vehicle
+    {
+      $lookup: {
+        from: 'vehicles',
+        localField: 'vehicleId',
+        foreignField: '_id',
+        as: 'vehicle',
+      },
+    },
+    { $unwind: { path: '$vehicle', preserveNullAndEmptyArrays: true } },
+    // Lookup Transporter (nested in vehicle)
+    {
+      $lookup: {
+        from: 'transporters',
+        localField: 'vehicle.transporter',
+        foreignField: '_id',
+        as: 'transporter',
+      },
+    },
+    { $unwind: { path: '$transporter', preserveNullAndEmptyArrays: true } },
+    // Lookup Expenses
+    {
+      $lookup: {
+        from: 'expenses',
+        localField: 'expenses',
+        foreignField: '_id',
+        as: 'expensesData',
+      },
+    },
+    // Project and Calculate
+    {
+      $project: {
+        subtripNo: 1,
+        tripNo: '$trip.tripNo',
+        vehicleNo: '$vehicle.vehicleNo',
+        driverName: '$driver.driverName',
+        customerName: '$customer.customerName',
+        loadingPoint: 1,
+        unloadingPoint: 1,
+        invoiceNo: 1,
+        shipmentNo: 1,
+        orderNo: 1,
+        referenceSubtripNo: 1,
+        consignee: 1,
+        materialType: 1,
+        quantity: 1,
+        grade: 1,
+        startDate: 1,
+        endDate: 1,
+        ewayExpiryDate: 1,
+        loadingWeight: 1,
+        unloadingWeight: 1,
+        shortageWeight: 1,
+        shortageAmount: 1,
+        rate: 1,
+        freightAmount: 1,
+        commissionRate: 1,
+        subtripStatus: 1,
+        transporterName: '$transporter.transportName',
+        // Calculate Total Expenses
+        totalExpenses: { $sum: '$expensesData.amount' },
+      },
+    },
+    {
+      $addFields: {
+        // Calculate Freight
+        calculatedFreight: {
+          $cond: {
+            if: { $ne: [{ $type: '$freightAmount' }, 'missing'] },
+            then: '$freightAmount',
+            else: { $multiply: ['$rate', '$loadingWeight'] },
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        // Calculate P&L
+        profitAndLoss: { $subtract: ['$calculatedFreight', '$totalExpenses'] },
+        // Format route
+        route: {
+          $concat: [
+            { $ifNull: ['$loadingPoint', ''] },
+            ' → ',
+            { $ifNull: ['$unloadingPoint', ''] }
+          ]
+        }
+      },
+    }
+  ];
+
+  const cursor = Subtrip.aggregate(pipeline).cursor();
 
   let totalFreight = 0;
   let totalExpensesSum = 0;
@@ -969,17 +1091,9 @@ const exportSubtrips = asyncHandler(async (req, res) => {
   for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
     const row = {};
 
-    // Calculations
-    const totalExpenses = doc.expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
-
-    let freight = 0;
-    if (typeof doc.freightAmount === 'number') {
-      freight = doc.freightAmount;
-    } else if (doc.rate && doc.loadingWeight) {
-      freight = doc.rate * doc.loadingWeight;
-    }
-
-    const profitAndLoss = freight - totalExpenses;
+    const freight = doc.calculatedFreight || 0;
+    const totalExpenses = doc.totalExpenses || 0;
+    const profitAndLoss = doc.profitAndLoss || 0;
 
     // Accumulate totals
     totalFreight += freight;
@@ -992,31 +1106,18 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     exportColumns.forEach((col) => {
       const key = col.key;
 
-      if (key === 'tripNo') row[key] = doc.tripId?.tripNo || '-';
-      else if (key === 'vehicleNo') row[key] = doc.vehicleId?.vehicleNo || '-';
-      else if (key === 'driverName') row[key] = doc.driverId?.driverName || '-';
-      else if (key === 'customerName') row[key] = doc.customerId?.customerName || '-';
-      else if (key === 'route') row[key] = (doc.loadingPoint && doc.unloadingPoint) ? `${doc.loadingPoint} → ${doc.unloadingPoint}` : '-';
-      else if (key === 'transporterName') row[key] = doc.vehicleId?.transporter?.transportName || '-';
-
-      else if (key === 'startDate' || key === 'endDate' || key === 'ewayExpiryDate') {
-        row[key] = doc[col.key === 'ewayExpiryDate' ? 'ewayExpiryDate' : key]
-          ? new Date(doc[col.key === 'ewayExpiryDate' ? 'ewayExpiryDate' : key]).toISOString().split('T')[0]
-          : '-';
-      }
-
-      else if (key === 'freightAmount') row[key] = Math.round(freight * 100) / 100;
+      if (key === 'freightAmount') row[key] = Math.round(freight * 100) / 100;
       else if (key === 'totalExpenses') row[key] = Math.round(totalExpenses * 100) / 100;
       else if (key === 'profitAndLoss') row[key] = Math.round(profitAndLoss * 100) / 100;
-      else if (typeof doc[key] === 'number') row[key] = Math.round(doc[key] * 100) / 100;
-      else row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
-
-      // Fix specific mapping if needed (e.g. key mismatch)
-      // _id mapped to subtripNo in MAPPING key, wait. 
-      // Mapping: _id: { key: 'subtripNo' }. 
-      // doc has subtripNo. 
-      // If logic above says doc['subtripNo'] then it is fine.
-      // Wait, MAPPING has _id key as 'subtripNo'. My logic `row[key] = doc[key]` would look for `doc.subtripNo`. Correct.
+      else if (key === 'startDate' || key === 'endDate' || key === 'ewayExpiryDate') {
+        row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
+      }
+      else if (typeof doc[key] === 'number') {
+        row[key] = Math.round(doc[key] * 100) / 100;
+      }
+      else {
+        row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
+      }
     });
 
     worksheet.addRow(row).commit();

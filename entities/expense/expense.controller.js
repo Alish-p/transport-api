@@ -269,9 +269,16 @@ const exportExpenses = asyncHandler(async (req, res) => {
 
   const query = addTenantToQuery(req);
 
-  if (tripId) query.tripId = tripId;
-  if (subtripId) query.subtripId = subtripId;
-  if (pumpId) query.pumpCd = new mongoose.Types.ObjectId(pumpId);
+  // Helper helper to cast to ObjectId safely
+  async function toObjectId(id) {
+    const { Types } = await import('mongoose');
+    if (Types.ObjectId.isValid(id)) return new Types.ObjectId(id);
+    return id;
+  }
+
+  if (tripId) query.tripId = await toObjectId(tripId);
+  if (subtripId) query.subtripId = await toObjectId(subtripId);
+  if (pumpId) query.pumpCd = await toObjectId(pumpId);
   if (expenseType) {
     const expenseTypeArray = Array.isArray(expenseType)
       ? expenseType
@@ -297,7 +304,7 @@ const exportExpenses = asyncHandler(async (req, res) => {
     dieselLtr: { header: 'Diesel (Ltr)', key: 'dieselLtr', width: 15 },
     paidThrough: { header: 'Paid Through', key: 'paidThrough', width: 20 },
     expenseCategory: { header: 'Expense Category', key: 'expenseCategory', width: 20 },
-    pumpCd: { header: 'Pump Code', key: 'pumpCd', width: 20 },
+    pumpCd: { header: 'Pump Code', key: 'pumpCode', width: 20 }, // Changed key to match pump.name alias if needed, or stick to map
     transporter: { header: 'Transporter', key: 'transporter', width: 20 },
     slipNo: { header: 'Slip No', key: 'slipNo', width: 20 },
     authorisedBy: { header: 'Authorised By', key: 'authorisedBy', width: 20 },
@@ -330,8 +337,8 @@ const exportExpenses = asyncHandler(async (req, res) => {
 
   if (vehicleId || transporterId || vehicleType) {
     const vehicleQuery = {};
-    if (vehicleId) vehicleQuery._id = vehicleId;
-    if (transporterId) vehicleQuery.transporter = transporterId;
+    if (vehicleId) vehicleQuery._id = await toObjectId(vehicleId);
+    if (transporterId) vehicleQuery.transporter = await toObjectId(transporterId);
     if (vehicleType === "Market") vehicleQuery.isOwn = false;
     if (vehicleType === "Own") vehicleQuery.isOwn = true;
 
@@ -356,20 +363,6 @@ const exportExpenses = asyncHandler(async (req, res) => {
     query.vehicleId = { $in: vehicles.map((v) => v._id) };
   }
 
-  // Pre-fetch related data in bulk to avoid populate overhead in cursor
-  const [vehiclesData, pumpsData, subtripsData] = await Promise.all([
-    Vehicle.find({ tenant: req.tenant })
-      .select("vehicleNo transporter")
-      .populate("transporter", "transportName")
-      .lean(),
-    Pump.find({ tenant: req.tenant }).select("name").lean(),
-    Subtrip.find({ tenant: req.tenant }).select("subtripNo").lean(),
-  ]);
-
-  const vehicleMap = new Map(vehiclesData.map((v) => [v._id.toString(), v]));
-  const pumpMap = new Map(pumpsData.map((p) => [p._id.toString(), p]));
-  const subtripMap = new Map(subtripsData.map((s) => [s._id.toString(), s]));
-
   res.setHeader(
     "Content-Type",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -388,28 +381,89 @@ const exportExpenses = asyncHandler(async (req, res) => {
   const worksheet = workbook.addWorksheet('Expenses');
   worksheet.columns = exportColumns;
 
-  const cursor = Expense.find(query)
-    .sort({ date: -1 })
-    .lean()
-    .cursor();
+  // AGGREGATION PIPELINE
+  const pipeline = [
+    { $match: query },
+    { $sort: { date: -1 } },
+    // Lookup Vehicle
+    {
+      $lookup: {
+        from: 'vehicles',
+        localField: 'vehicleId',
+        foreignField: '_id',
+        as: 'vehicle',
+      },
+    },
+    { $unwind: { path: '$vehicle', preserveNullAndEmptyArrays: true } },
+    // Lookup Transporter
+    {
+      $lookup: {
+        from: 'transporters',
+        localField: 'vehicle.transporter',
+        foreignField: '_id',
+        as: 'transporter',
+      },
+    },
+    { $unwind: { path: '$transporter', preserveNullAndEmptyArrays: true } },
+    // Lookup Pump
+    {
+      $lookup: {
+        from: 'pumps',
+        localField: 'pumpCd', // Assuming 'pumpCd' in Expense stores ObjectId of Pump
+        foreignField: '_id',
+        as: 'pump',
+      },
+    },
+    { $unwind: { path: '$pump', preserveNullAndEmptyArrays: true } },
+    // Lookup Subtrip
+    {
+      $lookup: {
+        from: 'subtrips',
+        localField: 'subtripId',
+        foreignField: '_id',
+        as: 'subtrip',
+      },
+    },
+    { $unwind: { path: '$subtrip', preserveNullAndEmptyArrays: true } },
+    // Project fields needed for Export
+    {
+      $project: {
+        date: 1,
+        expenseType: 1,
+        amount: 1,
+        dieselLtr: 1,
+        dieselPrice: 1,
+        remarks: 1,
+        paidThrough: 1,
+        expenseCategory: 1,
+        slipNo: 1,
+        authorisedBy: 1,
+        paymentMode: 1,
+        refNo: 1,
+        // Joined fields
+        vehicleNo: '$vehicle.vehicleNo',
+        transporter: '$transporter.transportName',
+        pumpCode: '$pump.name',
+        subtripId: '$subtrip.subtripNo',
+      },
+    },
+  ];
+
+  const cursor = Expense.aggregate(pipeline).cursor();
+
   let totalAmount = 0;
   let totalDieselLtr = 0;
 
   for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
     const row = {};
-    const populatedVehicle = doc.vehicleId ? vehicleMap.get(doc.vehicleId.toString()) : null;
-    const populatedPump = doc.pumpCd ? pumpMap.get(doc.pumpCd.toString()) : null;
-    const populatedSubtrip = doc.subtripId ? subtripMap.get(doc.subtripId.toString()) : null;
 
     exportColumns.forEach((col) => {
       const key = col.key;
+
+      // Handle Date 
       if (key === 'date') row[key] = doc.date ? new Date(doc.date).toISOString().split('T')[0] : '';
-      else if (key === 'vehicleNo') row[key] = populatedVehicle?.vehicleNo || '-';
-      else if (key === 'transporter') row[key] = populatedVehicle?.transporter?.transportName || '-';
-      else if (key === 'pumpCd') row[key] = populatedPump?.name || '-';
-      else if (key === 'subtripId') row[key] = populatedSubtrip?.subtripNo || '-';
-      else if (key === 'remark') row[key] = doc.remarks || '-';
-      else if (key === 'dieselPrice') row[key] = typeof doc.dieselPrice === 'number' ? Math.round(doc.dieselPrice * 100) / 100 : '-';
+
+      // Handle Numeric / Sums
       else if (key === 'amount') {
         const val = typeof doc.amount === 'number' ? Math.round(doc.amount * 100) / 100 : 0;
         row[key] = val || '-';
@@ -420,10 +474,19 @@ const exportExpenses = asyncHandler(async (req, res) => {
         row[key] = val || '-';
         totalDieselLtr += val;
       }
+      else if (key === 'dieselPrice') {
+        row[key] = typeof doc.dieselPrice === 'number' ? Math.round(doc.dieselPrice * 100) / 100 : '-';
+      }
+
+      // Handle Fields
+      else if (key === 'remark') row[key] = doc.remarks || '-';
+      else if (key === 'pumpCd') row[key] = doc.pumpCode || '-'; // Mapped pipeline project to pumpCode
+
+      // Handle Lookups
       else row[key] = doc[key] || '-';
     });
 
-    // Handle the specific column mapping for Frontend 'remarks' -> Backend 'remarks'
+    // Fix remark fallback if needed
     if (row.remark === '-' && doc.remarks) {
       row.remark = doc.remarks;
     }
