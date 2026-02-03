@@ -5,6 +5,7 @@ import {
   createTenant,
   fetchTenants,
   deleteTenant,
+  updateTenantById,
   addTenantPayment,
   updateTenantPayment,
   deleteTenantPayment,
@@ -20,6 +21,7 @@ router.post('/tenants/:tenantId/users', authenticate, requireSuperuser, createUs
 // Move superuser-only tenant routes here to centralize super logic
 router.post('/tenants', authenticate, requireSuperuser, createTenant);
 router.get('/tenants', authenticate, requireSuperuser, fetchTenants);
+router.put('/tenants/:id', authenticate, requireSuperuser, updateTenantById);
 router.delete('/tenants/:id', authenticate, requireSuperuser, deleteTenant);
 router.get('/tenants/:id', authenticate, requireSuperuser, fetchTenantDetails);
 

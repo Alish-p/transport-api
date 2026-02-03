@@ -114,6 +114,56 @@ const fetchTenants = asyncHandler(async (req, res) => {
   }
 });
 
+// Update Tenant (Superuser)
+const updateTenantById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { subscription, ...otherUpdates } = req.body;
+
+  const updatePayload = { ...otherUpdates };
+
+  // Handle subscription specifically if present
+  if (subscription) {
+    const subUpdate = {};
+    if (subscription.planName !== undefined) subUpdate.planName = subscription.planName;
+    if (subscription.validTill !== undefined) {
+      const d = new Date(subscription.validTill);
+      if (isNaN(d.getTime())) return res.status(400).json({ message: 'Invalid validTill date' });
+      subUpdate.validTill = d;
+    }
+    if (subscription.isActive !== undefined) subUpdate.isActive = Boolean(subscription.isActive);
+
+    // If there are ANY subscription fields to update, set them
+    // This allows partial updates to the subscription object via dot notation or merging
+    // typically mongoose needs explicit "subscription.field" for partial updates to subdocs without overwriting
+    // OR we can just overwrite the whole object if we trust the input.
+    // Let's use dot notation for safety to not wipe other subfields if any exist (like createdAt)
+    if (Object.keys(subUpdate).length > 0) {
+      updatePayload.subscription = {
+        ...subscription,
+        updatedAt: new Date(),
+      };
+      // If we want to preserve createdAt if it exists, or set it if new.
+      // Mongoose "new" option in findByIdAndUpdate will return updated doc.
+      // However, to keep existing subfields we might need to fetch first or use $set with dot notation.
+      // For simplicity, let's assume we are replacing the struct or using $set on specific fields.
+      // Let's trust the body structure matches logic or use specific fields.
+      // ACTUALLY, simpler approach:
+      // The requirement is "Updating subscription will overwrite existing values" (from Plan).
+      // But we should probably preserve createdAt if it's not passed?
+      // Let's just pass `subscription` as is to $set, but ensure dates are objects.
+      updatePayload.subscription = {
+        ...subscription,
+        validTill: subUpdate.validTill || subscription.validTill,
+        updatedAt: new Date()
+      };
+    }
+  }
+
+  const tenant = await Tenant.findByIdAndUpdate(id, { $set: updatePayload }, { new: true });
+  if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+  res.status(200).json(tenant);
+});
+
 // Delete Tenant
 const deleteTenant = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -271,4 +321,5 @@ export {
   updateTenantPayment,
   deleteTenantPayment,
   fetchTenantDetails,
+  updateTenantById,
 };
