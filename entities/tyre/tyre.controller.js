@@ -144,6 +144,15 @@ const updateTyre = asyncHandler(async (req, res) => {
             tyre.metadata = { ...tyre.metadata, ...req.body.metadata };
         }
 
+        // Handle threadDepth updates (specifically original)
+        if (req.body.threadDepth && req.body.threadDepth.original) {
+            // Ensure threadDepth object exists
+            if (!tyre.threadDepth) {
+                tyre.threadDepth = {};
+            }
+            tyre.threadDepth.original = req.body.threadDepth.original;
+        }
+
         const updatedTyre = await tyre.save();
         res.json(updatedTyre);
     } else {
