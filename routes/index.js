@@ -31,6 +31,7 @@ import superuserRouter from '../entities/superuser/superuser.routes.js';
 import maintenanceAndInventoryRouter from '../entities/maintenanceAndInventory/maintenanceAndInventory.routes.js';
 import optionRouter from '../entities/option/option.routes.js';
 import activityRouter from '../entities/activity/activity.routes.js';
+import tyreRouter from '../entities/tyre/tyre.routes.js';
 
 const router = express.Router();
 
@@ -60,6 +61,7 @@ router.use('/public', publicRouter);
 router.use('/lookup', lookupRouter);
 router.use('/options', optionRouter);
 router.use('/activities', activityRouter);
+router.use('/tyre', tyreRouter);
 
 //Vehicle Maintenance & Inventory
 router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);
