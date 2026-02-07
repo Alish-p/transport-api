@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre } from './tyre.controller.js';
+import { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory } from './tyre.controller.js';
 import pagination from '../../middlewares/pagination.js';
 import { authenticate } from '../../middlewares/auth.js';
 
@@ -20,5 +20,11 @@ router.route('/:id/thread')
 
 router.route('/:id/mount')
     .post(mountTyre);
+
+router.route('/:id/unmount')
+    .post(unmountTyre);
+
+router.route('/:id/history')
+    .get(getTyreHistory);
 
 export default router;

@@ -2,6 +2,9 @@ import asyncHandler from 'express-async-handler';
 import Tyre from './tyre.model.js';
 import TyreHistory from './tyre-history.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { TYRE_STATUS, TYRE_TYPE, TYRE_HISTORY_ACTION } from './tyre.constants.js';
+
+
 
 // @desc    Create a new tyre
 // @route   POST /api/tyre
@@ -24,15 +27,16 @@ const createTyre = asyncHandler(async (req, res) => {
 
     // Business logic overrides
     // "on creation dont ask status: In_Stock... it will be in_stock only"
-    const status = 'In_Stock';
+    const status = TYRE_STATUS.IN_STOCK;
     const currentVehicleId = null;
     const currentPosition = null;
 
     // "if type new = openingkm will be 0 disabled"
     let totalMileage = req.body.totalMileage;
-    if (type === 'New') {
+    if (type === TYRE_TYPE.NEW) {
         totalMileage = 0;
     }
+
 
     const tyre = await Tyre.create({
         tenant: req.tenant,
@@ -186,11 +190,12 @@ const updateThreadDepth = asyncHandler(async (req, res) => {
     await TyreHistory.create({
         tenant: req.tenant,
         tyre: tyre._id,
-        action: 'THREAD_UPDATE',
+        action: TYRE_HISTORY_ACTION.THREAD_UPDATE,
         previousThreadDepth,
         newThreadDepth: current,
         measuringDate: measuringDate || new Date(),
     });
+
 
     res.json(tyre);
 });
@@ -209,7 +214,7 @@ const mountTyre = asyncHandler(async (req, res) => {
         throw new Error('Tyre not found');
     }
 
-    if (tyre.status === 'Mounted') {
+    if (tyre.status === TYRE_STATUS.MOUNTED) {
         res.status(400);
         throw new Error(`Tyre is already mounted on a vehicle`);
     }
@@ -219,8 +224,9 @@ const mountTyre = asyncHandler(async (req, res) => {
         tenant: req.tenant,
         currentVehicleId: vehicleId,
         currentPosition: position,
-        status: 'Mounted'
+        status: TYRE_STATUS.MOUNTED
     });
+
 
     if (occupiedTyre) {
         res.status(400);
@@ -228,24 +234,103 @@ const mountTyre = asyncHandler(async (req, res) => {
     }
 
     // 3. Update Tyre
-    tyre.status = 'Mounted';
+    tyre.status = TYRE_STATUS.MOUNTED;
     tyre.currentVehicleId = vehicleId;
     tyre.currentPosition = position;
-    // We can store mountDate in metadata or just rely on history? 
-    // Let's assume we rely on history for the event, but current state shows where it is.
+
+    tyre.mountOdometer = req.body.odometer;
+
     await tyre.save();
 
     // 4. Create History
     await TyreHistory.create({
         tenant: req.tenant,
         tyre: tyre._id,
-        action: 'MOUNT',
+        action: TYRE_HISTORY_ACTION.MOUNT,
         vehicleId,
         position,
+        odometer: req.body.odometer, // fixed missing odometer from body
         date: mountDate || new Date(),
+    });
+
+
+    res.json(tyre);
+});
+
+// @desc    Unmount tyre from vehicle
+// @route   POST /api/tyre/:id/unmount
+// @access  Private
+const unmountTyre = asyncHandler(async (req, res) => {
+    const { odometer, unmountDate } = req.body;
+    const tyreId = req.params.id;
+
+    // 1. Get Tyre
+    const tyre = await Tyre.findOne({ _id: tyreId, tenant: req.tenant });
+    if (!tyre) {
+        res.status(404);
+        throw new Error('Tyre not found');
+    }
+
+    if (tyre.status !== TYRE_STATUS.MOUNTED) {
+        res.status(400);
+        throw new Error(`Tyre is not currently mounted`);
+    }
+
+
+    // 2. Calculate Distance
+    let distanceCovered = 0;
+    if (odometer && tyre.mountOdometer) {
+        distanceCovered = odometer - tyre.mountOdometer;
+        if (distanceCovered < 0) {
+            //give error
+            res.status(400);
+            throw new Error('Odometer reading is less than mount odometer reading');
+        }
+    }
+
+    // 3. Update Tyre
+    // Keep track of where it was for history before clearing
+    const vehicleId = tyre.currentVehicleId;
+    const position = tyre.currentPosition;
+    const mountOdometer = tyre.mountOdometer;
+
+    tyre.status = TYRE_STATUS.IN_STOCK;
+
+    tyre.currentVehicleId = null;
+    tyre.currentPosition = null;
+    tyre.mountOdometer = null;
+    tyre.totalMileage = (tyre.totalMileage || 0) + distanceCovered;
+
+    await tyre.save();
+
+    // 4. Create History
+    await TyreHistory.create({
+        tenant: req.tenant,
+        tyre: tyre._id,
+        action: TYRE_HISTORY_ACTION.UNMOUNT,
+        vehicleId,
+        position,
+
+        odometer: odometer,
+        distanceCovered,
+        measuringDate: unmountDate || new Date(),
+        metadata: {
+            mountOdometer: mountOdometer
+        }
     });
 
     res.json(tyre);
 });
 
-export { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre };
+// @desc    Get tyre history
+// @route   GET /api/tyre/:id/history
+// @access  Private
+const getTyreHistory = asyncHandler(async (req, res) => {
+    const history = await TyreHistory.find({ tyre: req.params.id, tenant: req.tenant })
+        .populate('vehicleId', 'vehicleNo')
+        .sort({ createdAt: -1 });
+
+    res.json(history);
+});
+
+export { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory };

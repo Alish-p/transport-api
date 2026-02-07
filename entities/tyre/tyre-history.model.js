@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { TYRE_HISTORY_ACTION } from './tyre.constants.js';
 
 const tyreHistorySchema = new mongoose.Schema(
     {
@@ -16,8 +17,8 @@ const tyreHistorySchema = new mongoose.Schema(
         },
         action: {
             type: String,
-            enum: ['THREAD_UPDATE', 'MOUNT', 'DISMOUNT', 'UPDATE'],
-            default: 'UPDATE',
+            enum: Object.values(TYRE_HISTORY_ACTION),
+            default: TYRE_HISTORY_ACTION.UPDATE,
         },
         previousThreadDepth: {
             type: Number,
@@ -28,6 +29,19 @@ const tyreHistorySchema = new mongoose.Schema(
         measuringDate: {
             type: Date,
             default: Date.now,
+        },
+        vehicleId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Vehicle',
+        },
+        position: {
+            type: String,
+        },
+        odometer: {
+            type: Number,
+        },
+        distanceCovered: {
+            type: Number,
         },
         metadata: {
             type: Map,

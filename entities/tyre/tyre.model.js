@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { TYRE_STATUS, TYRE_TYPE } from './tyre.constants.js';
+
 
 const tyreSchema = new mongoose.Schema(
     {
@@ -30,15 +32,17 @@ const tyreSchema = new mongoose.Schema(
         },
         type: {
             type: String,
-            enum: ['New', 'Remolded', 'Used'],
+            enum: Object.values(TYRE_TYPE),
             required: true,
         },
+
         status: {
             type: String,
-            enum: ['In_Stock', 'Mounted', 'Remolding', 'Scrapped'],
-            default: 'In_Stock',
+            enum: Object.values(TYRE_STATUS),
+            default: TYRE_STATUS.IN_STOCK,
             index: true,
         },
+
         totalMileage: {
             type: Number,
             default: 0,
@@ -64,6 +68,10 @@ const tyreSchema = new mongoose.Schema(
             type: String,
             // e.g., 'Front_Left', can be enum if positions are fixed, 
             // but keeping it string for flexibility as per prompt "Front_Left"
+            default: null,
+        },
+        mountOdometer: {
+            type: Number,
             default: null,
         },
         threadDepth: {
