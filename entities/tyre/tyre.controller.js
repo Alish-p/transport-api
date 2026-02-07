@@ -105,19 +105,52 @@ const getTyres = asyncHandler(async (req, res) => {
         query.currentPosition = position;
     }
 
-    const [tyres, total] = await Promise.all([
+    // Analytics Aggregation
+    const analyticsQuery = { ...query };
+    delete analyticsQuery.status;
+    delete analyticsQuery.skip;
+    delete analyticsQuery.limit;
+
+    const [tyres, total, analyticsData] = await Promise.all([
         Tyre.find(query)
             .populate('currentVehicleId', 'vehicleNo')
-            .sort({ createdAt: -1 }) // Default sort by newest
+            .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
             .lean(),
         Tyre.countDocuments(query),
+        Tyre.aggregate([
+            { $match: analyticsQuery },
+            {
+                $group: {
+                    _id: '$status',
+                    count: { $sum: 1 },
+                    value: { $sum: { $ifNull: ['$cost', 0] } },
+                },
+            },
+        ]),
     ]);
+
+    const totals = {
+        all: { count: 0, value: 0 },
+        [TYRE_STATUS.IN_STOCK]: { count: 0, value: 0 },
+        [TYRE_STATUS.SCRAPPED]: { count: 0, value: 0 },
+        [TYRE_STATUS.MOUNTED]: { count: 0, value: 0 }, // keeping it for completeness or if needed later
+    };
+
+    // Calculate 'All' from the analyticsData
+    analyticsData.forEach((group) => {
+        totals.all.count += group.count;
+        totals.all.value += group.value;
+        if (totals[group._id]) {
+            totals[group._id] = { count: group.count, value: group.value };
+        }
+    });
 
     res.status(200).json({
         tyres,
         total,
+        totals, // Send back the analytics
         startRange: skip + 1,
         endRange: skip + tyres.length,
     });

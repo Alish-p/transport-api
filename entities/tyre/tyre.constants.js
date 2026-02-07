@@ -1,7 +1,6 @@
 export const TYRE_STATUS = {
     IN_STOCK: 'In_Stock',
     MOUNTED: 'Mounted',
-    REMOLDING: 'Remolding',
     SCRAPPED: 'Scrapped',
 };
 
