@@ -70,7 +70,7 @@ const createTyre = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre
 // @access  Private
 const getTyres = asyncHandler(async (req, res) => {
-    const { search, type, status, brand } = req.query;
+    const { search, type, status, brand, vehicleId, position } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -97,8 +97,17 @@ const getTyres = asyncHandler(async (req, res) => {
         query.brand = { $regex: brand, $options: 'i' };
     }
 
+    if (vehicleId) {
+        query.currentVehicleId = vehicleId;
+    }
+
+    if (position) {
+        query.currentPosition = position;
+    }
+
     const [tyres, total] = await Promise.all([
         Tyre.find(query)
+            .populate('currentVehicleId', 'vehicleNo')
             .sort({ createdAt: -1 }) // Default sort by newest
             .skip(skip)
             .limit(limit)
