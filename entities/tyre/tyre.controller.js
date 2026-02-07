@@ -195,4 +195,57 @@ const updateThreadDepth = asyncHandler(async (req, res) => {
     res.json(tyre);
 });
 
-export { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth };
+// @desc    Mount tyre to vehicle
+// @route   POST /api/tyre/:id/mount
+// @access  Private
+const mountTyre = asyncHandler(async (req, res) => {
+    const { vehicleId, position, mountDate } = req.body;
+    const tyreId = req.params.id;
+
+    // 1. Get Tyre
+    const tyre = await Tyre.findOne({ _id: tyreId, tenant: req.tenant });
+    if (!tyre) {
+        res.status(404);
+        throw new Error('Tyre not found');
+    }
+
+    if (tyre.status === 'Mounted') {
+        res.status(400);
+        throw new Error(`Tyre is already mounted on a vehicle`);
+    }
+
+    // 2. Check if position is occupied
+    const occupiedTyre = await Tyre.findOne({
+        tenant: req.tenant,
+        currentVehicleId: vehicleId,
+        currentPosition: position,
+        status: 'Mounted'
+    });
+
+    if (occupiedTyre) {
+        res.status(400);
+        throw new Error(`Position ${position} is already occupied by tyre ${occupiedTyre.serialNumber}`);
+    }
+
+    // 3. Update Tyre
+    tyre.status = 'Mounted';
+    tyre.currentVehicleId = vehicleId;
+    tyre.currentPosition = position;
+    // We can store mountDate in metadata or just rely on history? 
+    // Let's assume we rely on history for the event, but current state shows where it is.
+    await tyre.save();
+
+    // 4. Create History
+    await TyreHistory.create({
+        tenant: req.tenant,
+        tyre: tyre._id,
+        action: 'MOUNT',
+        vehicleId,
+        position,
+        date: mountDate || new Date(),
+    });
+
+    res.json(tyre);
+});
+
+export { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre };
