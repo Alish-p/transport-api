@@ -43,7 +43,7 @@ const tyreSchema = new mongoose.Schema(
             index: true,
         },
 
-        totalMileage: {
+        currentKm: {
             type: Number,
             default: 0,
         },

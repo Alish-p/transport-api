@@ -17,7 +17,7 @@ const createTyre = asyncHandler(async (req, res) => {
         size,
         type,
         // status is forced to In_Stock by business logic if not provided or overridden
-        // openingkm (totalMileage) is 0 if type is New
+        // openingkm (currentKm) is 0 if type is New
         purchaseDate,
         cost,
         purchaseOrderNumber,
@@ -32,9 +32,9 @@ const createTyre = asyncHandler(async (req, res) => {
     const currentPosition = null;
 
     // "if type new = openingkm will be 0 disabled"
-    let totalMileage = req.body.totalMileage;
+    let currentKm = req.body.currentKm;
     if (type === TYRE_TYPE.NEW) {
-        totalMileage = 0;
+        currentKm = 0;
     }
 
 
@@ -46,7 +46,7 @@ const createTyre = asyncHandler(async (req, res) => {
         size,
         type,
         status,
-        totalMileage: totalMileage || 0,
+        currentKm: currentKm || 0,
         purchaseDate: purchaseDate || new Date(),
         cost: cost || 0,
         purchaseOrderNumber,
@@ -95,9 +95,9 @@ const createBulkTyres = asyncHandler(async (req, res) => {
         const status = TYRE_STATUS.IN_STOCK;
 
         // "if type new = openingkm will be 0 disabled"
-        let totalMileage = tyreData.totalMileage;
+        let currentKm = tyreData.currentKm;
         if (type === TYRE_TYPE.NEW) {
-            totalMileage = 0;
+            currentKm = 0;
         }
 
         return {
@@ -108,7 +108,8 @@ const createBulkTyres = asyncHandler(async (req, res) => {
             size,
             type,
             status,
-            totalMileage: totalMileage || 0,
+            status,
+            currentKm: currentKm || 0,
             purchaseDate: purchaseDate || new Date(),
             cost: cost || 0,
             purchaseOrderNumber,
@@ -410,7 +411,7 @@ const unmountTyre = asyncHandler(async (req, res) => {
     tyre.currentVehicleId = null;
     tyre.currentPosition = null;
     tyre.mountOdometer = null;
-    tyre.totalMileage = (tyre.totalMileage || 0) + distanceCovered;
+    tyre.currentKm = (tyre.currentKm || 0) + distanceCovered;
 
     await tyre.save();
 
@@ -486,7 +487,7 @@ const scrapTyre = asyncHandler(async (req, res) => {
         }
 
         // Update total mileage from this final run
-        tyre.totalMileage = (tyre.totalMileage || 0) + distanceCovered;
+        tyre.currentKm = (tyre.currentKm || 0) + distanceCovered;
     }
 
     // 3. Update Tyre Status and Clear Mounting Info
@@ -578,10 +579,10 @@ const updateTyreHistory = asyncHandler(async (req, res) => {
             await history.save();
 
             // Update Tyre Total Mileage
-            // tyre.totalMileage = tyre.totalMileage - oldDistance + newDistance
-            tyre.totalMileage = (tyre.totalMileage || 0) - oldDistanceCovered + newDistanceCovered;
-            // Ensure totalMileage doesn't go below 0 (though theoretically shouldn't)
-            if (tyre.totalMileage < 0) tyre.totalMileage = 0;
+            // tyre.currentKm = tyre.currentKm - oldDistance + newDistance
+            tyre.currentKm = (tyre.currentKm || 0) - oldDistanceCovered + newDistanceCovered;
+            // Ensure currentKm doesn't go below 0 (though theoretically shouldn't)
+            if (tyre.currentKm < 0) tyre.currentKm = 0;
 
             await tyre.save();
 
@@ -646,8 +647,8 @@ const updateTyreHistory = asyncHandler(async (req, res) => {
                 await nextHistory.save();
 
                 // Update total mileage (remove old distance, add new)
-                tyre.totalMileage = (tyre.totalMileage || 0) - oldDistance + newDistance;
-                if (tyre.totalMileage < 0) tyre.totalMileage = 0;
+                tyre.currentKm = (tyre.currentKm || 0) - oldDistance + newDistance;
+                if (tyre.currentKm < 0) tyre.currentKm = 0;
                 await tyre.save();
             }
             // If no next history found, maybe it was just unmounted without a history record (legacy/bug)? 
