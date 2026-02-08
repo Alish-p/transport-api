@@ -1,0 +1,8 @@
+# Antigravity Ignore File
+node_modules/
+.git/
+.DS_Store
+dist/
+build/
+coverage/
+tsc_output/

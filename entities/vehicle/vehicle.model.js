@@ -21,6 +21,7 @@ const vehicleSchema = new Schema({
     ref: "Transporter",
   },
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+  tyreLayoutId: { type: String },
 });
 
 export default model("Vehicle", vehicleSchema);

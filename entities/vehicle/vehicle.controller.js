@@ -10,6 +10,16 @@ import Expense from '../expense/expense.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
+import { TYRE_LAYOUTS } from '../../constants/tyreLayouts.js';
+
+// Get Tyre Layouts
+const getTyreLayouts = async (req, res) => {
+  try {
+    return res.status(200).json({ success: true, data: TYRE_LAYOUTS });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 // Create Vehicle
 const createVehicle = asyncHandler(async (req, res) => {
@@ -211,6 +221,7 @@ export {
   fetchVehicleById,
   updateVehicle,
   deleteVehicle,
+  getTyreLayouts,
 };
 
 // Lookup vehicle details via external provider and persist normalized snapshot

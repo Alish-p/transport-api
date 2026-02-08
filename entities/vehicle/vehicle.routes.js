@@ -8,11 +8,15 @@ import {
   updateVehicle,
   deleteVehicle,
   lookupVehicleDetails,
+  getTyreLayouts,
 } from './vehicle.controller.js';
 import { authenticate, checkPermission } from '../../middlewares/Auth.js';
 import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
+
+// ─── UTILS ──────────────────────────────────────────────────────────
+router.get("/layouts", authenticate, getTyreLayouts);
 
 // ─── CREATE ─────────────────────────────────────────────────────────
 router.post("/", authenticate, checkPermission("vehicle", "create"), createVehicle);
