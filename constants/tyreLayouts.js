@@ -70,7 +70,7 @@ export const TYRE_LAYOUTS = [
     },
     {
         id: '12-tyre',
-        name: '12 Tyres (4 Axle)',
+        name: '12 Tyres (3 Axle)',
         tyres: [
             TYRE_POSITIONS.FRONT_1_LEFT_OUTER,
             TYRE_POSITIONS.FRONT_1_LEFT_INNER,
@@ -88,8 +88,27 @@ export const TYRE_LAYOUTS = [
         ]
     },
     {
-        id: '14-tyre',
-        name: '14 Tyres (5 Axle)',
+        id: '12-tyre',
+        name: '12 Tyres (4 Axle)',
+        tyres: [
+            TYRE_POSITIONS.FRONT_1_LEFT_OUTER,
+            TYRE_POSITIONS.FRONT_1_RIGHT_OUTER,
+            TYRE_POSITIONS.REAR_1_LEFT_OUTER,
+            TYRE_POSITIONS.REAR_1_RIGHT_OUTER,
+            TYRE_POSITIONS.REAR_2_LEFT_OUTER,
+            TYRE_POSITIONS.REAR_2_LEFT_INNER,
+            TYRE_POSITIONS.REAR_2_RIGHT_INNER,
+            TYRE_POSITIONS.REAR_2_RIGHT_OUTER,
+            TYRE_POSITIONS.REAR_3_LEFT_OUTER,
+            TYRE_POSITIONS.REAR_3_LEFT_INNER,
+            TYRE_POSITIONS.REAR_3_RIGHT_INNER,
+            TYRE_POSITIONS.REAR_3_RIGHT_OUTER,
+            TYRE_POSITIONS.STEPNEY_1
+        ]
+    },
+    {
+        id: '14-tyre-1',
+        name: '14 Tyres (5 Axle) 1',
         tyres: [
             TYRE_POSITIONS.FRONT_1_LEFT_OUTER,
             TYRE_POSITIONS.FRONT_1_RIGHT_OUTER,
@@ -104,6 +123,28 @@ export const TYRE_LAYOUTS = [
             TYRE_POSITIONS.REAR_3_LEFT_OUTER,
             TYRE_POSITIONS.REAR_3_RIGHT_OUTER,
             TYRE_POSITIONS.REAR_4_LEFT_OUTER,
+            TYRE_POSITIONS.REAR_4_RIGHT_OUTER,
+            TYRE_POSITIONS.STEPNEY_1,
+            TYRE_POSITIONS.STEPNEY_2
+        ]
+    },
+    {
+        id: '14-tyre-2',
+        name: '14 Tyres (5 Axle) 2',
+        tyres: [
+            TYRE_POSITIONS.FRONT_1_LEFT_OUTER,
+            TYRE_POSITIONS.FRONT_1_RIGHT_OUTER,
+            TYRE_POSITIONS.REAR_1_LEFT_OUTER,
+            TYRE_POSITIONS.REAR_1_RIGHT_OUTER,
+            TYRE_POSITIONS.REAR_2_LEFT_OUTER,
+            TYRE_POSITIONS.REAR_2_RIGHT_OUTER,
+            TYRE_POSITIONS.REAR_3_LEFT_OUTER,
+            TYRE_POSITIONS.REAR_3_LEFT_INNER,
+            TYRE_POSITIONS.REAR_3_RIGHT_INNER,
+            TYRE_POSITIONS.REAR_3_RIGHT_OUTER,
+            TYRE_POSITIONS.REAR_4_LEFT_OUTER,
+            TYRE_POSITIONS.REAR_4_LEFT_INNER,
+            TYRE_POSITIONS.REAR_4_RIGHT_INNER,
             TYRE_POSITIONS.REAR_4_RIGHT_OUTER,
             TYRE_POSITIONS.STEPNEY_1,
             TYRE_POSITIONS.STEPNEY_2
