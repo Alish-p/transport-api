@@ -15,4 +15,5 @@ export const TYRE_HISTORY_ACTION = {
     MOUNT: 'MOUNT',
     UNMOUNT: 'UNMOUNT',
     UPDATE: 'UPDATE',
+    SCRAP: 'SCRAP',
 };

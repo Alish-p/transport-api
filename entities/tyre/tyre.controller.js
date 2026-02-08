@@ -375,4 +375,81 @@ const getTyreHistory = asyncHandler(async (req, res) => {
     res.json(history);
 });
 
-export { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory };
+// @desc    Scrap tyre
+// @route   POST /api/tyre/:id/scrap
+// @access  Private
+const scrapTyre = asyncHandler(async (req, res) => {
+    const { odometer, scrapDate } = req.body;
+    const tyreId = req.params.id;
+
+    // 1. Get Tyre
+    const tyre = await Tyre.findOne({ _id: tyreId, tenant: req.tenant });
+    if (!tyre) {
+        res.status(404);
+        throw new Error('Tyre not found');
+    }
+
+    if (tyre.status === TYRE_STATUS.SCRAPPED) {
+        res.status(400);
+        throw new Error('Tyre is already scrapped');
+    }
+
+    // 2. Handle if Mounted (Implicit Unmount Logic)
+    let distanceCovered = 0;
+
+    // Store current state for history before clearing
+    const vehicleId = tyre.currentVehicleId;
+    const position = tyre.currentPosition;
+    const mountOdometer = tyre.mountOdometer;
+
+    if (tyre.status === TYRE_STATUS.MOUNTED) {
+        if (!odometer) {
+            res.status(400);
+            throw new Error('Odometer reading is required when scrapping a mounted tyre');
+        }
+
+        if (odometer && tyre.mountOdometer) {
+            distanceCovered = odometer - tyre.mountOdometer;
+            if (distanceCovered < 0) {
+                res.status(400);
+                throw new Error('Odometer reading cannot be less than mount odometer reading');
+            }
+        }
+
+        // Update total mileage from this final run
+        tyre.totalMileage = (tyre.totalMileage || 0) + distanceCovered;
+    }
+
+    // 3. Update Tyre Status and Clear Mounting Info
+    tyre.status = TYRE_STATUS.SCRAPPED;
+    tyre.currentVehicleId = null;
+    tyre.currentPosition = null;
+    tyre.mountOdometer = null;
+
+    await tyre.save();
+
+    // 4. Create History
+    const historyData = {
+        tenant: req.tenant,
+        tyre: tyre._id,
+        action: TYRE_HISTORY_ACTION.SCRAP,
+        measuringDate: scrapDate || new Date(),
+    };
+
+    // Only add vehicle info if it was mounted
+    if (vehicleId) {
+        historyData.vehicleId = vehicleId;
+        historyData.position = position;
+        historyData.odometer = odometer;
+        historyData.distanceCovered = distanceCovered;
+        historyData.metadata = {
+            mountOdometer: mountOdometer
+        };
+    }
+
+    await TyreHistory.create(historyData);
+
+    res.json(tyre);
+});
+
+export { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre };
