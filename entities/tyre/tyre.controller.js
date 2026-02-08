@@ -452,4 +452,147 @@ const scrapTyre = asyncHandler(async (req, res) => {
     res.json(tyre);
 });
 
-export { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre };
+
+// @desc    Update tyre history (odometer correction)
+// @route   PUT /api/tyre/:id/history/:historyId
+// @access  Private
+const updateTyreHistory = asyncHandler(async (req, res) => {
+    const { odometer } = req.body;
+    const { id: tyreId, historyId } = req.params;
+
+    const history = await TyreHistory.findOne({ _id: historyId, tyre: tyreId, tenant: req.tenant });
+    if (!history) {
+        res.status(404);
+        throw new Error('History record not found');
+    }
+
+    const tyre = await Tyre.findOne({ _id: tyreId, tenant: req.tenant });
+    if (!tyre) {
+        res.status(404);
+        throw new Error('Tyre not found');
+    }
+
+    if (!odometer) {
+        res.status(400);
+        throw new Error('Odometer reading is required');
+    }
+
+    // Handle Unmount/Scrap Update
+    if (history.action === TYRE_HISTORY_ACTION.UNMOUNT || history.action === TYRE_HISTORY_ACTION.SCRAP) {
+        // Recalculate distance covered
+        // history.metadata.mountOdometer should exist for unmount/scrap
+        let mountOdometer = history.metadata?.mountOdometer;
+
+        // Fallback: Infer from existing record if metadata is missing (for legacy data)
+        // If we have current odometer and distance covered, we can calculate what the mount odometer was.
+        if ((mountOdometer === undefined || mountOdometer === null) && history.odometer && history.distanceCovered !== undefined) {
+            mountOdometer = history.odometer - history.distanceCovered;
+        }
+
+        if (mountOdometer !== undefined && mountOdometer !== null) {
+            const newDistanceCovered = odometer - mountOdometer;
+            const oldDistanceCovered = history.distanceCovered || 0;
+
+            if (newDistanceCovered < 0) {
+                res.status(400);
+                throw new Error('Odometer reading cannot be less than mount odometer reading');
+            }
+
+            // Update History
+            history.odometer = odometer;
+            history.distanceCovered = newDistanceCovered;
+
+            // Ensure we save the inferred/existing mountOdometer to metadata for future updates
+            if (!history.metadata) history.metadata = {};
+            history.metadata.mountOdometer = mountOdometer;
+
+            await history.save();
+
+            // Update Tyre Total Mileage
+            // tyre.totalMileage = tyre.totalMileage - oldDistance + newDistance
+            tyre.totalMileage = (tyre.totalMileage || 0) - oldDistanceCovered + newDistanceCovered;
+            // Ensure totalMileage doesn't go below 0 (though theoretically shouldn't)
+            if (tyre.totalMileage < 0) tyre.totalMileage = 0;
+
+            await tyre.save();
+
+            return res.json(history);
+        } else {
+            // Fallback if metadata is missing and CANNOT be inferred
+            res.status(400);
+            throw new Error('Cannot update history: Missing mount odometer reference and cannot infer from existing data');
+        }
+    }
+
+    // Handle Mount Update
+    if (history.action === TYRE_HISTORY_ACTION.MOUNT) {
+        // If we update mount odometer, we need to check if the tyre is still mounted 
+        // AND if this history item corresponds to the current mounting.
+
+        // Simple check: Is the tyre currently mounted on the same vehicle/position?
+        const isCurrentMount =
+            tyre.status === TYRE_STATUS.MOUNTED &&
+            tyre.currentVehicleId?.toString() === history.vehicleId?.toString() &&
+            tyre.currentPosition === history.position;
+
+        // Also check timestamps to be sure? 
+        // Or if tyre.mountOdometer roughly equals history.odometer (before update)
+
+        if (isCurrentMount) {
+            tyre.mountOdometer = odometer;
+            await tyre.save();
+        } else {
+            // Tyre is no longer mounted (or different mount).
+            // This means there is likely a subsequent UNMOUNT history item that used the OLD mount odometer.
+            // We should ideally find it and update it.
+            // This is complex because we need to find the specific unmount paired with this mount.
+            // Strategy: Find the first UNMOUNT/SCRAP *after* this MOUNT history date.
+
+            const nextHistory = await TyreHistory.findOne({
+                tyre: tyreId,
+                tenant: req.tenant,
+                action: { $in: [TYRE_HISTORY_ACTION.UNMOUNT, TYRE_HISTORY_ACTION.SCRAP] },
+                createdAt: { $gt: history.createdAt }
+            }).sort({ createdAt: 1 });
+
+            if (nextHistory) {
+                // Recalculate that unmount's distance
+                const unmountOdometer = nextHistory.odometer;
+                const oldMountOdometer = history.odometer; // Current value in DB before update
+                const oldDistance = nextHistory.distanceCovered;
+
+                // Update the metadata of the unmount event so it knows the new start point
+                if (!nextHistory.metadata) nextHistory.metadata = {};
+                nextHistory.metadata.mountOdometer = odometer; // New mount odometer
+
+                const newDistance = unmountOdometer - odometer;
+
+                // Check validity
+                if (newDistance < 0) {
+                    res.status(400);
+                    throw new Error(`New mount odometer (${odometer}) is greater than unmount odometer (${unmountOdometer})`);
+                }
+
+                nextHistory.distanceCovered = newDistance;
+                await nextHistory.save();
+
+                // Update total mileage (remove old distance, add new)
+                tyre.totalMileage = (tyre.totalMileage || 0) - oldDistance + newDistance;
+                if (tyre.totalMileage < 0) tyre.totalMileage = 0;
+                await tyre.save();
+            }
+            // If no next history found, maybe it was just unmounted without a history record (legacy/bug)? 
+            // Or maybe current status is IN_STOCK but no Unmount record? Unlikely.
+        }
+
+        history.odometer = odometer;
+        await history.save();
+        return res.json(history);
+    }
+
+    res.status(400);
+    throw new Error('This history action type cannot be updated');
+});
+
+export { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory };
+
