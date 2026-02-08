@@ -12,7 +12,7 @@ import {
   deleteSubtask,
   reorderTasks,
 } from './task.controller.js';
-import { authenticate } from '../../middlewares/Auth.js';
+import { authenticate } from '../../middlewares/auth.js';
 
 const router = Router();
 

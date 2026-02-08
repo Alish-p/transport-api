@@ -7,7 +7,7 @@ import {
 } from './tenant.controller.js';
 // Superuser-only tenant actions have moved under /api/super routes.
 import { tenantSchema } from './tenant.validation.js';
-import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
 
 const router = Router();

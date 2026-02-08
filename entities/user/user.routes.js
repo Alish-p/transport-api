@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, checkPermission, requireSuperuser } from '../../middlewares/Auth.js';
+import { authenticate, checkPermission, requireSuperuser } from '../../middlewares/auth.js';
 import {
   createUser,
   fetchUsers,

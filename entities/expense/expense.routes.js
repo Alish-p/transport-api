@@ -9,7 +9,7 @@ import {
 } from './expense.controller.js';
 
 import { expenseSchema } from './expense.validation.js';
-import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
 
 const router = Router();

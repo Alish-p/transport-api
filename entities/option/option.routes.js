@@ -6,7 +6,7 @@ import {
     deleteOption,
     seedOptions,
 } from './option.controller.js';
-import { authenticate } from '../../middlewares/Auth.js';
+import { authenticate } from '../../middlewares/auth.js';
 
 const router = express.Router();
 

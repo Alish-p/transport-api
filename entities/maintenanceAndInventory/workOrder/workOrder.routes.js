@@ -11,7 +11,7 @@ import {
   workOrderCreateSchema,
   workOrderUpdateSchema,
 } from './workOrder.validation.js';
-import { checkPermission } from '../../../middlewares/Auth.js';
+import { checkPermission } from '../../../middlewares/auth.js';
 import pagination from '../../../middlewares/pagination.js';
 import validate from '../../../middlewares/validate.js';
 

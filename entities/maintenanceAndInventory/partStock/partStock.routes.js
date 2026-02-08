@@ -4,7 +4,7 @@ import {
     transferStock,
     fetchInventoryActivities,
 } from './partStock.controller.js';
-import { checkPermission } from '../../../middlewares/Auth.js';
+import { checkPermission } from '../../../middlewares/auth.js';
 import pagination from '../../../middlewares/pagination.js';
 
 const router = Router();

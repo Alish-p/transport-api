@@ -15,7 +15,7 @@ import {
   purchaseOrderReceiveSchema,
   purchaseOrderPaySchema,
 } from './purchaseOrder.validation.js';
-import { authenticate, checkPermission } from '../../../middlewares/Auth.js';
+import { authenticate, checkPermission } from '../../../middlewares/auth.js';
 import pagination from '../../../middlewares/pagination.js';
 import validate from '../../../middlewares/validate.js';
 

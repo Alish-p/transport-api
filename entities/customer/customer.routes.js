@@ -13,7 +13,7 @@ import {
   searchCustomer,
 } from './customer.controller.js';
 
-import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
 import { gstLookup } from './customer.controller.js';
 

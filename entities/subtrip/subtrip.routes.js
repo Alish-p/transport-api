@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import pagination from '../../middlewares/pagination.js';
-import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
   fetchSubtrips,
   fetchSubtrip,

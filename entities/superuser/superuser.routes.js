@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, requireSuperuser } from '../../middlewares/Auth.js';
+import { authenticate, requireSuperuser } from '../../middlewares/auth.js';
 import {
   createUserForTenant,
   createTenant,

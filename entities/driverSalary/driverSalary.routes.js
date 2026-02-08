@@ -7,7 +7,7 @@ import {
   deleteDriverSalary,
 } from './driverSalary.controller.js';
 
-import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 
 const router = Router();
 

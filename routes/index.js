@@ -1,6 +1,6 @@
 import express from 'express';
 
-import { authenticate } from '../middlewares/Auth.js';
+import { authenticate } from '../middlewares/auth.js';
 
 import customerRouter from '../entities/customer/customer.routes.js';
 import customerTargetRouter from '../entities/customerTarget/customerTarget.routes.js';

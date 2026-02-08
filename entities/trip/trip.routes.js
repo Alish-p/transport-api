@@ -8,7 +8,7 @@ import {
   deleteTrip,
   closeTrip,
 } from './trip.controller.js';
-import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
 
 const router = Router();

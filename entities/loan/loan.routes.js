@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, checkPermission } from '../../middlewares/Auth.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import { loanSchema } from './loan.validation.js';
 import {
   createLoan,
