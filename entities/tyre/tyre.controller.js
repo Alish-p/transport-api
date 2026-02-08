@@ -664,6 +664,76 @@ const updateTyreHistory = asyncHandler(async (req, res) => {
     throw new Error('This history action type cannot be updated');
 });
 
-export { createTyre, createBulkTyres, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory };
+// @desc    Remold tyre (In Stock only)
+// @route   POST /api/tyre/:id/remold
+// @access  Private
+const remoldTyre = asyncHandler(async (req, res) => {
+    const { newThreadDepth, remoldDate } = req.body;
+    const tyreId = req.params.id;
+
+    // 1. Get Tyre
+    const tyre = await Tyre.findOne({ _id: tyreId, tenant: req.tenant });
+    if (!tyre) {
+        res.status(404);
+        throw new Error('Tyre not found');
+    }
+
+    // 2. Validation
+    if (tyre.status !== TYRE_STATUS.IN_STOCK) {
+        res.status(400);
+        throw new Error('Only In Stock tyres can be remolded');
+    }
+
+    if (!newThreadDepth) {
+        res.status(400);
+        throw new Error('New thread depth is required');
+    }
+
+    const currentThreadDepth = tyre.threadDepth?.current || 0;
+    if (newThreadDepth <= currentThreadDepth) {
+        res.status(400);
+        throw new Error(`New thread depth (${newThreadDepth}) must be greater than current thread depth (${currentThreadDepth})`);
+    }
+
+    // 3. Update Tyre
+    // Snapshot previous state for history
+    const previousThreadDepth = currentThreadDepth;
+
+    // Update thread depths (both current and original as it's a new life)
+    tyre.threadDepth.current = newThreadDepth;
+    // tyre.threadDepth.original = newThreadDepth; // deciding whether to update original or not. Plan said yes. Let's do it.
+    // Actually, usually original means "from factory". But for Remold, it's like a new tyre.
+    // Let's update original too so "Remaining Thread" calculation works (current/original).
+    tyre.threadDepth.original = newThreadDepth;
+    tyre.threadDepth.lastMeasuredDate = remoldDate || new Date();
+
+    // Update Type if not already remolded
+    if (tyre.type !== TYRE_TYPE.REMOLDED) {
+        tyre.type = TYRE_TYPE.REMOLDED;
+    }
+
+    // Increment remold count
+    if (!tyre.metadata) tyre.metadata = {};
+    tyre.metadata.remoldCount = (tyre.metadata.remoldCount || 0) + 1;
+
+    await tyre.save();
+
+    // 4. Create History
+    await TyreHistory.create({
+        tenant: req.tenant,
+        tyre: tyre._id,
+        action: TYRE_HISTORY_ACTION.REMOLD,
+        previousThreadDepth,
+        newThreadDepth,
+        measuringDate: remoldDate || new Date(),
+        metadata: {
+            remoldCount: tyre.metadata.remoldCount
+        }
+    });
+
+    res.json(tyre);
+});
+
+export { createTyre, createBulkTyres, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory, remoldTyre };
 
 
