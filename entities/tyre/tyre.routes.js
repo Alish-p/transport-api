@@ -1,7 +1,9 @@
 import express from "express";
 import {
     createTyre,
+    createBulkTyres,
     getTyres,
+
     getTyreById,
     updateTyre,
     updateThreadDepth,
@@ -18,7 +20,10 @@ const router = express.Router();
 
 router.use(authenticate);
 
+router.route("/bulk").post(createBulkTyres);
+
 router.route("/").post(createTyre).get(pagination, getTyres);
+
 
 router.route("/:id").get(getTyreById).put(updateTyre);
 

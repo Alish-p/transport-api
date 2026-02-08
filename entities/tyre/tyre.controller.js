@@ -66,6 +66,75 @@ const createTyre = asyncHandler(async (req, res) => {
     res.status(201).json(tyre);
 });
 
+// @desc    Create bulk tyres
+// @route   POST /api/tyre/bulk
+// @access  Private
+const createBulkTyres = asyncHandler(async (req, res) => {
+    const { tyres } = req.body;
+
+    if (!Array.isArray(tyres) || tyres.length === 0) {
+        res.status(400);
+        throw new Error('No tyres data provided');
+    }
+
+    const tyresToCreate = tyres.map(tyreData => {
+        const {
+            serialNumber,
+            brand,
+            model,
+            size,
+            type,
+            purchaseDate,
+            cost,
+            purchaseOrderNumber,
+            threadDepth,
+            metadata,
+        } = tyreData;
+
+        // "on creation dont ask status: In_Stock... it will be in_stock only"
+        const status = TYRE_STATUS.IN_STOCK;
+
+        // "if type new = openingkm will be 0 disabled"
+        let totalMileage = tyreData.totalMileage;
+        if (type === TYRE_TYPE.NEW) {
+            totalMileage = 0;
+        }
+
+        return {
+            tenant: req.tenant,
+            serialNumber,
+            brand,
+            model,
+            size,
+            type,
+            status,
+            totalMileage: totalMileage || 0,
+            purchaseDate: purchaseDate || new Date(),
+            cost: cost || 0,
+            purchaseOrderNumber,
+            currentVehicleId: null,
+            currentPosition: null,
+            threadDepth: {
+                original: threadDepth?.original || 0,
+                current: threadDepth?.current || (threadDepth?.original || 0),
+                lastMeasuredDate: threadDepth?.lastMeasuredDate || new Date(),
+            },
+            metadata: {
+                isRemoldable: metadata?.isRemoldable ?? true,
+                remoldCount: metadata?.remoldCount || 0,
+            },
+        };
+    });
+
+    // Use ordered: false to allow continuation if one fails (handled by caller?)
+    // Or better, let it fail if one is duplicate to maintain data integrity or catch errors.
+    // Given the UI is probably sending validated data, standard insertMany is fine.
+    // If a duplicate serial exists, it will throw.
+    const createdTyres = await Tyre.insertMany(tyresToCreate);
+
+    res.status(201).json(createdTyres);
+});
+
 // @desc    Get all tyres (paginated)
 // @route   GET /api/tyre
 // @access  Private
@@ -594,5 +663,6 @@ const updateTyreHistory = asyncHandler(async (req, res) => {
     throw new Error('This history action type cannot be updated');
 });
 
-export { createTyre, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory };
+export { createTyre, createBulkTyres, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory };
+
 
