@@ -52,7 +52,7 @@ const getFleetxVehicleData = async (vehicleNo) => {
         return null;
     }
     return {
-        totalOdometer: vehicle.totalOdometer,
+        totalOdometer: vehicle.totalOdometer != null ? Math.round(vehicle.totalOdometer) : null,
         totalFuelConsumption: vehicle.totalFuelConsumption,
         status: vehicle.status,
         latitude: vehicle.latitude,
