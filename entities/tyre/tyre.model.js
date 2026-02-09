@@ -82,6 +82,7 @@ const tyreSchema = new mongoose.Schema(
         metadata: {
             isRemoldable: { type: Boolean, default: true },
             remoldCount: { type: Number, default: 0 },
+            totalKmAtLastRemold: { type: Number, default: 0 },
         },
         isActive: {
             type: Boolean,

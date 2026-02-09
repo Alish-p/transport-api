@@ -141,7 +141,7 @@ const createBulkTyres = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre
 // @access  Private
 const getTyres = asyncHandler(async (req, res) => {
-    const { search, type, status, brand, vehicleId, position } = req.query;
+    const { search, type, status, brand, vehicleId, position, minKm, maxKm } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -174,6 +174,12 @@ const getTyres = asyncHandler(async (req, res) => {
 
     if (position) {
         query.currentPosition = position;
+    }
+
+    if (minKm || maxKm) {
+        query.currentKm = {};
+        if (minKm) query.currentKm.$gte = Number(minKm);
+        if (maxKm) query.currentKm.$lte = Number(maxKm);
     }
 
     // Analytics Aggregation
@@ -579,13 +585,22 @@ const updateTyreHistory = asyncHandler(async (req, res) => {
         }
 
         if (mountOdometer !== undefined && mountOdometer !== null) {
-            const newDistanceCovered = odometer - mountOdometer;
-            const oldDistanceCovered = history.distanceCovered || 0;
+            let newDistanceCovered = 0;
 
-            if (newDistanceCovered < 0) {
-                res.status(400);
-                throw new Error('Odometer reading cannot be less than mount odometer reading');
+            // Valid Stapney positions check
+            const isStepney = [TYRE_POSITIONS.STEPNEY_1, TYRE_POSITIONS.STEPNEY_2].includes(history.position);
+
+            if (isStepney) {
+                newDistanceCovered = 0;
+            } else {
+                newDistanceCovered = odometer - mountOdometer;
+                if (newDistanceCovered < 0) {
+                    res.status(400);
+                    throw new Error('Odometer reading cannot be less than mount odometer reading');
+                }
             }
+
+            const oldDistanceCovered = history.distanceCovered || 0;
 
             // Update History
             history.odometer = odometer;
@@ -734,6 +749,7 @@ const remoldTyre = asyncHandler(async (req, res) => {
     // Increment remold count
     if (!tyre.metadata) tyre.metadata = {};
     tyre.metadata.remoldCount = (tyre.metadata.remoldCount || 0) + 1;
+    tyre.metadata.totalKmAtLastRemold = tyre.currentKm || 0;
 
     await tyre.save();
 
