@@ -3,6 +3,7 @@ import Tyre from './tyre.model.js';
 import TyreHistory from './tyre-history.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { TYRE_STATUS, TYRE_TYPE, TYRE_HISTORY_ACTION } from './tyre.constants.js';
+import { TYRE_POSITIONS } from '../../constants/tyreLayouts.js';
 
 
 
@@ -391,7 +392,13 @@ const unmountTyre = asyncHandler(async (req, res) => {
 
     // 2. Calculate Distance
     let distanceCovered = 0;
-    if (odometer && tyre.mountOdometer) {
+
+    // Valid Stapney positions check
+    const isStepney = [TYRE_POSITIONS.STEPNEY_1, TYRE_POSITIONS.STEPNEY_2].includes(tyre.currentPosition);
+
+    if (isStepney) {
+        distanceCovered = 0;
+    } else if (odometer && tyre.mountOdometer) {
         distanceCovered = odometer - tyre.mountOdometer;
         if (distanceCovered < 0) {
             //give error
@@ -412,6 +419,11 @@ const unmountTyre = asyncHandler(async (req, res) => {
     tyre.currentPosition = null;
     tyre.mountOdometer = null;
     tyre.currentKm = (tyre.currentKm || 0) + distanceCovered;
+
+    // improved logic: if tyre was NEW and has covered distance, mark it as USED
+    if (tyre.type === TYRE_TYPE.NEW && distanceCovered > 0) {
+        tyre.type = TYRE_TYPE.USED;
+    }
 
     await tyre.save();
 
@@ -479,10 +491,17 @@ const scrapTyre = asyncHandler(async (req, res) => {
         }
 
         if (odometer && tyre.mountOdometer) {
-            distanceCovered = odometer - tyre.mountOdometer;
-            if (distanceCovered < 0) {
-                res.status(400);
-                throw new Error('Odometer reading cannot be less than mount odometer reading');
+            // Valid Stapney positions check
+            const isStepney = [TYRE_POSITIONS.STEPNEY_1, TYRE_POSITIONS.STEPNEY_2].includes(tyre.currentPosition);
+
+            if (isStepney) {
+                distanceCovered = 0;
+            } else {
+                distanceCovered = odometer - tyre.mountOdometer;
+                if (distanceCovered < 0) {
+                    res.status(400);
+                    throw new Error('Odometer reading cannot be less than mount odometer reading');
+                }
             }
         }
 
