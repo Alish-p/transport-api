@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import {
   createDriver,
-  quickCreateDriver,
   fetchDrivers,
   deleteDriver,
   updateDriver,
   fetchDriverById,
   fetchDriversSummary,
+  fetchOrphanDrivers,
+  cleanupDrivers,
 } from './driver.controller.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
@@ -14,14 +15,10 @@ import pagination from '../../middlewares/pagination.js';
 const router = Router();
 
 router.post('/', authenticate, checkPermission('driver', 'create'), createDriver);
-router.post(
-  '/quick',
-  authenticate,
-  checkPermission('driver', 'create'),
-  quickCreateDriver
-);
 router.get('/', authenticate, pagination, fetchDrivers);
 router.get('/summary', authenticate, fetchDriversSummary);
+router.get('/orphans', authenticate, checkPermission('driver', 'delete'), fetchOrphanDrivers);
+router.post('/cleanup', authenticate, checkPermission('driver', 'delete'), cleanupDrivers);
 router.get('/:id', authenticate, fetchDriverById);
 router.delete(
   '/:id',

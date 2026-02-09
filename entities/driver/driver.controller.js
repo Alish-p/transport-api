@@ -1,18 +1,12 @@
 import asyncHandler from 'express-async-handler';
 import Driver from './driver.model.js';
+import Subtrip from '../subtrip/subtrip.model.js';
+import Trip from '../trip/trip.model.js';
+import DriverSalary from '../driverSalary/driverSalary.model.js';
+import Loan from '../loan/loan.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 
 const createDriver = asyncHandler(async (req, res) => {
-  const driver = new Driver({
-    ...req.body,
-    driverName: req.body.driverName?.trim(),
-    tenant: req.tenant,
-  });
-  const newDriver = await driver.save();
-  res.status(201).json(newDriver);
-});
-
-const quickCreateDriver = asyncHandler(async (req, res) => {
   const { driverName, driverCellNo } = req.body;
 
   if (!driverName || !driverCellNo) {
@@ -20,21 +14,11 @@ const quickCreateDriver = asyncHandler(async (req, res) => {
     return;
   }
 
-  const now = new Date();
-
   const driver = new Driver({
+    ...req.body,
     driverName: driverName.trim(),
-    driverCellNo,
-    driverLicenceNo: 'N/A',
-    driverPresentAddress: 'N/A',
-    licenseFrom: now,
-    licenseTo: new Date(now.getFullYear() + 5, now.getMonth(), now.getDate()),
-    aadharNo: 'N/A',
-    experience: 0,
-    permanentAddress: 'N/A',
     tenant: req.tenant,
   });
-
   const newDriver = await driver.save();
   res.status(201).json(newDriver);
 });
@@ -133,12 +117,75 @@ const deleteDriver = asyncHandler(async (req, res) => {
   res.status(200).json(driver);
 });
 
+/**
+ * Fetch all orphan drivers - drivers not referenced in any subtrip, trip, salary, or loan
+ */
+const fetchOrphanDrivers = asyncHandler(async (req, res) => {
+  const tenant = req.tenant;
+
+  // Get all driver IDs that ARE referenced in related collections
+  const [subtripDriverIds, tripDriverIds, salaryDriverIds, loanDriverIds] = await Promise.all([
+    Subtrip.distinct('driverId', { tenant }),
+    Trip.distinct('driverId', { tenant }),
+    DriverSalary.distinct('driverId', { tenant }),
+    Loan.distinct('borrowerId', { tenant, borrowerType: 'Driver' }),
+  ]);
+
+  // Combine all referenced driver IDs
+  const referencedDriverIds = [
+    ...subtripDriverIds,
+    ...tripDriverIds,
+    ...salaryDriverIds,
+    ...loanDriverIds,
+  ];
+
+  // Find active drivers NOT in the referenced list
+  const orphanDrivers = await Driver.find({
+    tenant,
+    isActive: true,
+    _id: { $nin: referencedDriverIds },
+  })
+    .select('driverName driverCellNo createdAt')
+    .sort({ driverName: 1 });
+
+  res.status(200).json({
+    orphanDrivers,
+    count: orphanDrivers.length,
+  });
+});
+
+/**
+ * Soft delete (cleanup) selected drivers by setting isActive to false
+ */
+const cleanupDrivers = asyncHandler(async (req, res) => {
+  const { driverIds } = req.body;
+  const tenant = req.tenant;
+
+  if (!driverIds || !Array.isArray(driverIds) || driverIds.length === 0) {
+    res.status(400).json({ message: 'driverIds array is required' });
+    return;
+  }
+
+  // Update all selected drivers to inactive
+  const result = await Driver.updateMany(
+    { _id: { $in: driverIds }, tenant },
+    { $set: { isActive: false } }
+  );
+
+  res.status(200).json({
+    message: `${result.modifiedCount} driver(s) cleaned up successfully`,
+    modifiedCount: result.modifiedCount,
+  });
+});
+
 export {
   createDriver,
-  quickCreateDriver,
   fetchDrivers,
   fetchDriversSummary,
   fetchDriverById,
   updateDriver,
   deleteDriver,
+  fetchOrphanDrivers,
+  cleanupDrivers,
 };
+
