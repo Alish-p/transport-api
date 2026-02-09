@@ -22,6 +22,7 @@ const transporterSchema = new Schema({
     place: { type: String, required: true },
     accNo: { type: String, required: true },
   },
+  isActive: { type: Boolean, default: true },
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 });
 

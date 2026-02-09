@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler';
 import Transporter from './transporter.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
+import Loan from '../loan/loan.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 
 // Create Transporter
@@ -157,6 +158,65 @@ const deleteTransporter = asyncHandler(async (req, res) => {
   res.status(200).json(transporter);
 });
 
+/**
+ * Fetch all orphan transporters - transporters not referenced in any vehicle, payment, or loan
+ */
+const fetchOrphanTransporters = asyncHandler(async (req, res) => {
+  const tenant = req.tenant;
+
+  // Get all transporter IDs that ARE referenced in related collections
+  const [vehicleTransporterIds, paymentTransporterIds, loanTransporterIds] = await Promise.all([
+    Vehicle.distinct('transporter', { tenant, transporter: { $exists: true, $ne: null } }),
+    TransporterPayment.distinct('transporterId', { tenant }),
+    Loan.distinct('borrowerId', { tenant, borrowerType: 'Transporter' }),
+  ]);
+
+  // Combine all referenced transporter IDs
+  const referencedTransporterIds = [
+    ...vehicleTransporterIds,
+    ...paymentTransporterIds,
+    ...loanTransporterIds,
+  ];
+
+  // Find active transporters NOT in the referenced list
+  const orphanTransporters = await Transporter.find({
+    tenant,
+    isActive: { $ne: false },
+    _id: { $nin: referencedTransporterIds },
+  })
+    .select('transportName cellNo ownerName createdAt')
+    .sort({ transportName: 1 });
+
+  res.status(200).json({
+    orphanTransporters,
+    count: orphanTransporters.length,
+  });
+});
+
+/**
+ * Soft delete (cleanup) selected transporters by setting isActive to false
+ */
+const cleanupTransporters = asyncHandler(async (req, res) => {
+  const { transporterIds } = req.body;
+  const tenant = req.tenant;
+
+  if (!transporterIds || !Array.isArray(transporterIds) || transporterIds.length === 0) {
+    res.status(400).json({ message: 'transporterIds array is required' });
+    return;
+  }
+
+  // Update all selected transporters to inactive
+  const result = await Transporter.updateMany(
+    { _id: { $in: transporterIds }, tenant },
+    { $set: { isActive: false } }
+  );
+
+  res.status(200).json({
+    message: `${result.modifiedCount} transporter(s) cleaned up successfully`,
+    modifiedCount: result.modifiedCount,
+  });
+});
+
 export {
   createTransporter,
   fetchTransporters,
@@ -165,4 +225,7 @@ export {
   fetchTransporterPayments,
   updateTransporter,
   deleteTransporter,
+  fetchOrphanTransporters,
+  cleanupTransporters,
 };
+
