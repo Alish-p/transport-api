@@ -163,6 +163,12 @@ const userSchema = new mongoose.Schema(
         view: { type: Boolean, default: false },
         update: { type: Boolean, default: false },
       },
+      tyre: {
+        create: { type: Boolean, default: false },
+        view: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      },
     },
 
     bankDetails: {

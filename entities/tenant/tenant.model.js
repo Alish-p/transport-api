@@ -80,6 +80,10 @@ const integrationSchema = new Schema(
     maintenanceAndInventory: {
       enabled: { type: Boolean, default: false },
     },
+    tyre: {
+      enabled: { type: Boolean, default: false },
+      config: { type: Schema.Types.Mixed },
+    },
   },
   { _id: false }
 );
