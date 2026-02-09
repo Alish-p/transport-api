@@ -25,10 +25,15 @@ const createDriver = asyncHandler(async (req, res) => {
 
 const fetchDrivers = asyncHandler(async (req, res) => {
   /* eslint-disable no-unused-vars */
-  const { search, status } = req.query;
+  const { search, status, includeInactive } = req.query;
   const { limit, skip } = req.pagination;
 
   const query = addTenantToQuery({ tenant: req.tenant });
+
+  // By default, only return active drivers unless includeInactive is true
+  if (includeInactive !== 'true') {
+    query.isActive = { $ne: false };
+  }
 
   if (search) {
     query.$or = [

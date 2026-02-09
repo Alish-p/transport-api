@@ -16,13 +16,17 @@ const createTransporter = asyncHandler(async (req, res) => {
 // Fetch Transporters with pagination and search
 const fetchTransporters = asyncHandler(async (req, res) => {
   try {
-    const { search, vehicleCount } = req.query;
+    const { search, vehicleCount, includeInactive } = req.query;
     const { limit, skip } = req.pagination;
 
     // Base match stage
     const matchStage = {
       tenant: req.tenant,
     };
+
+    if (includeInactive !== 'true') {
+      matchStage.isActive = { $ne: false };
+    }
 
     if (search) {
       matchStage.$or = [
