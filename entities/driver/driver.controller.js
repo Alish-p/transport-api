@@ -14,6 +14,33 @@ const createDriver = asyncHandler(async (req, res) => {
     return;
   }
 
+  // Check if driver with same cell number already exists
+  const existingDriver = await Driver.findOne({
+    driverCellNo,
+    tenant: req.tenant,
+  });
+
+  if (existingDriver) {
+    if (existingDriver.isActive) {
+      res.status(400).json({ message: 'Driver with this mobile number already exists.' });
+      return;
+    }
+
+    // If driver exists but is inactive, reactivate and update details
+    const updatedDriver = await Driver.findByIdAndUpdate(
+      existingDriver._id,
+      {
+        ...req.body,
+        driverName: driverName.trim(),
+        isActive: true, // Reactivate
+      },
+      { new: true }
+    );
+
+    res.status(200).json(updatedDriver);
+    return;
+  }
+
   const driver = new Driver({
     ...req.body,
     driverName: driverName.trim(),
