@@ -18,6 +18,11 @@ const driverSchema = new Schema({
   photoImage: { type: String },
   aadharImage: { type: String },
   isActive: { type: Boolean, default: true },
+  type: {
+    type: String,
+    enum: ['Own', 'Market'],
+    set: (v) => (v === '' ? undefined : v),
+  },
   // Mark if license is past its validity
   expired: { type: Boolean, default: false },
   bankDetails: {
