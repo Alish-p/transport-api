@@ -6,7 +6,9 @@ import VehicleLookup from '../vehicleLookup/vehicleLookup.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import { normalizeVehicleDetails, extractDocuments, fetchVehicleByNumber } from '../../helpers/webcorevision.js';
 import Subtrip from '../subtrip/subtrip.model.js';
+import Trip from '../trip/trip.model.js';
 import Expense from '../expense/expense.model.js';
+import Tyre from '../tyre/tyre.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
@@ -222,7 +224,72 @@ export {
   updateVehicle,
   deleteVehicle,
   getTyreLayouts,
+  fetchOrphanVehicles,
+  cleanupVehicles,
 };
+
+/**
+ * Fetch all orphan vehicles - vehicles not referenced in any subtrip, trip, expense, tyre, or document
+ */
+const fetchOrphanVehicles = asyncHandler(async (req, res) => {
+  const tenant = req.tenant;
+
+  // Get all vehicle IDs that ARE referenced in related collections
+  const [subtripVehicleIds, tripVehicleIds, expenseVehicleIds, tyreVehicleIds, documentVehicleIds] = await Promise.all([
+    Subtrip.distinct('vehicleId', { tenant }),
+    Trip.distinct('vehicleId', { tenant }),
+    Expense.distinct('vehicleId', { tenant }),
+    Tyre.distinct('currentVehicleId', { tenant }),
+    VehicleDocument.distinct('vehicle', { tenant }),
+  ]);
+
+  // Combine all referenced vehicle IDs
+  const referencedVehicleIds = [
+    ...subtripVehicleIds,
+    ...tripVehicleIds,
+    ...expenseVehicleIds,
+    ...tyreVehicleIds,
+    ...documentVehicleIds,
+  ];
+
+  // Find active vehicles NOT in the referenced list
+  const orphanVehicles = await Vehicle.find({
+    tenant,
+    isActive: true,
+    _id: { $nin: referencedVehicleIds },
+  })
+    .select('vehicleNo vehicleType createdAt')
+    .sort({ vehicleNo: 1 });
+
+  res.status(200).json({
+    orphanVehicles,
+    count: orphanVehicles.length,
+  });
+});
+
+/**
+ * Soft delete (cleanup) selected vehicles by setting isActive to false
+ */
+const cleanupVehicles = asyncHandler(async (req, res) => {
+  const { vehicleIds } = req.body;
+  const tenant = req.tenant;
+
+  if (!vehicleIds || !Array.isArray(vehicleIds) || vehicleIds.length === 0) {
+    res.status(400).json({ message: 'vehicleIds array is required' });
+    return;
+  }
+
+  // Update all selected vehicles to inactive
+  const result = await Vehicle.updateMany(
+    { _id: { $in: vehicleIds }, tenant },
+    { $set: { isActive: false } }
+  );
+
+  res.status(200).json({
+    message: `${result.modifiedCount} vehicle(s) cleaned up successfully`,
+    modifiedCount: result.modifiedCount,
+  });
+});
 
 // Lookup vehicle details via external provider and persist normalized snapshot
 export const lookupVehicleDetails = asyncHandler(async (req, res) => {

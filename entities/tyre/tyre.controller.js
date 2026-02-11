@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Tyre from './tyre.model.js';
 import TyreHistory from './tyre-history.model.js';
@@ -109,7 +110,6 @@ const createBulkTyres = asyncHandler(async (req, res) => {
             size,
             type,
             status,
-            status,
             currentKm: currentKm || 0,
             purchaseDate: purchaseDate || new Date(),
             cost: cost || 0,
@@ -128,13 +128,20 @@ const createBulkTyres = asyncHandler(async (req, res) => {
         };
     });
 
-    // Use ordered: false to allow continuation if one fails (handled by caller?)
-    // Or better, let it fail if one is duplicate to maintain data integrity or catch errors.
-    // Given the UI is probably sending validated data, standard insertMany is fine.
-    // If a duplicate serial exists, it will throw.
-    const createdTyres = await Tyre.insertMany(tyresToCreate);
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    res.status(201).json(createdTyres);
+    try {
+        const createdTyres = await Tyre.insertMany(tyresToCreate, { session, ordered: true });
+        await session.commitTransaction();
+        res.status(201).json(createdTyres);
+    } catch (error) {
+        await session.abortTransaction();
+        res.status(400); // Bad Request commonly used for validation/duplicate key errors
+        throw error;
+    } finally {
+        session.endSession();
+    }
 });
 
 // @desc    Get all tyres (paginated)

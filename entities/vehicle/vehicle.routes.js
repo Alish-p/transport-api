@@ -9,6 +9,8 @@ import {
   deleteVehicle,
   lookupVehicleDetails,
   getTyreLayouts,
+  fetchOrphanVehicles,
+  cleanupVehicles,
 } from './vehicle.controller.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
@@ -38,6 +40,21 @@ router.post(
 // ─── READ (LIST & SUMMARY) ──────────────────────────────────────────
 router.get("/", authenticate, pagination, fetchVehicles);
 router.get("/summary", authenticate, fetchVehiclesSummary);
+
+// ─── CLEANUP ────────────────────────────────────────────────────────
+router.get(
+  "/orphans",
+  authenticate,
+  checkPermission("vehicle", "delete"),
+  fetchOrphanVehicles
+);
+
+router.post(
+  "/cleanup",
+  authenticate,
+  checkPermission("vehicle", "delete"),
+  cleanupVehicles
+);
 
 // ─── READ (SINGLE) ────────────────────────────────────────
 router.get("/:id", authenticate, fetchVehicleById);

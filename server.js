@@ -33,7 +33,8 @@ app.use(cors(corsOptions));
 
 app.set("query parser", "extended");
 // app.use(compression());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ limit: "1mb", extended: true }));
 
 // -----------------------------------------------------------------------------
 // Database
