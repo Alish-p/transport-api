@@ -206,10 +206,27 @@ const getTyres = asyncHandler(async (req, res) => {
     delete analyticsQuery.skip;
     delete analyticsQuery.limit;
 
+    // Sorting
+    let sort = {};
+    const { orderBy, order } = req.query;
+
+    if (orderBy && order) {
+        let sortField = orderBy;
+
+        // Map frontend fields to backend fields
+        if (orderBy === 'threadDepth') {
+            sortField = 'threadDepth.current';
+        }
+
+        sort[sortField] = order === 'desc' ? -1 : 1;
+    } else {
+        sort = { createdAt: -1 };
+    }
+
     const [tyres, total, analyticsData] = await Promise.all([
         Tyre.find(query)
             .populate('currentVehicleId', 'vehicleNo')
-            .sort({ createdAt: -1 })
+            .sort(sort)
             .skip(skip)
             .limit(limit)
             .lean(),
