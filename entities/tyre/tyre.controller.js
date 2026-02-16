@@ -148,7 +148,7 @@ const createBulkTyres = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre
 // @access  Private
 const getTyres = asyncHandler(async (req, res) => {
-    const { search, type, status, brand, vehicleId, position, minKm, maxKm } = req.query;
+    const { search, type, status, brand, vehicleId, position, minKm, maxKm, serialNumber } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -161,6 +161,10 @@ const getTyres = asyncHandler(async (req, res) => {
             { model: { $regex: search, $options: 'i' } },
             { size: { $regex: search, $options: 'i' } },
         ];
+    }
+
+    if (serialNumber) {
+        query.serialNumber = { $regex: serialNumber, $options: 'i' };
     }
 
     if (type) {
