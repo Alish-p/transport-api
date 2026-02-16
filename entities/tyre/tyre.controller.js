@@ -148,20 +148,13 @@ const createBulkTyres = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre
 // @access  Private
 const getTyres = asyncHandler(async (req, res) => {
-    const { search, type, status, brand, vehicleId, position, minKm, maxKm, serialNumber } = req.query;
+    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
     query.isActive = { $ne: false };
 
-    if (search) {
-        query.$or = [
-            { serialNumber: { $regex: search, $options: 'i' } },
-            { brand: { $regex: search, $options: 'i' } },
-            { model: { $regex: search, $options: 'i' } },
-            { size: { $regex: search, $options: 'i' } },
-        ];
-    }
+
 
     if (serialNumber) {
         query.serialNumber = { $regex: serialNumber, $options: 'i' };
@@ -191,6 +184,20 @@ const getTyres = asyncHandler(async (req, res) => {
         query.currentKm = {};
         if (minKm) query.currentKm.$gte = Number(minKm);
         if (maxKm) query.currentKm.$lte = Number(maxKm);
+    }
+
+    if (minThread || maxThread) {
+        query['threadDepth.current'] = {};
+        if (minThread) query['threadDepth.current'].$gte = Number(minThread);
+        if (maxThread) query['threadDepth.current'].$lte = Number(maxThread);
+    }
+
+    if (model) {
+        query.model = { $regex: model, $options: 'i' };
+    }
+
+    if (size) {
+        query.size = { $regex: size, $options: 'i' };
     }
 
     // Analytics Aggregation
