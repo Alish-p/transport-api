@@ -1465,6 +1465,14 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
           transporterName: { $first: "$transporter.transportName" },
           subtripCount: { $sum: 1 },
           totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
+          totalCommission: {
+            $sum: {
+              $multiply: [
+                { $ifNull: ["$loadingWeight", 0] },
+                { $ifNull: ["$commissionRate", 0] },
+              ],
+            },
+          },
         },
       },
       {
@@ -1473,6 +1481,7 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
           transporterName: { $first: "$transporterName" },
           subtripCount: { $sum: "$subtripCount" },
           totalLoadingWeight: { $sum: "$totalLoadingWeight" },
+          totalCommission: { $sum: "$totalCommission" },
           paymentDone: {
             $sum: {
               $cond: ["$_id.hasPayment", "$subtripCount", 0],
@@ -1492,6 +1501,7 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
           transporterName: 1,
           subtripCount: 1,
           totalLoadingWeight: 1,
+          totalCommission: 1,
           pendingForPayment: 1,
           paymentDone: 1,
         },
