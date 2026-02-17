@@ -18,6 +18,7 @@ import {
   getDailySummary,
   getVehicleDocumentStatusSummary,
   getExpiringDocuments,
+  getMonthlyDestinationSubtrips,
 } from './dashboard.controller.js';
 
 const router = Router();
@@ -53,6 +54,11 @@ router.get(
   "/grouped/monthly-transporter-subtrips",
   authenticate,
   getMonthlyTransporterSummary
+);
+router.get(
+  "/grouped/monthly-destination-subtrips",
+  authenticate,
+  getMonthlyDestinationSubtrips
 );
 router.get("/invoice-amount-summary", authenticate, getInvoiceAmountSummary);
 router.get(

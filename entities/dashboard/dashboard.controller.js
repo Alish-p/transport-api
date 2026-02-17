@@ -396,6 +396,86 @@ const getMonthlyMaterialWeightSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Get monthly destination summary grouped by loading point (destination)
+const getMonthlyDestinationSubtrips = asyncHandler(async (req, res) => {
+  const { month } = req.query;
+
+  if (!month) {
+    return res
+      .status(400)
+      .json({ message: "Month query parameter required in YYYY-MM format" });
+  }
+
+  const [yearStr, monthStr] = month.split("-");
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNum) ||
+    monthNum < 1 ||
+    monthNum > 12
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Invalid month format. Use YYYY-MM" });
+  }
+
+  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
+  const endDate = new Date(Date.UTC(year, monthNum, 1));
+
+  try {
+    const results = await Subtrip.aggregate([
+      {
+        $match: {
+          tenant: req.tenant,
+          unloadingPoint: { $ne: null },
+          startDate: { $gte: startDate, $lt: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: "$unloadingPoint",
+          totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
+          received: {
+            $sum: {
+              $cond: [
+                {
+                  $in: [
+                    "$subtripStatus",
+                    [SUBTRIP_STATUS.RECEIVED, SUBTRIP_STATUS.BILLED],
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+      {
+        $match: { received: { $gt: 0 } },
+      },
+      {
+        $project: {
+          _id: 0,
+          destination: "$_id",
+          totalLoadingWeight: 1,
+          received: 1,
+        },
+      },
+      { $sort: { received: -1 } },
+    ]);
+
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching destination summary",
+      error: error.message,
+    });
+  }
+});
+
 // Get number of subtrips grouped by status for loaded and empty trips
 const getSubtripStatusSummary = asyncHandler(async (req, res) => {
   try {
@@ -1647,4 +1727,5 @@ export {
   getDailySummary,
   getVehicleDocumentStatusSummary,
   getExpiringDocuments,
+  getMonthlyDestinationSubtrips,
 };
