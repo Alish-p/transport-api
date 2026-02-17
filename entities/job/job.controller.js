@@ -479,7 +479,8 @@ const createJob = asyncHandler(async (req, res) => {
       }
     }
 
-    return res.status(201).json(newSubtrip);
+    const populatedSubtrip = await newSubtrip.populate('driverId');
+    return res.status(201).json(populatedSubtrip);
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
