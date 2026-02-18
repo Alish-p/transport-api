@@ -435,7 +435,7 @@ const getMonthlyDestinationSubtrips = asyncHandler(async (req, res) => {
       },
       {
         $group: {
-          _id: "$unloadingPoint",
+          _id: { $toUpper: "$unloadingPoint" },
           totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
           received: {
             $sum: {
