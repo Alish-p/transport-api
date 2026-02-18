@@ -173,7 +173,7 @@ const getTyres = asyncHandler(async (req, res) => {
     }
 
     if (vehicleId) {
-        query.currentVehicleId = vehicleId;
+        query.currentVehicleId = new mongoose.Types.ObjectId(vehicleId);
     }
 
     if (position) {
