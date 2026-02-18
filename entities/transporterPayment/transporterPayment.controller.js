@@ -439,6 +439,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       status,
       hasTds,
       paymentId,
+      vehicleId,
     } = req.query;
     const { limit, skip } = req.pagination;
 
@@ -454,6 +455,25 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
     if (subtripId) {
       const ids = Array.isArray(subtripId) ? subtripId : [subtripId];
       query.associatedSubtrips = { $in: ids };
+    }
+
+    if (vehicleId) {
+      const subtrips = await Subtrip.find({
+        vehicleId,
+        tenant: req.tenant,
+      }).select("_id");
+      const ids = subtrips.map((st) => st._id);
+
+      if (query.associatedSubtrips && query.associatedSubtrips.$in) {
+        const existingIds = query.associatedSubtrips.$in.map((id) =>
+          id.toString()
+        );
+        const newIds = ids.map((id) => id.toString());
+        const intersection = existingIds.filter((id) => newIds.includes(id));
+        query.associatedSubtrips = { $in: intersection };
+      } else {
+        query.associatedSubtrips = { $in: ids };
+      }
     }
 
     if (status) {
@@ -644,6 +664,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
     status,
     hasTds,
     paymentId,
+    vehicleId,
     columns,
   } = req.query;
 
@@ -657,6 +678,25 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
   if (subtripId) {
     const ids = Array.isArray(subtripId) ? subtripId : [subtripId];
     query.associatedSubtrips = { $in: ids };
+  }
+
+  if (vehicleId) {
+    const subtrips = await Subtrip.find({
+      vehicleId,
+      tenant: req.tenant,
+    }).select("_id");
+    const ids = subtrips.map((st) => st._id);
+
+    if (query.associatedSubtrips && query.associatedSubtrips.$in) {
+      const existingIds = query.associatedSubtrips.$in.map((id) =>
+        id.toString()
+      );
+      const newIds = ids.map((id) => id.toString());
+      const intersection = existingIds.filter((id) => newIds.includes(id));
+      query.associatedSubtrips = { $in: intersection };
+    } else {
+      query.associatedSubtrips = { $in: ids };
+    }
   }
 
   if (status) {
