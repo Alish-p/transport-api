@@ -838,7 +838,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
       issueDate: doc.issueDate ? new Date(doc.issueDate).toISOString().split('T')[0] : '-',
       subtripNos: (doc.subtripSnapshot || []).map((st) => st.subtripNo).join(', '),
       dieselTotal: getExpenseTotal('Diesel'), // Hardcoded string match with config
-      tripAdvanceTotal: getExpenseTotal('Driver Advance'),
+      tripAdvanceTotal: getExpenseTotal('Trip Advance'),
       materialDamagesTotal: getExpenseTotal('Material Damages'),
       latePouchPenaltyTotal: getExpenseTotal('Late Pouch Penalty'),
       podAmount: (doc.additionalCharges || [])
