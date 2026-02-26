@@ -154,7 +154,7 @@ export const TYRE_LAYOUTS = [
 
     {
         id: '16-tyre',
-        name: '16 Tyres (6 Axle)',
+        name: '16 Tyres (5 Axle)',
         tyres: [
             TYRE_POSITIONS.AXLE_1_LEFT_OUTER,
             TYRE_POSITIONS.AXLE_1_RIGHT_OUTER,
