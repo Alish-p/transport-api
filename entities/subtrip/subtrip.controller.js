@@ -1024,6 +1024,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
         tripNo: '$trip.tripNo',
         vehicleNo: '$vehicle.vehicleNo',
         driverName: '$driver.driverName',
+        driverCellNo: '$driver.driverCellNo',
         customerName: '$customer.customerName',
         loadingPoint: 1,
         unloadingPoint: 1,
@@ -1111,6 +1112,10 @@ const exportSubtrips = asyncHandler(async (req, res) => {
       else if (key === 'profitAndLoss') row[key] = Math.round(profitAndLoss * 100) / 100;
       else if (key === 'startDate' || key === 'endDate' || key === 'ewayExpiryDate') {
         row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
+      }
+      else if (key === 'driverName') {
+        const name = doc[key] || '-';
+        row[key] = doc.driverCellNo ? `${name} - ${doc.driverCellNo}` : name;
       }
       else if (typeof doc[key] === 'number') {
         row[key] = Math.round(doc[key] * 100) / 100;
