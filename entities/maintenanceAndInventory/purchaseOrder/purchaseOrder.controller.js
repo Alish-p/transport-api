@@ -716,7 +716,7 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
           sourceDocumentId: order._id,
           sourceDocumentLineId: update.lineId,
           reason: 'Purchase Order Receipt',
-          meta: { unitCost: incomingCost },
+          meta: { unitCost: incomingCost, sourceDocumentNumber: order.purchaseOrderNo },
         },
         session
       );

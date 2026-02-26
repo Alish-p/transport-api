@@ -181,11 +181,16 @@ const fetchInventoryActivities = asyncHandler(async (req, res) => {
             PartTransaction.countDocuments(query),
         ]);
 
+        const enrichedActivities = activities.map((activity) => ({
+            ...activity,
+            sourceDocumentNumber: activity.meta?.sourceDocumentNumber || null,
+        }));
+
         res.status(200).json({
-            activities,
+            activities: enrichedActivities,
             total,
             startRange: skip + 1,
-            endRange: skip + activities.length,
+            endRange: skip + enrichedActivities.length,
         });
     } catch (error) {
         res.status(500).json({

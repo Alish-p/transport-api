@@ -381,6 +381,7 @@ const closeWorkOrder = asyncHandler(async (req, res) => {
               sourceDocumentId: workOrder._id,
               sourceDocumentLineId: line._id,
               reason: 'Work Order Consumption',
+              meta: { sourceDocumentNumber: workOrder.workOrderNo },
             },
             session
           );
