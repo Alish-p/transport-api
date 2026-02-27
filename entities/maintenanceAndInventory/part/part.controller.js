@@ -118,6 +118,98 @@ const createPart = asyncHandler(async (req, res) => {
   res.status(201).json(newPart);
 });
 
+// @desc    Create bulk parts
+// @route   POST /api/maintenance/parts/bulk
+// @access  Private
+const createBulkParts = asyncHandler(async (req, res) => {
+  const { parts } = req.body;
+
+  if (!Array.isArray(parts) || parts.length === 0) {
+    res.status(400);
+    throw new Error('No parts data provided');
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const createdParts = [];
+
+    for (const partData of parts) {
+      const {
+        partNumber,
+        name,
+        category,
+        manufacturer,
+        unitCost,
+        measurementUnit,
+        description,
+        inventory = []
+      } = partData;
+
+      // 1. Create the Part
+      const newPart = new Part({
+        tenant: req.tenant,
+        partNumber: String(partNumber),
+        name: String(name),
+        category: category ? String(category) : undefined,
+        manufacturer: manufacturer ? String(manufacturer) : undefined,
+        unitCost: Number(unitCost) || 0,
+        averageUnitCost: Number(unitCost) || 0,
+        measurementUnit: String(measurementUnit),
+        description: description ? String(description) : undefined,
+        isActive: true
+      });
+
+      await newPart.save({ session });
+      createdParts.push(newPart);
+
+      // 2. Insert corresponding PartStock & Inventory Activities
+      if (Array.isArray(inventory) && inventory.length > 0) {
+        for (const item of inventory) {
+          if (!item.inventoryLocation) continue;
+
+          const quantity = Number(item.quantity) || 0;
+          const threshold = Number(item.threshold) || 0;
+
+          const partStock = new PartStock({
+            tenant: req.tenant,
+            part: newPart._id,
+            inventoryLocation: item.inventoryLocation,
+            quantity: 0, // Starts at 0, populated via activity if qty > 0
+            threshold,
+          });
+          await partStock.save({ session });
+
+          if (quantity > 0) {
+            await recordInventoryActivity({
+              tenant: req.tenant,
+              partId: newPart._id,
+              locationId: item.inventoryLocation,
+              type: INVENTORY_ACTIVITY_TYPES.INITIAL,
+              direction: 'IN',
+              quantityChange: quantity,
+              performedBy: req.user._id,
+              sourceDocumentType: SOURCE_DOCUMENT_TYPES.MANUAL,
+              reason: 'Bulk Initial Stock',
+              meta: { unitCost: newPart.unitCost }
+            }, session);
+          }
+        }
+      }
+    }
+
+    await session.commitTransaction();
+    res.status(201).json(createdParts);
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400); // Validation/duplicate key errors
+    throw error;
+  } finally {
+    session.endSession();
+  }
+});
+
 const fetchParts = asyncHandler(async (req, res) => {
   try {
     const { search, category, manufacturer, inventoryLocation } = req.query;
@@ -476,6 +568,7 @@ const getPartPriceHistory = asyncHandler(async (req, res) => {
 
 export {
   createPart,
+  createBulkParts,
   fetchParts,
   fetchPartById,
   updatePart,

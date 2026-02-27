@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createPart,
+  createBulkParts,
   fetchParts,
   fetchPartById,
   updatePart,
@@ -17,6 +18,12 @@ router.post(
   '/',
   checkPermission('part', 'create'),
   createPart,
+);
+
+router.post(
+  '/bulk',
+  checkPermission('part', 'create'),
+  createBulkParts,
 );
 
 // This needs to be before /:id to avoid conflict
