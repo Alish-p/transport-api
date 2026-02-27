@@ -308,11 +308,7 @@ const updateTrip = asyncHandler(async (req, res) => {
     throw new Error("Trip not found");
   }
 
-  // 2. Can't update a billed trip at all
-  if (trip.tripStatus === TRIP_STATUS.CLOSED) {
-    res.status(400);
-    throw new Error("Cannot update a closed trip");
-  }
+  // 2. Removed check for updating a closed trip to allow editing startKm, endKm, and dates.
 
   // 3. If the client is trying to change the driver...
   if (
