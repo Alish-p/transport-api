@@ -3,7 +3,7 @@ import {
     createTyre,
     createBulkTyres,
     getTyres,
-
+    exportTyres,
     getTyreById,
     updateTyre,
     updateThreadDepth,
@@ -47,6 +47,8 @@ const checkTyreIntegration = async (req, res, next) => {
 router.use(checkTyreIntegration);
 
 router.route("/bulk").post(checkPermission("tyre", "create"), createBulkTyres);
+
+router.route("/export").get(checkPermission("tyre", "view"), exportTyres);
 
 router.route("/").post(checkPermission("tyre", "create"), createTyre).get(checkPermission("tyre", "view"), pagination, getTyres);
 

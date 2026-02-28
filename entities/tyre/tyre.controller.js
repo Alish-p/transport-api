@@ -804,6 +804,152 @@ const remoldTyre = asyncHandler(async (req, res) => {
     res.json(tyre);
 });
 
-export { createTyre, createBulkTyres, getTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory, remoldTyre };
+// @desc    Export tyres to Excel
+// @route   GET /api/tyre/export
+// @access  Private
+const exportTyres = asyncHandler(async (req, res) => {
+    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, columns } = req.query;
 
+    const query = addTenantToQuery(req);
+    query.isActive = { $ne: false };
 
+    if (serialNumber) {
+        query.serialNumber = { $regex: serialNumber, $options: 'i' };
+    }
+
+    if (type) {
+        query.type = type;
+    }
+
+    if (status) {
+        query.status = status;
+    }
+
+    if (brand) {
+        query.brand = { $regex: brand, $options: 'i' };
+    }
+
+    if (vehicleId) {
+        query.currentVehicleId = new mongoose.Types.ObjectId(vehicleId);
+    }
+
+    if (position) {
+        query.currentPosition = position;
+    }
+
+    if (minKm || maxKm) {
+        query.currentKm = {};
+        if (minKm) query.currentKm.$gte = Number(minKm);
+        if (maxKm) query.currentKm.$lte = Number(maxKm);
+    }
+
+    if (minThread || maxThread) {
+        query['threadDepth.current'] = {};
+        if (minThread) query['threadDepth.current'].$gte = Number(minThread);
+        if (maxThread) query['threadDepth.current'].$lte = Number(maxThread);
+    }
+
+    if (model) {
+        query.model = { $regex: model, $options: 'i' };
+    }
+
+    if (size) {
+        query.size = { $regex: size, $options: 'i' };
+    }
+
+    const COLUMN_MAPPING = {
+        serialNumber: { header: 'Tyre Number', key: 'serialNumber', width: 20 },
+        vehicle: { header: 'Vehicle', key: 'vehicle', width: 20 },
+        currentPosition: { header: 'Position', key: 'currentPosition', width: 15 },
+        currentKm: { header: 'Last Recorded KM', key: 'currentKm', width: 20 },
+        remoldKm: { header: 'Remold Km', key: 'remoldKm', width: 15 },
+        brand: { header: 'Brand', key: 'brand', width: 20 },
+        model: { header: 'Model', key: 'model', width: 20 },
+        size: { header: 'Size', key: 'size', width: 20 },
+        type: { header: 'Type', key: 'type', width: 15 },
+        cost: { header: 'Cost', key: 'cost', width: 15 },
+        threadDepth: { header: 'Thread Depth', key: 'threadDepth', width: 20 },
+        createdAt: { header: 'Added on', key: 'createdAt', width: 20 },
+    };
+
+    let exportColumns = [];
+    if (columns) {
+        const columnIds = columns.split(',');
+        exportColumns = columnIds
+            .map((id) => COLUMN_MAPPING[id])
+            .filter((col) => col);
+    }
+
+    if (exportColumns.length === 0) {
+        exportColumns = Object.values(COLUMN_MAPPING);
+    }
+
+    res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=Tyres.xlsx"
+    );
+
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+        stream: res,
+        useStyles: true,
+    });
+
+    const worksheet = workbook.addWorksheet('Tyres');
+    worksheet.columns = exportColumns;
+
+    let totalCost = 0;
+
+    const cursor = Tyre.find(query).populate('currentVehicleId', 'vehicleNo').sort({ createdAt: -1 }).cursor();
+
+    for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+        const row = {};
+
+        totalCost += (doc.cost || 0);
+
+        exportColumns.forEach((col) => {
+            const key = col.key;
+            if (key === 'vehicle') {
+                row[key] = doc.currentVehicleId?.vehicleNo || '-';
+            } else if (key === 'remoldKm') {
+                if (doc.metadata?.remoldCount > 0) {
+                    row[key] = (doc.currentKm || 0) - (doc.metadata?.totalKmAtLastRemold || 0);
+                } else {
+                    row[key] = '-';
+                }
+            } else if (key === 'threadDepth') {
+                row[key] = `${doc.threadDepth?.current || 0} / ${doc.threadDepth?.original || 0} mm`;
+            } else if (key === 'createdAt') {
+                row[key] = doc.createdAt ? new Date(doc.createdAt).toISOString().split('T')[0] : '-';
+            } else if (key === 'cost' || key === 'currentKm') {
+                row[key] = doc[key] || 0;
+            } else {
+                row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
+            }
+        });
+
+        worksheet.addRow(row).commit();
+    }
+
+    // Footer Row
+    const totalRow = {};
+    exportColumns.forEach((col) => {
+        const key = col.key;
+        if (key === 'serialNumber') totalRow[key] = 'TOTAL';
+        else if (key === 'cost') totalRow[key] = Math.round(totalCost * 100) / 100;
+        else totalRow[key] = '';
+    });
+
+    const footerRow = worksheet.addRow(totalRow);
+    footerRow.font = { bold: true };
+    footerRow.commit();
+
+    worksheet.commit();
+    await workbook.commit();
+});
+
+export { createTyre, createBulkTyres, getTyres, exportTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory, remoldTyre };
