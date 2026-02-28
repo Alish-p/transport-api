@@ -7,6 +7,7 @@ import {
   updatePart,
   deletePart,
   getPartPriceHistory,
+  getPhotoUploadUrl,
 } from './part.controller.js';
 
 import { checkPermission } from '../../../middlewares/auth.js';
@@ -24,6 +25,13 @@ router.post(
   '/bulk',
   checkPermission('part', 'create'),
   createBulkParts,
+);
+
+// Photo upload (presigned URL)
+router.get(
+  '/photo/upload-url',
+  checkPermission('part', 'create'), // assuming anyone who can create/update can upload 
+  getPhotoUploadUrl
 );
 
 // This needs to be before /:id to avoid conflict

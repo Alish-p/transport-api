@@ -6,6 +6,7 @@ import PartStock from '../partStock/partStock.model.js';
 import PartTransaction from '../partTransaction/partTransaction.model.js';
 import { PART_SEARCH_FIELDS } from './part.constants.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
+import { buildPublicFileUrl, createPresignedPutUrl } from '../../../services/s3.service.js';
 
 // ─── PARTS CRUD ────────────────────────────────────────────────────────────────
 
@@ -566,6 +567,45 @@ const getPartPriceHistory = asyncHandler(async (req, res) => {
   res.status(200).json(history);
 });
 
+// GET presigned URL for part photo upload
+const getPhotoUploadUrl = asyncHandler(async (req, res) => {
+  const { contentType, fileExtension } = req.query;
+
+  if (!contentType || !fileExtension) {
+    res.status(400);
+    throw new Error('contentType and fileExtension are required');
+  }
+
+  const tenantStr = String(req.tenant);
+
+  // e.g. logos/parts/5f8f8.../photos/part_1640995200000_1234.jpg
+  const timestamp = Date.now();
+  const rand = Math.floor(Math.random() * 10000);
+
+  // Notice we prepend 'logos/' to the key. This is because the Cloudfront 
+  // distribution for this application has an Origin Path set to '/logos'.
+  // Thus, S3 must physically store the files inside the 'logos/' directory
+  // for Cloudfront to be able to serve them.
+  const s3Key = `logos/parts/${tenantStr}/photos/part_${timestamp}_${rand}.${fileExtension}`;
+
+  try {
+    const uploadUrl = await createPresignedPutUrl({ key: s3Key, contentType, expiresIn: 900 });
+
+    // For the public URL, we omit the 'logos/' prefix, because Cloudfront
+    // automatically prefixes its requests to the S3 bucket with '/logos'.
+    const base = process.env.AWS_PUBLIC_BASE_URL;
+    const publicKey = s3Key.replace(/^logos\//, '');
+    const publicUrl = base
+      ? `${base.replace(/\/$/, '')}/${publicKey}`
+      : (buildPublicFileUrl(s3Key) || null);
+
+    return res.status(200).json({ key: s3Key, uploadUrl, publicUrl });
+  } catch (err) {
+    console.error('Failed to create part photo upload url:', err);
+    return res.status(500).json({ message: 'Failed to create upload URL', error: err.message });
+  }
+});
+
 export {
   createPart,
   createBulkParts,
@@ -574,4 +614,5 @@ export {
   updatePart,
   deletePart,
   getPartPriceHistory,
+  getPhotoUploadUrl,
 };
