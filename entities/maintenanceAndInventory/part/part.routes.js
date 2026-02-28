@@ -3,6 +3,7 @@ import {
   createPart,
   createBulkParts,
   fetchParts,
+  exportParts,
   fetchPartById,
   updatePart,
   deletePart,
@@ -35,6 +36,7 @@ router.get(
 );
 
 // This needs to be before /:id to avoid conflict
+router.get('/export', checkPermission('part', 'view'), exportParts);
 router.get('/', pagination, fetchParts);
 router.get('/:id', fetchPartById);
 

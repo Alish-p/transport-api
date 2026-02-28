@@ -606,10 +606,174 @@ const getPhotoUploadUrl = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Export parts to Excel
+// @route   GET /api/maintenance/parts/export
+// @access  Private
+const exportParts = asyncHandler(async (req, res) => {
+  const { search, category, manufacturer, inventoryLocation, columns } = req.query;
+
+  const query = addTenantToQuery(req);
+  query.isActive = { $ne: false };
+
+  if (search) {
+    query.$or = PART_SEARCH_FIELDS.map((field) => ({
+      [field]: { $regex: search, $options: 'i' },
+    }));
+  }
+
+  if (category) {
+    query.category = category;
+  }
+
+  if (manufacturer) {
+    query.manufacturer = { $regex: manufacturer, $options: 'i' };
+  }
+
+  const aggQuery = { ...query };
+
+  const inventoryTotalsPipeline = [
+    { $match: aggQuery },
+    {
+      $lookup: {
+        from: 'partstocks',
+        localField: '_id',
+        foreignField: 'part',
+        as: 'inventories',
+      },
+    },
+    {
+      $unwind: {
+        path: '$inventories',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ];
+
+  if (inventoryLocation && mongoose.Types.ObjectId.isValid(inventoryLocation)) {
+    inventoryTotalsPipeline.push({
+      $match: {
+        'inventories.inventoryLocation': new mongoose.Types.ObjectId(inventoryLocation),
+      },
+    });
+  }
+
+  inventoryTotalsPipeline.push({
+    $group: {
+      _id: '$_id',
+      unitCost: { $first: '$unitCost' },
+      totalQuantity: {
+        $sum: {
+          $ifNull: ['$inventories.quantity', 0],
+        },
+      },
+      threshold: { $max: '$inventories.threshold' },
+    },
+  });
+
+  const [parts, inventoryTotalsAgg] = await Promise.all([
+    Part.find(query).sort({ name: 1 }).lean(),
+    Part.aggregate(inventoryTotalsPipeline),
+  ]);
+
+  const partsWithStats = parts.map(part => {
+    const stats = inventoryTotalsAgg.find(s => s._id.toString() === part._id.toString());
+    return {
+      ...part,
+      totalQuantity: stats ? stats.totalQuantity : 0,
+      threshold: stats ? stats.threshold : 0,
+    };
+  });
+
+  const COLUMN_MAPPING = {
+    name: { header: 'Part Name', key: 'name', width: 25 },
+    partNumber: { header: 'Part Number', key: 'partNumber', width: 20 },
+    category: { header: 'Category', key: 'category', width: 20 },
+    manufacturer: { header: 'Manufacturer', key: 'manufacturer', width: 20 },
+    quantity: { header: 'Quantity', key: 'quantity', width: 15 },
+    measurementUnit: { header: 'Unit', key: 'measurementUnit', width: 15 },
+    unitCost: { header: 'Unit Cost', key: 'unitCost', width: 15 },
+    totalCost: { header: 'Total Cost', key: 'totalCost', width: 15 },
+    description: { header: 'Description', key: 'description', width: 40 },
+  };
+
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col);
+  }
+
+  if (exportColumns.length === 0) {
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=Parts.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Parts');
+  worksheet.columns = exportColumns;
+
+  let grandTotalCost = 0;
+
+  for (const part of partsWithStats) {
+    const row = {};
+    const cost = part.averageUnitCost || part.unitCost || 0;
+    const qty = part.totalQuantity || 0;
+    const totalCost = qty * cost;
+
+    grandTotalCost += totalCost;
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+      if (key === 'quantity') {
+        row[key] = qty;
+      } else if (key === 'totalCost') {
+        row[key] = totalCost;
+      } else if (key === 'unitCost') {
+        row[key] = cost;
+      } else {
+        row[key] = (part[key] !== undefined && part[key] !== null) ? part[key] : '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  // Footer Row
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    const key = col.key;
+    if (key === 'name') totalRow[key] = 'TOTAL';
+    else if (key === 'totalCost') totalRow[key] = Math.round(grandTotalCost * 100) / 100;
+    else totalRow[key] = '';
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
+
+  worksheet.commit();
+  await workbook.commit();
+});
+
 export {
   createPart,
   createBulkParts,
   fetchParts,
+  exportParts,
   fetchPartById,
   updatePart,
   deletePart,
