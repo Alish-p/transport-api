@@ -5,6 +5,7 @@ import Trip from '../trip/trip.model.js';
 import DriverSalary from '../driverSalary/driverSalary.model.js';
 import Loan from '../loan/loan.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { buildPublicFileUrl, createPresignedPutUrl } from '../../services/s3.service.js';
 
 const createDriver = asyncHandler(async (req, res) => {
   const { driverName, driverCellNo } = req.body;
@@ -210,6 +211,38 @@ const cleanupDrivers = asyncHandler(async (req, res) => {
   });
 });
 
+// GET presigned URL for driver photo upload
+const getPhotoUploadUrl = asyncHandler(async (req, res) => {
+  const { contentType, fileExtension } = req.query;
+
+  if (!contentType || !fileExtension) {
+    res.status(400);
+    throw new Error('contentType and fileExtension are required');
+  }
+
+  const tenantStr = String(req.tenant);
+
+  const timestamp = Date.now();
+  const rand = Math.floor(Math.random() * 10000);
+
+  const s3Key = `logos/drivers/${tenantStr}/photos/driver_${timestamp}_${rand}.${fileExtension}`;
+
+  try {
+    const uploadUrl = await createPresignedPutUrl({ key: s3Key, contentType, expiresIn: 900 });
+
+    const base = process.env.AWS_PUBLIC_BASE_URL;
+    const publicKey = s3Key.replace(/^logos\//, '');
+    const publicUrl = base
+      ? `${base.replace(/\/$/, '')}/${publicKey}`
+      : (buildPublicFileUrl(s3Key) || null);
+
+    return res.status(200).json({ key: s3Key, uploadUrl, publicUrl });
+  } catch (err) {
+    console.error('Failed to create driver photo upload url:', err);
+    return res.status(500).json({ message: 'Failed to create upload URL', error: err.message });
+  }
+});
+
 export {
   createDriver,
   fetchDrivers,
@@ -219,5 +252,6 @@ export {
   deleteDriver,
   fetchOrphanDrivers,
   cleanupDrivers,
+  getPhotoUploadUrl,
 };
 
