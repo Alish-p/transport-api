@@ -171,7 +171,7 @@ const fetchInventoryActivities = asyncHandler(async (req, res) => {
 
         const [activities, total] = await Promise.all([
             PartTransaction.find(query)
-                .populate('part', 'partNumber name')
+                .populate('part', 'partNumber name averageUnitCost unitCost')
                 .populate('inventoryLocation', 'name')
                 .populate('performedBy', 'name email')
                 .sort({ createdAt: -1 })
@@ -181,10 +181,17 @@ const fetchInventoryActivities = asyncHandler(async (req, res) => {
             PartTransaction.countDocuments(query),
         ]);
 
-        const enrichedActivities = activities.map((activity) => ({
-            ...activity,
-            sourceDocumentNumber: activity.meta?.sourceDocumentNumber || null,
-        }));
+        const enrichedActivities = activities.map((activity) => {
+            const avgUnitCost = activity.averageUnitCost || activity.meta?.unitCost || activity.part?.averageUnitCost || activity.part?.unitCost || 0;
+            const totalCost = activity.totalCost || Math.abs(activity.quantityChange) * avgUnitCost;
+
+            return {
+                ...activity,
+                averageUnitCost: avgUnitCost,
+                totalCost,
+                sourceDocumentNumber: activity.meta?.sourceDocumentNumber || null,
+            };
+        });
 
         res.status(200).json({
             activities: enrichedActivities,

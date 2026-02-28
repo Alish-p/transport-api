@@ -1,3 +1,4 @@
+import Part from '../part/part.model.js';
 import PartStock from '../partStock/partStock.model.js';
 import PartTransaction from './partTransaction.model.js';
 
@@ -64,7 +65,12 @@ export const recordInventoryActivity = async (
     partStock.quantity = quantityAfter;
     await partStock.save({ session });
 
-    // 3. Create PartTransaction
+    // 3. Fetch Part for averageUnitCost
+    const part = await Part.findOne({ _id: partId, tenant }).session(session);
+    const avgCost = part?.averageUnitCost || part?.unitCost || 0;
+    const totalCost = Math.abs(quantityChange) * avgCost;
+
+    // 4. Create PartTransaction
     const activity = new PartTransaction({
         tenant,
         part: partId,
@@ -80,6 +86,8 @@ export const recordInventoryActivity = async (
         sourceDocumentType,
         sourceDocumentId,
         sourceDocumentLineId,
+        averageUnitCost: avgCost,
+        totalCost,
         meta,
     });
 

@@ -97,6 +97,16 @@ const inventoryActivitySchema = new Schema(
             type: Schema.Types.Mixed,
             default: {},
         },
+
+        // Finance / Valuation
+        averageUnitCost: {
+            type: Number,
+            default: 0,
+        },
+        totalCost: {
+            type: Number,
+            default: 0,
+        },
     },
     { timestamps: true },
 );
