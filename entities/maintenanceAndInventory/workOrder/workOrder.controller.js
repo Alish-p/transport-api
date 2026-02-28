@@ -125,7 +125,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
 
 const fetchWorkOrders = asyncHandler(async (req, res) => {
   try {
-    const { vehicle, status, priority, category, fromDate, toDate, part } = req.query;
+    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -160,10 +160,18 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
       query['parts.part'] = new ObjectId(part);
     }
 
+    if (createdBy) {
+      query.createdBy = new ObjectId(createdBy);
+    }
+
+    if (closedBy) {
+      query.closedBy = new ObjectId(closedBy);
+    }
+
     const [orders, total] = await Promise.all([
       WorkOrder.find(query)
         .populate('vehicle', 'vehicleNo vehicleType')
-
+        .populate('createdBy closedBy', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -473,7 +481,7 @@ const deleteWorkOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/work-orders/export
 // @access  Private
 const exportWorkOrders = asyncHandler(async (req, res) => {
-  const { vehicle, status, priority, category, fromDate, toDate, part, columns } = req.query;
+  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, columns } = req.query;
 
   const query = addTenantToQuery(req);
 
@@ -507,9 +515,18 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     query['parts.part'] = new ObjectId(part);
   }
 
+  if (createdBy) {
+    query.createdBy = new ObjectId(createdBy);
+  }
+
+  if (closedBy) {
+    query.closedBy = new ObjectId(closedBy);
+  }
+
   const orders = await WorkOrder.find(query)
     .populate('vehicle', 'vehicleNo')
     .populate('issues.assignedTo', 'name customerName')
+    .populate('createdBy closedBy', 'name')
     .sort({ createdAt: -1 })
     .lean();
 
