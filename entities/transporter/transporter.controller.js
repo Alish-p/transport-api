@@ -16,7 +16,7 @@ const createTransporter = asyncHandler(async (req, res) => {
 // Fetch Transporters with pagination and search
 const fetchTransporters = asyncHandler(async (req, res) => {
   try {
-    const { search, vehicleCount, includeInactive } = req.query;
+    const { search, vehicleCount, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId } = req.query;
     const { limit, skip } = req.pagination;
 
     // Base match stage
@@ -24,7 +24,13 @@ const fetchTransporters = asyncHandler(async (req, res) => {
       tenant: req.tenant,
     };
 
-    if (includeInactive !== 'true') {
+    if (status === 'active') {
+      matchStage.isActive = { $ne: false };
+    } else if (status === 'inactive') {
+      matchStage.isActive = false;
+    } else if (status === 'all') {
+      // no filter on isActive
+    } else if (includeInactive !== 'true') {
       matchStage.isActive = { $ne: false };
     }
 
@@ -33,6 +39,37 @@ const fetchTransporters = asyncHandler(async (req, res) => {
         { transportName: { $regex: search, $options: "i" } },
         { cellNo: { $regex: search, $options: "i" } },
       ];
+    }
+
+    if (state) {
+      matchStage.state = Array.isArray(state) ? { $in: state } : state;
+    }
+
+    if (paymentMode) {
+      matchStage.paymentMode = { $regex: paymentMode, $options: 'i' };
+    }
+
+    if (gstEnabled) {
+      if (gstEnabled === 'true' || gstEnabled === true) matchStage.gstEnabled = true;
+      if (gstEnabled === 'false' || gstEnabled === false) matchStage.gstEnabled = false;
+    }
+
+    if (gstNo) {
+      matchStage.gstNo = { $regex: gstNo, $options: 'i' };
+    }
+
+    if (panNo) {
+      matchStage.panNo = { $regex: panNo, $options: 'i' };
+    }
+
+    if (vehicleId) {
+      const vehicle = await Vehicle.findOne({ _id: vehicleId, tenant: req.tenant });
+      if (vehicle && vehicle.transporter) {
+        matchStage._id = vehicle.transporter;
+      } else {
+        // If vehicle has no transporter, or doesn't exist, we return no results
+        matchStage._id = null;
+      }
     }
 
     // Aggregation pipeline
@@ -221,6 +258,164 @@ const cleanupTransporters = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Export transporters to Excel
+// @route   GET /api/transporter/export
+// @access  Private
+const exportTransporters = asyncHandler(async (req, res) => {
+  const { search, vehicleCount, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, columns } = req.query;
+
+  const matchStage = { tenant: req.tenant };
+
+  if (status === 'active') {
+    matchStage.isActive = { $ne: false };
+  } else if (status === 'inactive') {
+    matchStage.isActive = false;
+  } else if (status === 'all') {
+    // no filter on isActive
+  } else if (includeInactive !== 'true') {
+    matchStage.isActive = { $ne: false };
+  }
+
+  if (search) {
+    matchStage.$or = [
+      { transportName: { $regex: search, $options: "i" } },
+      { cellNo: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  if (state) {
+    matchStage.state = Array.isArray(state) ? { $in: state } : state;
+  }
+
+  if (paymentMode) {
+    matchStage.paymentMode = { $regex: paymentMode, $options: 'i' };
+  }
+
+  if (gstEnabled) {
+    if (gstEnabled === 'true' || gstEnabled === true) matchStage.gstEnabled = true;
+    if (gstEnabled === 'false' || gstEnabled === false) matchStage.gstEnabled = false;
+  }
+
+  if (gstNo) {
+    matchStage.gstNo = { $regex: gstNo, $options: 'i' };
+  }
+
+  if (panNo) {
+    matchStage.panNo = { $regex: panNo, $options: 'i' };
+  }
+
+  if (vehicleId) {
+    const vehicle = await Vehicle.findOne({ _id: vehicleId, tenant: req.tenant });
+    if (vehicle && vehicle.transporter) {
+      matchStage._id = vehicle.transporter;
+    } else {
+      matchStage._id = null;
+    }
+  }
+
+  // Pre-calculate vehicle counts for all matching transporters
+  const pipeline = [
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: "vehicles",
+        localField: "_id",
+        foreignField: "transporter",
+        as: "vehicles",
+      },
+    },
+    {
+      $addFields: {
+        vehicleCount: { $size: "$vehicles" },
+      },
+    },
+    {
+      $project: {
+        vehicles: 0
+      }
+    }
+  ];
+
+  if (vehicleCount !== undefined && vehicleCount !== null && vehicleCount !== '') {
+    pipeline.push({
+      $match: {
+        vehicleCount: parseInt(vehicleCount),
+      }
+    });
+  }
+
+  // Define column mappings according to frontend transproter config
+  const COLUMN_MAPPING = {
+    transportName: { header: 'Transporter Name', key: 'transportName', width: 25 },
+    ownerName: { header: 'Owner Name', key: 'ownerName', width: 20 },
+    cellNo: { header: 'Phone Number', key: 'cellNo', width: 15 },
+    address: { header: 'Address', key: 'address', width: 30 },
+    city: { header: 'City', key: 'city', width: 15 },
+    state: { header: 'State', key: 'state', width: 15 },
+    pincode: { header: 'Pincode', key: 'pincode', width: 10 },
+    panNo: { header: 'Pan No', key: 'panNo', width: 15 },
+    gstEnabled: { header: 'GST Enabled', key: 'gstEnabled', width: 15 },
+    gstNo: { header: 'GST No', key: 'gstNo', width: 20 },
+    accountNo: { header: 'Account No', key: 'accountNo', width: 20 },
+    ifscCode: { header: 'IFSC Code', key: 'ifscCode', width: 15 },
+    bankName: { header: 'Bank Name', key: 'bankName', width: 20 },
+    vehicleCount: { header: 'Active Vehicles', key: 'vehicleCount', width: 15 },
+  };
+
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col);
+  }
+
+  if (exportColumns.length === 0) {
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=Transporters.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Transporters');
+  worksheet.columns = exportColumns;
+
+  // We sort them and pass through memory to insert
+  pipeline.push({ $sort: { transportName: 1 } });
+
+  const transporters = await Transporter.aggregate(pipeline);
+
+  for (const doc of transporters) {
+    const row = {};
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+      if (key === 'gstEnabled') {
+        row[key] = doc[key] ? 'Yes' : 'No';
+      } else {
+        row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  worksheet.commit();
+  await workbook.commit();
+});
+
 export {
   createTransporter,
   fetchTransporters,
@@ -231,5 +426,6 @@ export {
   deleteTransporter,
   fetchOrphanTransporters,
   cleanupTransporters,
+  exportTransporters,
 };
 
