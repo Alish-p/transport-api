@@ -212,12 +212,23 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
       query.partLocation = new ObjectId(partLocation);
     }
 
+    if (req.query.createdBy) {
+      query.createdBy = new ObjectId(req.query.createdBy);
+    }
+    if (req.query.approvedBy) {
+      query.approvedBy = new ObjectId(req.query.approvedBy);
+    }
+    if (req.query.purchasedBy) {
+      query.purchasedBy = new ObjectId(req.query.purchasedBy);
+    }
+
     const aggQuery = { ...query };
 
     const [orders, totalsAgg] = await Promise.all([
       PurchaseOrder.find(query)
         .populate('vendor', 'name phone address')
         .populate('partLocation', 'name address')
+        .populate('createdBy approvedBy purchasedBy', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -287,6 +298,7 @@ const fetchPurchaseOrderById = asyncHandler(async (req, res) => {
   })
     .populate('vendor', 'name phone address bankDetails')
     .populate('partLocation', 'name address')
+    .populate('createdBy approvedBy purchasedBy', 'name')
     .populate('lines.part', 'partNumber name manufacturer measurementUnit');
 
   if (!order) {
@@ -813,9 +825,20 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
     query.partLocation = new ObjectId(partLocation);
   }
 
+  if (req.query.createdBy) {
+    query.createdBy = new ObjectId(req.query.createdBy);
+  }
+  if (req.query.approvedBy) {
+    query.approvedBy = new ObjectId(req.query.approvedBy);
+  }
+  if (req.query.purchasedBy) {
+    query.purchasedBy = new ObjectId(req.query.purchasedBy);
+  }
+
   const orders = await PurchaseOrder.find(query)
     .populate('vendor', 'name')
     .populate('partLocation', 'name')
+    .populate('createdBy approvedBy purchasedBy', 'name')
     .sort({ createdAt: -1 })
     .lean();
 
