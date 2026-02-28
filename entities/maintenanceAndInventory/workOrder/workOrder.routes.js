@@ -5,6 +5,7 @@ import {
   fetchWorkOrderById,
   updateWorkOrder,
   closeWorkOrder,
+  exportWorkOrders,
   deleteWorkOrder,
 } from './workOrder.controller.js';
 import {
@@ -27,6 +28,7 @@ router.post(
 );
 
 // List Work Orders
+router.get('/export', checkPermission('workOrder', 'view'), exportWorkOrders);
 router.get('/', pagination, fetchWorkOrders);
 
 // Get Work Order by ID

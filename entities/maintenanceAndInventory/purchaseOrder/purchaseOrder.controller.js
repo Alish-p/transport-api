@@ -781,6 +781,125 @@ const deletePurchaseOrder = asyncHandler(async (req, res) => {
     .json({ message: 'Purchase order deleted successfully', id: deletedOrder._id });
 });
 
+// @desc    Export purchase orders to Excel
+// @route   GET /api/maintenance/purchase-orders/export
+// @access  Private
+const exportPurchaseOrders = asyncHandler(async (req, res) => {
+  const { vendor, status, fromDate, toDate, part, partLocation, columns } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  if (vendor) {
+    const ids = Array.isArray(vendor) ? vendor : [vendor];
+    query.vendor = { $in: ids.map((id) => new ObjectId(id)) };
+  }
+
+  if (status) {
+    const statuses = Array.isArray(status) ? status : [status];
+    query.status = { $in: statuses };
+  }
+
+  if (fromDate || toDate) {
+    query.createdAt = {};
+    if (fromDate) query.createdAt.$gte = new Date(fromDate);
+    if (toDate) query.createdAt.$lte = new Date(toDate);
+  }
+
+  if (part) {
+    query['lines.part'] = new ObjectId(part);
+  }
+
+  if (partLocation) {
+    query.partLocation = new ObjectId(partLocation);
+  }
+
+  const orders = await PurchaseOrder.find(query)
+    .populate('vendor', 'name')
+    .populate('partLocation', 'name')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const COLUMN_MAPPING = {
+    purchaseOrderNo: { header: 'PO No.', key: 'purchaseOrderNo', width: 20 },
+    vendor: { header: 'Vendor', key: 'vendor', width: 25 },
+    partLocation: { header: 'Location', key: 'partLocation', width: 20 },
+    status: { header: 'Status', key: 'status', width: 15 },
+    total: { header: 'Total', key: 'total', width: 15 },
+    createdAt: { header: 'Date', key: 'createdAt', width: 15 },
+  };
+
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col);
+  }
+
+  if (exportColumns.length === 0) {
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=PurchaseOrders.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Purchase Orders');
+  worksheet.columns = exportColumns;
+
+  let grandTotalCost = 0;
+
+  for (const rowData of orders) {
+    const row = {};
+    grandTotalCost += rowData.total || 0;
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+      if (key === 'vendor') {
+        row[key] = rowData.vendorSnapshot?.name || rowData.vendor?.name || '-';
+      } else if (key === 'partLocation') {
+        row[key] = rowData.partLocationSnapshot?.name || rowData.partLocation?.name || '-';
+      } else if (key === 'createdAt') {
+        const dateStr = rowData.createdAt ? new Date(rowData.createdAt).toLocaleDateString() : '-';
+        row[key] = dateStr;
+      } else if (key === 'total') {
+        row[key] = rowData.total || 0;
+      } else {
+        row[key] = (rowData[key] !== undefined && rowData[key] !== null) ? rowData[key] : '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  // Footer Row
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    const key = col.key;
+    if (key === 'purchaseOrderNo') totalRow[key] = 'TOTAL';
+    else if (key === 'total') totalRow[key] = Math.round(grandTotalCost * 100) / 100;
+    else totalRow[key] = '';
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
+
+  worksheet.commit();
+  await workbook.commit();
+});
+
 export {
   createPurchaseOrder,
   fetchPurchaseOrders,
@@ -790,5 +909,6 @@ export {
   rejectPurchaseOrder,
   payPurchaseOrder,
   receivePurchaseOrder,
+  exportPurchaseOrders,
   deletePurchaseOrder,
 };

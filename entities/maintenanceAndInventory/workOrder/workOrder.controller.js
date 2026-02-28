@@ -469,11 +469,156 @@ const deleteWorkOrder = asyncHandler(async (req, res) => {
   res.status(200).json(workOrder);
 });
 
+// @desc    Export work orders to Excel
+// @route   GET /api/maintenance/work-orders/export
+// @access  Private
+const exportWorkOrders = asyncHandler(async (req, res) => {
+  const { vehicle, status, priority, category, fromDate, toDate, part, columns } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  if (vehicle) {
+    const ids = Array.isArray(vehicle) ? vehicle : [vehicle];
+    query.vehicle = { $in: ids.map((id) => new ObjectId(id)) };
+  }
+
+  if (status) {
+    const statuses = Array.isArray(status) ? status : [status];
+    query.status = { $in: statuses };
+  }
+
+  if (priority) {
+    const priorities = Array.isArray(priority) ? priority : [priority];
+    query.priority = { $in: priorities };
+  }
+
+  if (category) {
+    const categories = Array.isArray(category) ? category : [category];
+    query.category = { $in: categories };
+  }
+
+  if (fromDate || toDate) {
+    query.createdAt = {};
+    if (fromDate) query.createdAt.$gte = new Date(fromDate);
+    if (toDate) query.createdAt.$lte = new Date(toDate);
+  }
+
+  if (part) {
+    query['parts.part'] = new ObjectId(part);
+  }
+
+  const orders = await WorkOrder.find(query)
+    .populate('vehicle', 'vehicleNo')
+    .populate('issues.assignedTo', 'name customerName')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const COLUMN_MAPPING = {
+    workOrderNo: { header: 'WO No.', key: 'workOrderNo', width: 15 },
+    vehicle: { header: 'Vehicle', key: 'vehicle', width: 20 },
+    status: { header: 'Status', key: 'status', width: 15 },
+    priority: { header: 'Priority', key: 'priority', width: 15 },
+    category: { header: 'Category', key: 'category', width: 15 },
+    timeTaken: { header: 'Time Taken', key: 'timeTaken', width: 25 },
+    issueAssignees: { header: 'Issue Assignees', key: 'issueAssignees', width: 25 },
+    scheduledStartDate: { header: 'Scheduled Start', key: 'scheduledStartDate', width: 15 },
+    completedDate: { header: 'Completed On', key: 'completedDate', width: 15 },
+    totalCost: { header: 'Total Cost', key: 'totalCost', width: 15 },
+  };
+
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col);
+  }
+
+  if (exportColumns.length === 0) {
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=WorkOrders.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Work Orders');
+  worksheet.columns = exportColumns;
+
+  let grandTotalCost = 0;
+
+  for (const rowData of orders) {
+    const row = {};
+    grandTotalCost += rowData.totalCost || 0;
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+      if (key === 'vehicle') {
+        row[key] = rowData.vehicle?.vehicleNo || '-';
+      } else if (key === 'timeTaken') {
+        if (rowData.actualStartDate && rowData.completedDate) {
+          const ms = new Date(rowData.completedDate).getTime() - new Date(rowData.actualStartDate).getTime();
+          const hrs = Math.floor(ms / (1000 * 60 * 60));
+          const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+          row[key] = `${hrs}hr ${mins}m`;
+        } else {
+          row[key] = '-';
+        }
+      } else if (key === 'issueAssignees') {
+        const issues = rowData.issues || [];
+        const names = issues
+          .map((issue) => {
+            if (!issue || typeof issue !== 'object' || !issue.assignedTo) return null;
+            return issue.assignedTo.name || issue.assignedTo.customerName || null;
+          })
+          .filter(Boolean);
+        const unique = Array.from(new Set(names));
+        row[key] = unique.join(', ') || '-';
+      } else if (key === 'scheduledStartDate' || key === 'completedDate') {
+        const dateStr = rowData[key] ? new Date(rowData[key]).toLocaleDateString() : '-';
+        row[key] = dateStr;
+      } else {
+        row[key] = (rowData[key] !== undefined && rowData[key] !== null) ? rowData[key] : '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  // Footer Row
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    const key = col.key;
+    if (key === 'workOrderNo') totalRow[key] = 'TOTAL';
+    else if (key === 'totalCost') totalRow[key] = Math.round(grandTotalCost * 100) / 100;
+    else totalRow[key] = '';
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
+
+  worksheet.commit();
+  await workbook.commit();
+});
+
 export {
   createWorkOrder,
   fetchWorkOrders,
   fetchWorkOrderById,
   updateWorkOrder,
   closeWorkOrder,
+  exportWorkOrders,
   deleteWorkOrder,
 };

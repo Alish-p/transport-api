@@ -8,6 +8,7 @@ import {
   rejectPurchaseOrder,
   payPurchaseOrder,
   receivePurchaseOrder,
+  exportPurchaseOrders,
   deletePurchaseOrder,
 } from './purchaseOrder.controller.js';
 import {
@@ -31,6 +32,7 @@ router.post(
 );
 
 // List + filters
+router.get('/export', authenticate, checkPermission('purchaseOrder', 'view'), exportPurchaseOrders);
 router.get('/', authenticate, pagination, fetchPurchaseOrders);
 
 // Get single
