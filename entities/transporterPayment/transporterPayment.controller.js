@@ -505,7 +505,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
 
     const [receipts, total, statusAgg] = await Promise.all([
       TransporterPayment.find(query)
-        .populate("transporterId", "transportName cellNo")
+        .populate("transporterId", "transportName cellNo gstNo panNo")
         .sort({ issueDate: -1 })
         .skip(skip)
         .limit(limit),

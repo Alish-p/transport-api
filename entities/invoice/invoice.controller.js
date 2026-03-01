@@ -216,7 +216,7 @@ const fetchInvoices = asyncHandler(async (req, res) => {
 
     const [invoices, total, statusAgg] = await Promise.all([
       Invoice.find(query)
-        .populate("customerId", "customerName cellNo address gstEnabled GSTNo state")
+        .populate("customerId", "customerName cellNo address gstEnabled GSTNo PANNo state")
         .sort({ issueDate: -1 })
         .skip(skip)
         .limit(limit),
