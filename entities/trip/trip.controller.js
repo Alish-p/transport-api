@@ -94,21 +94,42 @@ const fetchTrips = asyncHandler(async (req, res) => {
       query.vehicleId = { $in: vehicles.map((v) => v._id) };
     }
 
-    const [trips, total, totalClosed, totalOpen] = await Promise.all([
+    const [tripsRaw, total, totalClosed, totalOpen] = await Promise.all([
       Trip.find(query)
         .populate({
           path: "subtrips",
-          populate: [{ path: "customerId", model: "Customer" }],
+          populate: [
+            { path: "customerId", model: "Customer" },
+          ],
         })
-        .populate({ path: "driverId", select: "driverName" })
+        .populate({ path: "driverId", select: "driverName driverCellNo" })
         .populate({ path: "vehicleId", select: "vehicleNo" })
         .sort({ fromDate: -1 })
+        .lean()
         .skip(skip)
         .limit(limit),
       Trip.countDocuments(query),
       Trip.countDocuments({ ...query, tripStatus: TRIP_STATUS.CLOSED }),
       Trip.countDocuments({ ...query, tripStatus: TRIP_STATUS.OPEN }),
     ]);
+
+    // Pre-calculate aggregated metrics for the frontend list view
+    const trips = tripsRaw.map((trip) => {
+      // KM Calculation
+      let totalKm = 0;
+      if (typeof trip.startKm === "number" && typeof trip.endKm === "number" && trip.endKm >= trip.startKm) {
+        totalKm = trip.endKm - trip.startKm;
+      }
+
+      return {
+        ...trip,
+        totalIncome: trip.cachedTotalIncome || 0,
+        totalExpense: trip.cachedTotalExpense || 0,
+        profitAndLoss: (trip.cachedTotalIncome || 0) - (trip.cachedTotalExpense || 0),
+        totalDieselLtr: trip.cachedTotalDieselLtr || 0,
+        totalKm,
+      };
+    });
 
     res.status(200).json({
       trips,
@@ -374,4 +395,199 @@ export {
   closeTrip,
   updateTrip,
   deleteTrip,
+  exportTrips,
 };
+
+// Export Trips to Excel
+const exportTrips = asyncHandler(async (req, res) => {
+  const {
+    tripNo,
+    driverId,
+    vehicleId,
+    subtripId,
+    fromDate,
+    toDate,
+    status,
+    isOwn,
+    isTripSheetReady,
+    numberOfSubtrips,
+    columns, // Comma separated column IDs from frontend
+  } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  if (tripNo) {
+    const escaped = String(tripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.tripNo = { $regex: escaped, $options: "i" };
+  }
+  if (driverId) query.driverId = driverId;
+  if (subtripId) query.subtrips = subtripId;
+
+  if (fromDate || toDate) {
+    query.fromDate = {};
+    if (fromDate) query.fromDate.$gte = new Date(fromDate);
+    if (toDate) query.fromDate.$lte = new Date(toDate);
+  }
+
+  if (status) {
+    const statuses = Array.isArray(status) ? status : [status];
+    query.tripStatus = { $in: statuses };
+  }
+
+  if (numberOfSubtrips) {
+    const size = parseInt(numberOfSubtrips);
+    if (query.subtrips) {
+      query.subtrips = { $all: [query.subtrips], $size: size };
+    } else {
+      query.subtrips = { $size: size };
+    }
+  }
+
+  if (isTripSheetReady === "true") {
+    const tripsWithNonBilledSubtrips = await Subtrip.find({
+      tenant: req.tenant,
+      subtripStatus: { $ne: SUBTRIP_STATUS.BILLED },
+      tripId: { $ne: null },
+    }).distinct("tripId");
+
+    query._id = { $nin: tripsWithNonBilledSubtrips };
+    query["subtrips.0"] = { $exists: true };
+    query.tripStatus = TRIP_STATUS.CLOSED;
+  }
+
+  const hasIsOwnFilter = typeof isOwn !== "undefined";
+  if (vehicleId || hasIsOwnFilter) {
+    const vehicleSearch = {};
+    if (vehicleId) vehicleSearch._id = vehicleId;
+    if (hasIsOwnFilter) vehicleSearch.isOwn = isOwn === true || isOwn === "true";
+
+    const vehicles = await Vehicle.find(
+      addTenantToQuery(req, vehicleSearch)
+    ).select("_id");
+
+    if (!vehicles.length) {
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({ stream: res, useStyles: true });
+      const worksheet = workbook.addWorksheet('Trips');
+      worksheet.commit();
+      await workbook.commit();
+      return;
+    }
+    query.vehicleId = { $in: vehicles.map((v) => v._id) };
+  }
+
+  // Column Mapping matching the Table Config IDs
+  const COLUMN_MAPPING = {
+    tripId: { header: 'Trip No', key: 'tripNo', width: 20 },
+    vehicleNo: { header: 'Vehicle Number', key: 'vehicleNo', width: 20 },
+    driverName: { header: 'Driver Name', key: 'driverName', width: 20 },
+    tripStatus: { header: 'Trip Status', key: 'tripStatus', width: 15 },
+    jobs: { header: 'Jobs', key: 'jobsCount', width: 10 },
+    fromDate: { header: 'From Date', key: 'fromDate', width: 20 },
+    toDate: { header: 'To Date', key: 'toDate', width: 20 },
+    remarks: { header: 'Remarks', key: 'remarks', width: 30 },
+    totalIncome: { header: 'Total Income', key: 'cachedTotalIncome', width: 15 },
+    totalExpense: { header: 'Total Expense', key: 'cachedTotalExpense', width: 15 },
+    profitAndLoss: { header: 'Profit & Loss', key: 'profitAndLoss', width: 15 },
+    totalKm: { header: 'Total KM', key: 'totalKm', width: 15 },
+    totalDieselLtr: { header: 'Total Diesel Ltr', key: 'cachedTotalDieselLtr', width: 15 },
+  };
+
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col);
+  }
+
+  if (exportColumns.length === 0) {
+    // Default fallback columns
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=Trips.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Trips');
+  worksheet.columns = exportColumns;
+
+  // DB Query for Trips with Lookups
+  const tripsRaw = await Trip.find(query)
+    .populate({ path: "driverId", select: "driverName" })
+    .populate({ path: "vehicleId", select: "vehicleNo" })
+    .sort({ fromDate: -1 })
+    .lean();
+
+  let sums = {
+    cachedTotalIncome: 0,
+    cachedTotalExpense: 0,
+    profitAndLoss: 0,
+    cachedTotalDieselLtr: 0,
+    totalKm: 0,
+  };
+
+  for (const trip of tripsRaw) {
+    const row = {};
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+
+      if (key === 'vehicleNo') {
+        row[key] = trip.vehicleId?.vehicleNo || '-';
+      } else if (key === 'driverName') {
+        row[key] = trip.driverId?.driverName || '-';
+      } else if (key === 'jobsCount') {
+        row[key] = trip.subtrips?.length || 0;
+      } else if (key === 'fromDate' || key === 'toDate') {
+        row[key] = trip[key] ? new Date(trip[key]).toISOString().split('T')[0] : '';
+      } else if (key === 'profitAndLoss') {
+        const pnl = (trip.cachedTotalIncome || 0) - (trip.cachedTotalExpense || 0);
+        row[key] = Math.round(pnl * 100) / 100;
+        sums.profitAndLoss += row[key];
+      } else if (key === 'totalKm') {
+        let totalKm = 0;
+        if (typeof trip.startKm === "number" && typeof trip.endKm === "number" && trip.endKm >= trip.startKm) {
+          totalKm = trip.endKm - trip.startKm;
+        }
+        row[key] = totalKm;
+        sums.totalKm += totalKm;
+      } else if (key.startsWith('cachedTotal')) {
+        const val = trip[key] || 0;
+        row[key] = Math.round(val * 100) / 100;
+        sums[key] += row[key];
+      } else {
+        row[key] = trip[key] || '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  // Formatting sums
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    if (col.key === 'tripNo') totalRow[col.key] = 'TOTAL';
+    else if (sums[col.key] !== undefined) totalRow[col.key] = Math.round(sums[col.key] * 100) / 100;
+    else totalRow[col.key] = '';
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
+
+  worksheet.commit();
+  await workbook.commit();
+});

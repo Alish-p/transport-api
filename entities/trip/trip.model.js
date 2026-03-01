@@ -14,6 +14,12 @@ const tripSchema = new Schema({
   endKm: { type: Number },
   remarks: { type: String },
   subtrips: [{ type: Schema.Types.ObjectId, ref: "Subtrip" }],
+
+  // Cached Financial Metrics for Performance
+  cachedTotalIncome: { type: Number, default: 0 },
+  cachedTotalExpense: { type: Number, default: 0 },
+  cachedTotalDieselLtr: { type: Number, default: 0 },
+
   tenant: {
     type: Schema.Types.ObjectId,
     ref: "Tenant",

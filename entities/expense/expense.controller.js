@@ -6,10 +6,8 @@ import Vehicle from "../vehicle/vehicle.model.js";
 import Pump from "../pump/pump.model.js";
 import { EXPENSE_CATEGORIES } from "./expense.constants.js";
 import { addTenantToQuery } from "../../utils/tenant-utils.js";
-import {
-  recordSubtripEvent,
-  SUBTRIP_EVENT_TYPES,
-} from "../../helpers/subtrip-event-helper.js";
+import { recordSubtripEvent, SUBTRIP_EVENT_TYPES } from "../../helpers/subtrip-event-helper.js";
+import { recalculateTripFinancials } from "../trip/trip.service.js";
 
 // Create Expense
 const createExpense = asyncHandler(async (req, res) => {
@@ -49,6 +47,11 @@ const createExpense = asyncHandler(async (req, res) => {
       req.tenant
     );
 
+    // Update Trip level cache
+    if (newExpense.tripId) {
+      await recalculateTripFinancials(newExpense.tripId, req.tenant);
+    }
+
     res.status(201).json(newExpense);
   } else {
     // If expenseCategory is not "subtrip", create an expense without associating it with a subtrip
@@ -57,6 +60,11 @@ const createExpense = asyncHandler(async (req, res) => {
       tenant: req.tenant,
     });
     const newExpense = await expense.save();
+
+    // Update Trip level cache
+    if (newExpense.tripId) {
+      await recalculateTripFinancials(newExpense.tripId, req.tenant);
+    }
 
     res.status(201).json(newExpense);
   }
@@ -206,6 +214,12 @@ const updateExpense = asyncHandler(async (req, res) => {
     req.body,
     { new: true }
   );
+
+  // Update Trip level cache
+  if (expense && expense.tripId) {
+    await recalculateTripFinancials(expense.tripId, req.tenant);
+  }
+
   res.status(200).json(expense);
 });
 
@@ -238,7 +252,12 @@ const deleteExpense = asyncHandler(async (req, res) => {
   // Step 3: Delete the expense
   await Expense.findOneAndDelete({ _id: id, tenant: req.tenant });
 
-  // Step 4: Respond
+  // Step 4: Update Trip level cache
+  if (expense.tripId) {
+    await recalculateTripFinancials(expense.tripId, req.tenant);
+  }
+
+  // Step 5: Respond
   res.status(200).json({ message: "Expense deleted successfully" });
 });
 

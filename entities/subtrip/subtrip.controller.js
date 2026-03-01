@@ -9,7 +9,7 @@ import { SUBTRIP_STATUS } from './subtrip.constants.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
-
+import { recalculateTripFinancials } from '../trip/trip.service.js';
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>
@@ -509,6 +509,11 @@ const receiveLR = asyncHandler(async (req, res) => {
 
   await subtrip.save();
 
+  // Update Trip Financials
+  if (subtrip.tripId) {
+    await recalculateTripFinancials(subtrip.tripId, req.tenant);
+  }
+
   res.status(200).json(subtrip);
 });
 
@@ -542,6 +547,12 @@ const resolveLR = asyncHandler(async (req, res) => {
   );
 
   await subtrip.save();
+
+  // Update Trip Financials
+  if (subtrip.tripId) {
+    await recalculateTripFinancials(subtrip.tripId, req.tenant);
+  }
+
   res.status(200).json(subtrip);
 });
 
@@ -609,6 +620,11 @@ const updateSubtrip = asyncHandler(async (req, res) => {
     req.tenant
   );
 
+  // Update Trip Financials if it belongs to a Trip
+  if (updatedSubtrip.tripId) {
+    await recalculateTripFinancials(updatedSubtrip.tripId, req.tenant);
+  }
+
   res.status(200).json(updatedSubtrip);
 });
 
@@ -654,6 +670,9 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
     if (trip) {
       trip.subtrips.pull(id);
       await trip.save();
+
+      // Ensure updated trip financials are cached
+      await recalculateTripFinancials(trip._id, req.tenant);
     }
 
     res.status(200).json({ message: "Subtrip deleted successfully" });
