@@ -11,6 +11,8 @@ import {
   getTyreLayouts,
   fetchOrphanVehicles,
   cleanupVehicles,
+  getVehicleKmTemplate,
+  bulkUpdateVehicleKm,
 } from './vehicle.controller.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
@@ -54,6 +56,15 @@ router.post(
   authenticate,
   checkPermission("vehicle", "delete"),
   cleanupVehicles
+);
+
+// ─── BULK EXPORT/IMPORT ────────────────────────────────────────────────
+router.get("/km-template", authenticate, getVehicleKmTemplate);
+router.post(
+  "/bulk-km",
+  authenticate,
+  checkPermission("vehicle", "update"),
+  bulkUpdateVehicleKm
 );
 
 // ─── READ (SINGLE) ────────────────────────────────────────

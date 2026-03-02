@@ -36,6 +36,8 @@ const fetchLiveAnalytics = async (token) => {
         // headers: { Authorization: `bearer ${token}` },
     });
 
+    console.log({ response });
+
     if (!response.ok) {
         throw new Error(`Fleetx analytics fetch failed: ${response.status} ${response.statusText}`);
     }
@@ -44,8 +46,13 @@ const fetchLiveAnalytics = async (token) => {
 };
 
 const getFleetxVehicleData = async (vehicleNo) => {
+
+    console.log({ vehicleNo });
+
     // const token = await loginToFleetx();
     const analytics = await fetchLiveAnalytics();
+
+    console.log({ analytics });
 
     const vehicle = analytics.vehicles?.find((v) => v.vehicleNumber === vehicleNo);
     if (!vehicle) {
@@ -62,4 +69,28 @@ const getFleetxVehicleData = async (vehicleNo) => {
     };
 };
 
-export { getFleetxVehicleData };
+const getAllFleetxVehicleData = async () => {
+    // const token = await loginToFleetx();
+    const analytics = await fetchLiveAnalytics();
+
+    const result = {};
+    if (analytics && analytics.vehicles) {
+        analytics.vehicles.forEach(vehicle => {
+            if (vehicle.vehicleNumber) {
+                result[vehicle.vehicleNumber] = {
+                    totalOdometer: vehicle.totalOdometer != null ? Math.round(vehicle.totalOdometer) : null,
+                    totalFuelConsumption: vehicle.totalFuelConsumption,
+                    status: vehicle.status,
+                    latitude: vehicle.latitude,
+                    longitude: vehicle.longitude,
+                    fuel: vehicle.otherAttributes?.fuel,
+                    address: vehicle.address
+                };
+            }
+        });
+    }
+
+    return result;
+};
+
+export { getFleetxVehicleData, getAllFleetxVehicleData };

@@ -225,7 +225,7 @@ const getTyres = asyncHandler(async (req, res) => {
 
     const [tyres, total, analyticsData] = await Promise.all([
         Tyre.find(query)
-            .populate('currentVehicleId', 'vehicleNo tyreLayoutId')
+            .populate('currentVehicleId', 'vehicleNo tyreLayoutId currentOdometer')
             .sort(sort)
             .skip(skip)
             .limit(limit)

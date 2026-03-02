@@ -13,6 +13,7 @@ import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import { TYRE_LAYOUTS } from '../../constants/tyreLayouts.js';
+import { getAllFleetxVehicleData } from '../../helpers/fleetx.js';
 
 // Get Tyre Layouts
 const getTyreLayouts = async (req, res) => {
@@ -226,6 +227,8 @@ export {
   getTyreLayouts,
   fetchOrphanVehicles,
   cleanupVehicles,
+  getVehicleKmTemplate,
+  bulkUpdateVehicleKm,
 };
 
 /**
@@ -289,6 +292,78 @@ const cleanupVehicles = asyncHandler(async (req, res) => {
     message: `${result.modifiedCount} vehicle(s) cleaned up successfully`,
     modifiedCount: result.modifiedCount,
   });
+});
+
+/**
+ * Get Vehicle KM Template data
+ */
+const getVehicleKmTemplate = asyncHandler(async (req, res) => {
+  const tenantId = req.tenant;
+
+  const tenant = await Tenant.findById(tenantId).select('integrations');
+  const gpsEnabled = !!tenant?.integrations?.vehicleGPS?.enabled;
+
+  const vehicles = await Vehicle.find({ tenant: tenantId, isActive: true, isOwn: true })
+    .select('vehicleNo currentOdometer')
+    .sort({ vehicleNo: 1 })
+    .lean();
+
+  let activeGpsData = {};
+  if (gpsEnabled) {
+    try {
+      activeGpsData = await getAllFleetxVehicleData();
+    } catch (e) {
+      console.error('Failed to fetch GPS data from Fleetx for KM template', e);
+    }
+  }
+
+  const enrichedVehicles = vehicles.map(vehicle => {
+    let gpsOdometer = null;
+    if (activeGpsData && activeGpsData[vehicle.vehicleNo]) {
+      gpsOdometer = activeGpsData[vehicle.vehicleNo].totalOdometer;
+    }
+    return {
+      ...vehicle,
+      gpsOdometer,
+    };
+  });
+
+  res.status(200).json(enrichedVehicles);
+});
+
+/**
+ * Bulk update Vehicle KM
+ */
+const bulkUpdateVehicleKm = asyncHandler(async (req, res) => {
+  const { vehicles } = req.body;
+  const tenant = req.tenant;
+
+  if (!vehicles || !Array.isArray(vehicles) || vehicles.length === 0) {
+    return res.status(400).json({ message: 'vehicles array is required' });
+  }
+
+  let updated = 0;
+  let skipped = 0;
+
+  const bulkOps = vehicles.map((v) => {
+    if (!v.vehicleNo || v.currentOdometer == null) {
+      skipped++;
+      return null;
+    }
+    updated++;
+    return {
+      updateOne: {
+        filter: { vehicleNo: v.vehicleNo, tenant },
+        update: { $set: { currentOdometer: Number(v.currentOdometer) } },
+      }
+    };
+  }).filter(Boolean);
+
+  if (bulkOps.length > 0) {
+    await Vehicle.bulkWrite(bulkOps);
+  }
+
+  res.status(200).json({ updated, skipped });
 });
 
 // Lookup vehicle details via external provider and persist normalized snapshot
