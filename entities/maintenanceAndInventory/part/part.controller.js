@@ -226,7 +226,7 @@ const fetchParts = asyncHandler(async (req, res) => {
     }
 
     if (category) {
-      query.category = category;
+      query.category = { $regex: category, $options: 'i' };
     }
 
     if (manufacturer) {
@@ -622,7 +622,7 @@ const exportParts = asyncHandler(async (req, res) => {
   }
 
   if (category) {
-    query.category = category;
+    query.category = { $regex: category, $options: 'i' };
   }
 
   if (manufacturer) {
