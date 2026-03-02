@@ -731,6 +731,9 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
     _id: { header: 'ID', key: '_id', width: 25 },
     paymentId: { header: 'Payment ID', key: 'paymentId', width: 20 },
     transporter: { header: 'Transporter', key: 'transporterName', width: 25 },
+    transporterId: { header: 'Transporter', key: 'transporterName', width: 25 },
+    transporterGSTNo: { header: 'Transporter GST No', key: 'gstNo', width: 20 },
+    transporterPANNo: { header: 'Transporter PAN No', key: 'panNo', width: 20 },
     subtrips: { header: 'Jobs', key: 'subtripNos', width: 30 },
     status: { header: 'Status', key: 'status', width: 15 },
     issueDate: { header: 'Issue Date', key: 'issueDate', width: 15 },
@@ -798,6 +801,8 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
       $project: {
         paymentId: 1,
         transporterName: '$transporter.transportName',
+        gstNo: '$transporter.gstNo',
+        panNo: '$transporter.panNo',
         status: 1,
         issueDate: 1,
         subtripSnapshot: 1, // Needed for complex calculations
@@ -834,6 +839,8 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
       _id: doc._id,
       paymentId: doc.paymentId,
       transporterName: doc.transporterName,
+      gstNo: doc.gstNo,
+      panNo: doc.panNo,
       status: doc.status,
       issueDate: doc.issueDate ? new Date(doc.issueDate).toISOString().split('T')[0] : '-',
       subtripNos: (doc.subtripSnapshot || []).map((st) => st.subtripNo).join(', '),

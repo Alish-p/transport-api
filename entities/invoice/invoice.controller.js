@@ -493,6 +493,8 @@ const exportInvoices = asyncHandler(async (req, res) => {
     // Frontend alias for customerName
     customerId: { header: 'Customer', key: 'customerName', width: 25 },
     gstNo: { header: 'Customer GST', key: 'gstNo', width: 20 },
+    customerGSTNo: { header: 'Customer GST No', key: 'gstNo', width: 20 },
+    customerPANNo: { header: 'Customer PAN No', key: 'panNo', width: 20 },
     issueDate: { header: 'Issue Date', key: 'issueDate', width: 15 },
     dueDate: { header: 'Due Date', key: 'dueDate', width: 15 },
     invoiceStatus: { header: 'Status', key: 'invoiceStatus', width: 15 },
@@ -559,6 +561,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
         invoiceNo: 1,
         customerName: '$customer.customerName',
         gstNo: '$customer.GSTNo',
+        panNo: '$customer.PANNo',
         issueDate: 1,
         dueDate: 1,
         invoiceStatus: 1,
