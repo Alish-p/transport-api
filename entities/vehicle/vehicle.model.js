@@ -23,6 +23,7 @@ const vehicleSchema = new Schema({
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   tyreLayoutId: { type: String },
   currentOdometer: { type: Number, default: 0 },
+  currentOdometerUpdatedAt: { type: Date },
 });
 
 export default model("Vehicle", vehicleSchema);

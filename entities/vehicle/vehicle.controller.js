@@ -194,6 +194,11 @@ const updateVehicle = asyncHandler(async (req, res) => {
   if (req.body.isOwn) {
     req.body.transporter = null;
   }
+
+  if (req.body.currentOdometer !== undefined) {
+    req.body.currentOdometerUpdatedAt = new Date();
+  }
+
   const vehicle = await Vehicle.findOneAndUpdate(
     { _id: id, tenant: req.tenant },
     req.body,
@@ -354,7 +359,7 @@ const bulkUpdateVehicleKm = asyncHandler(async (req, res) => {
     return {
       updateOne: {
         filter: { vehicleNo: v.vehicleNo, tenant },
-        update: { $set: { currentOdometer: Number(v.currentOdometer) } },
+        update: { $set: { currentOdometer: Number(v.currentOdometer), currentOdometerUpdatedAt: new Date() } },
       }
     };
   }).filter(Boolean);
