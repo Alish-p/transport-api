@@ -505,9 +505,41 @@ export const syncDocumentsFromProvider = asyncHandler(async (req, res) => {
     if (!uniqueByType.has(d.docType)) uniqueByType.set(d.docType, d);
   }
 
+  // Fetch current active documents to check for duplicates
+  const existingActiveDocs = await VehicleDocument.find({
+    tenant: req.tenant,
+    vehicle: vehicle._id,
+    isActive: true,
+  }).lean();
+
+  const activeDocsMap = new Map();
+  existingActiveDocs.forEach((doc) => {
+    activeDocsMap.set(doc.docType, doc);
+  });
+
   const ops = [];
   const toInsert = [];
   for (const d of uniqueByType.values()) {
+    const existing = activeDocsMap.get(d.docType);
+    if (existing) {
+      let changed = false;
+      const newNum = String(d.docNumber || '').trim().toLowerCase();
+      const oldNum = String(existing.docNumber || '').trim().toLowerCase();
+      if (newNum && newNum !== oldNum) {
+        changed = true;
+      }
+
+      const newExp = d.expiryDate ? new Date(d.expiryDate).setHours(0, 0, 0, 0) : null;
+      const oldExp = existing.expiryDate ? new Date(existing.expiryDate).setHours(0, 0, 0, 0) : null;
+      if (newExp !== oldExp) {
+        changed = true;
+      }
+
+      if (!changed) {
+        continue; // Skip creating a new record if nothing important changed
+      }
+    }
+
     ops.push({
       updateMany: {
         filter: { tenant: req.tenant, vehicle: vehicle._id, docType: d.docType, isActive: true },
