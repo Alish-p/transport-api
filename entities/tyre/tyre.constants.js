@@ -8,6 +8,7 @@ export const TYRE_TYPE = {
     NEW: 'New',
     REMOLDED: 'Remolded',
     USED: 'Used',
+    REJECTED: 'Rejected',
 };
 
 export const TYRE_HISTORY_ACTION = {
@@ -17,4 +18,5 @@ export const TYRE_HISTORY_ACTION = {
     UPDATE: 'UPDATE',
     SCRAP: 'SCRAP',
     REMOLD: 'REMOLD',
+    REJECT: 'REJECT',
 };

@@ -295,6 +295,7 @@ const updateTyre = asyncHandler(async (req, res) => {
         tyre.serialNumber = req.body.serialNumber || tyre.serialNumber;
         tyre.purchaseDate = req.body.purchaseDate || tyre.purchaseDate;
         tyre.cost = req.body.cost || tyre.cost;
+        tyre.type = req.body.type || tyre.type;
         tyre.purchaseOrderNumber = req.body.purchaseOrderNumber || tyre.purchaseOrderNumber;
 
         // Handle metadata updates if needed
@@ -311,7 +312,19 @@ const updateTyre = asyncHandler(async (req, res) => {
             tyre.threadDepth.original = req.body.threadDepth.original;
         }
 
+        const isNewlyRejected = tyre.isModified('type') && tyre.type === TYRE_TYPE.REJECTED;
+
         const updatedTyre = await tyre.save();
+
+        if (isNewlyRejected) {
+            await TyreHistory.create({
+                tenant: req.tenant,
+                tyre: tyre._id,
+                action: TYRE_HISTORY_ACTION.REJECT,
+                measuringDate: new Date(),
+            });
+        }
+
         res.json(updatedTyre);
     } else {
         res.status(404);
