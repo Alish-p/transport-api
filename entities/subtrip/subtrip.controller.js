@@ -79,14 +79,14 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       query.driverSalaryId =
         hasDriverSalary === "true"
           ? { $exists: true, $ne: null }
-          : { $exists: false };
+          : null;
     }
 
     if (hasTransporterPayment !== undefined) {
       query.transporterPaymentReceiptId =
         hasTransporterPayment === "true"
           ? { $exists: true, $ne: null }
-          : { $exists: false };
+          : null;
     }
 
     // Handle isEmpty filter

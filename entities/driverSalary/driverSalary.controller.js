@@ -46,7 +46,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
     // 2. Fetch & filter subtrips (ensure not already linked)
     const rawSubtrips = await Subtrip.find({
       _id: { $in: associatedSubtrips },
-      driverSalaryReceiptId: null, // requires this field on Subtrip
+      driverSalaryId: null, // requires this field on Subtrip
       tenant: req.tenant,
     })
       .populate("vehicleId")
@@ -119,7 +119,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
     // 6. Link subtrips back to this salary receipt
     await Subtrip.updateMany(
       { _id: { $in: associatedSubtrips }, tenant: req.tenant },
-      { $set: { driverSalaryReceiptId: saved._id } },
+      { $set: { driverSalaryId: saved._id } },
       { session }
     );
 
@@ -198,7 +198,7 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
       // Fetch & filter subtrips
       const rawSubtrips = await Subtrip.find({
         _id: { $in: associatedSubtrips },
-        driverSalaryReceiptId: null,
+        driverSalaryId: null,
         tenant: req.tenant,
       })
         .populate("vehicleId")
@@ -271,7 +271,7 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
       // Link subtrips
       await Subtrip.updateMany(
         { _id: { $in: associatedSubtrips }, tenant: req.tenant },
-        { $set: { driverSalaryReceiptId: saved._id } },
+        { $set: { driverSalaryId: saved._id } },
         { session }
       );
 
@@ -350,7 +350,7 @@ const deleteDriverSalary = asyncHandler(async (req, res) => {
   // unlink subtrips
   await Subtrip.updateMany(
     { _id: { $in: doc.associatedSubtrips }, tenant: req.tenant },
-    { $unset: { driverSalaryReceiptId: "" } }
+    { $unset: { driverSalaryId: "" } }
   );
 
   await DriverSalary.findOneAndDelete({
