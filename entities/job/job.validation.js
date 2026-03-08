@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getStartOfTodayIST } from '../../utils/time-utils.js';
 
 
 //   createJob schema
@@ -67,7 +68,7 @@ const jobCreateSchema = z.object({
         if (missing.length === 0 && body.ewayExpiryDate) {
           const d = new Date(body.ewayExpiryDate);
           const now = new Date();
-          const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const startOfToday = getStartOfTodayIST();
           if (Number.isNaN(d.getTime())) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['ewayExpiryDate'], message: 'Invalid ewayExpiryDate' });
           } else if (d < startOfToday) {

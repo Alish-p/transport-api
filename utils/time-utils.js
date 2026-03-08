@@ -155,8 +155,27 @@ export function fSub({
 }
 
 export const getFirstDayOfCurrentMonth = () => {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1);
+  return dayjs().tz('Asia/Kolkata').startOf('month').toDate();
+};
+
+export const getStartOfTodayIST = () => {
+  return dayjs().tz('Asia/Kolkata').startOf('day').toDate();
+};
+
+export const getStartOfMonthIST = (year, monthNum) => {
+  return dayjs().tz('Asia/Kolkata').year(year).month(monthNum - 1).startOf('month').toDate();
+};
+
+export const getNextMonthStartIST = (year, monthNum) => {
+  return dayjs().tz('Asia/Kolkata').year(year).month(monthNum - 1).startOf('month').add(1, 'month').toDate();
+};
+
+export const getStartOfYearIST = (year) => {
+  return dayjs().tz('Asia/Kolkata').year(year).startOf('year').toDate();
+};
+
+export const getNextYearStartIST = (year) => {
+  return dayjs().tz('Asia/Kolkata').year(year).startOf('year').add(1, 'year').toDate();
 };
 
 export function fDaysDuration(startDate, endDate) {

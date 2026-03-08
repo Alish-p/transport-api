@@ -11,6 +11,7 @@ import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import { sendLRGenerationNotification } from '../../services/whatsapp.service.js';
+import { getStartOfTodayIST } from '../../utils/time-utils.js';
 
 
 // New controller: createJob
@@ -161,7 +162,7 @@ const createJob = asyncHandler(async (req, res) => {
       }
 
       // ewayExpiryDate must be today or later
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfToday = getStartOfTodayIST();
       if (ewayExpiryDate < startOfToday) {
         const err = new Error('ewayExpiryDate must be today or later');
         err.status = 400;

@@ -8,6 +8,13 @@ import Tenant from '../tenant/tenant.model.js';
 import { fetchGstDetails, normalizeGstCanonical } from '../../helpers/gst.js';
 import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
+import dayjs from 'dayjs';
+import {
+  getStartOfMonthIST,
+  getNextMonthStartIST,
+  getStartOfYearIST,
+  getNextYearStartIST,
+} from '../../utils/time-utils.js';
 
 // Utility to escape RegExp special chars
 const escapeRegExp = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -125,8 +132,8 @@ const getCustomerMonthlyMaterialWeight = asyncHandler(async (req, res) => {
       .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
-  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
-  const endDate = new Date(Date.UTC(year, monthNum, 1));
+  const startDate = getStartOfMonthIST(year, monthNum);
+  const endDate = getNextMonthStartIST(year, monthNum);
 
   try {
     const results = await Subtrip.aggregate([
@@ -284,13 +291,13 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
 const getCustomerSubtripMonthlyData = asyncHandler(async (req, res) => {
   const yearParam = parseInt(req.query.year, 10);
   const year = Number.isNaN(yearParam)
-    ? new Date().getUTCFullYear()
+    ? dayjs().tz('Asia/Kolkata').year()
     : yearParam;
 
   const { id } = req.params;
 
-  const startOfYear = new Date(Date.UTC(year, 0, 1));
-  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+  const startOfYear = getStartOfYearIST(year);
+  const endOfYear = getNextYearStartIST(year);
 
   try {
     const results = await Subtrip.aggregate([
@@ -352,9 +359,9 @@ const fetchCustomer = asyncHandler(async (req, res) => {
     tenant: req.tenant,
   }).select("_id invoiceNo issueDate dueDate netTotal");
 
-  const currentYear = new Date().getUTCFullYear();
-  const marchStart = new Date(Date.UTC(currentYear, 2, 1));
-  const aprilStart = new Date(Date.UTC(currentYear, 3, 1));
+  const currentYear = dayjs().tz('Asia/Kolkata').year();
+  const marchStart = getStartOfMonthIST(currentYear, 3);
+  const aprilStart = getStartOfMonthIST(currentYear, 4);
 
   const analytics = await Subtrip.aggregate([
     {
