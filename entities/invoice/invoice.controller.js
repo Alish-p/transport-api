@@ -141,7 +141,7 @@ const createInvoice = asyncHandler(async (req, res) => {
       await recordSubtripEvent(
         subtrip._id,
         SUBTRIP_EVENT_TYPES.INVOICE_GENERATED,
-        { invoiceNo: savedInvoice.invoiceNo, amount: summary.netTotal },
+        { invoiceNo: savedInvoice.invoiceNo, amount: summary.netTotal, invoiceId: savedInvoice._id },
         req.user,
         req.tenant
       );

@@ -144,7 +144,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
         recordSubtripEvent(
           stId,
           SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_GENERATED,
-          { transporterId },
+          { transporterId, paymentReceiptId: saved._id, paymentId: saved.paymentId },
           req.user,
           req.tenant
         )
@@ -358,7 +358,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
           recordSubtripEvent(
             stId,
             SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_GENERATED,
-            { transporterId },
+            { transporterId, paymentReceiptId: saved._id, paymentId: saved.paymentId },
             req.user,
             req.tenant
           )
