@@ -129,7 +129,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
         recordSubtripEvent(
           stId,
           SUBTRIP_EVENT_TYPES.DRIVER_SALARY_GENERATED,
-          { driverId },
+          { driverId, paymentId: saved.paymentId, salaryId: saved._id },
           req.user,
           req.tenant
         )
@@ -281,7 +281,7 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
           recordSubtripEvent(
             stId,
             SUBTRIP_EVENT_TYPES.DRIVER_SALARY_GENERATED,
-            { driverId },
+            { driverId, paymentId: saved.paymentId, salaryId: saved._id },
             req.user,
             req.tenant
           )
