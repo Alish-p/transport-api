@@ -337,7 +337,7 @@ const updateDriverSalary = asyncHandler(async (req, res) => {
   res.status(200).json(updated);
 });
 
-// 🗑️ Delete
+// 🗑️ Delete (Mark as Cancelled)
 const deleteDriverSalary = asyncHandler(async (req, res) => {
   const doc = await DriverSalary.findOne({
     _id: req.params.id,
@@ -353,11 +353,10 @@ const deleteDriverSalary = asyncHandler(async (req, res) => {
     { $unset: { driverSalaryId: "" } }
   );
 
-  await DriverSalary.findOneAndDelete({
-    _id: req.params.id,
-    tenant: req.tenant,
-  });
-  res.status(200).json({ message: "Driver Salary deleted successfully." });
+  doc.status = "cancelled";
+  await doc.save();
+
+  res.status(200).json({ message: "Driver Salary marked as cancelled successfully." });
 });
 
 export {

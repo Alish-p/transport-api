@@ -50,7 +50,7 @@ const driverSalarySchema = new Schema({
   // Status of the payment
   status: {
     type: String,
-    enum: ["generated", "paid"],
+    enum: ["generated", "paid", "cancelled"],
     default: "generated",
   },
 
