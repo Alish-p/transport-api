@@ -8,10 +8,10 @@ export const createTarget = async (req, res, next) => {
         const { customer, materialTarget, month, year } = req.body;
         const tenant = req.user.tenant;
 
-        // Ensure month is stored as the first day of the month
+        // Ensure month is stored as the first day of the month in UTC
         const targetMonth = new Date(month);
-        targetMonth.setDate(1);
-        targetMonth.setHours(0, 0, 0, 0);
+        targetMonth.setUTCDate(1);
+        targetMonth.setUTCHours(0, 0, 0, 0);
 
         const target = await CustomerTarget.findOneAndUpdate(
             {
@@ -44,8 +44,8 @@ export const updateTarget = async (req, res, next) => {
         const tenant = req.user.tenant;
 
         const targetMonth = new Date(month);
-        targetMonth.setDate(1);
-        targetMonth.setHours(0, 0, 0, 0);
+        targetMonth.setUTCDate(1);
+        targetMonth.setUTCHours(0, 0, 0, 0);
 
         const target = await CustomerTarget.findOneAndUpdate(
             { _id: id, tenant },
@@ -77,12 +77,12 @@ export const getTargets = async (req, res, next) => {
         }
 
         const targetMonth = new Date(month);
-        targetMonth.setDate(1);
-        targetMonth.setHours(0, 0, 0, 0);
+        targetMonth.setUTCDate(1);
+        targetMonth.setUTCHours(0, 0, 0, 0);
 
-        // Calculate start and end date for the month to filter subtrips
-        const startOfMonth = new Date(year, targetMonth.getMonth(), 1);
-        const endOfMonth = new Date(year, targetMonth.getMonth() + 1, 0, 23, 59, 59, 999);
+        // Calculate start and end date for the month to filter subtrips in UTC
+        const startOfMonth = new Date(Date.UTC(parseInt(year), targetMonth.getUTCMonth(), 1));
+        const endOfMonth = new Date(Date.UTC(parseInt(year), targetMonth.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 
         const targets = await CustomerTarget.find({
             tenant,
