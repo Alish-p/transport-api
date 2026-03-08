@@ -156,6 +156,13 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     // Execute the query with population
     const subtrips = await populateSubtrip(Subtrip.find(query)).lean();
 
+    // Attach createdAt for backwards compatibility
+    subtrips.forEach((st) => {
+      if (!st.createdAt && st._id) {
+        st.createdAt = st._id.getTimestamp();
+      }
+    });
+
     if (!subtrips.length) {
       return res.status(404).json({
         message: "No subtrips found matching the specified criteria.",
@@ -301,6 +308,13 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       ),
     ]);
 
+    // Attach createdAt for backwards compatibility
+    subtrips.forEach((st) => {
+      if (!st.createdAt && st._id) {
+        st.createdAt = st._id.getTimestamp();
+      }
+    });
+
     const totalsObj = {};
     const statusKeys = Object.values(SUBTRIP_STATUS);
     statusTotals.forEach((cnt, idx) => {
@@ -396,6 +410,7 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
       loadingPoint: st.loadingPoint,
       unloadingPoint: st.unloadingPoint,
       startDate: st.startDate,
+      createdAt: st.createdAt || st._id.getTimestamp(),
       vehicleNo: st.vehicleId?.vehicleNo,
       isOwn: st.vehicleId?.isOwn,
       driverName: st.driverId?.driverName,

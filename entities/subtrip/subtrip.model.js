@@ -75,7 +75,7 @@ const subtripSchema = new Schema({
     required: true,
     index: true,
   },
-});
+}, { timestamps: true });
 
 // Unique trip number per tenant
 subtripSchema.index({ tenant: 1, subtripNo: 1 }, { unique: true });
