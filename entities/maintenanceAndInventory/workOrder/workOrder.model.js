@@ -58,10 +58,10 @@ const workOrderSchema = new Schema(
     issues: [
       {
         issue: { type: String },
-        assignedTo: {
+        assignedTo: [{
           type: Schema.Types.ObjectId,
           ref: 'User',
-        },
+        }],
       },
     ],
 

@@ -125,7 +125,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
 
 const fetchWorkOrders = asyncHandler(async (req, res) => {
   try {
-    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy } = req.query;
+    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -146,8 +146,11 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
     }
 
     if (category) {
-      const categories = Array.isArray(category) ? category : [category];
-      query.category = { $in: categories };
+      if (Array.isArray(category)) {
+        query.category = { $in: category.map(c => new RegExp(c, 'i')) };
+      } else {
+        query.category = { $regex: new RegExp(category, 'i') };
+      }
     }
 
     if (fromDate || toDate) {
@@ -168,10 +171,15 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
       query.closedBy = new ObjectId(closedBy);
     }
 
+    if (issueAssignee) {
+      query['issues.assignedTo'] = new ObjectId(issueAssignee);
+    }
+
     const [orders, total] = await Promise.all([
       WorkOrder.find(query)
         .populate('vehicle', 'vehicleNo vehicleType')
         .populate('createdBy closedBy', 'name')
+        .populate('issues.assignedTo', 'name customerName')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -202,7 +210,7 @@ const fetchWorkOrderById = asyncHandler(async (req, res) => {
     tenant: req.tenant,
   })
     .populate('vehicle', 'vehicleNo vehicleType')
-    .populate('issues.assignedTo', 'name')
+    .populate('issues.assignedTo', 'name customerName')
     .populate('createdBy', 'name')
     .populate('closedBy', 'name')
     .populate('parts.part', 'partNumber name manufacturer measurementUnit')
@@ -481,7 +489,7 @@ const deleteWorkOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/work-orders/export
 // @access  Private
 const exportWorkOrders = asyncHandler(async (req, res) => {
-  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, columns } = req.query;
+  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, columns } = req.query;
 
   const query = addTenantToQuery(req);
 
@@ -501,8 +509,11 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
   }
 
   if (category) {
-    const categories = Array.isArray(category) ? category : [category];
-    query.category = { $in: categories };
+    if (Array.isArray(category)) {
+      query.category = { $in: category.map(c => new RegExp(c, 'i')) };
+    } else {
+      query.category = { $regex: new RegExp(category, 'i') };
+    }
   }
 
   if (fromDate || toDate) {
@@ -521,6 +532,10 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
 
   if (closedBy) {
     query.closedBy = new ObjectId(closedBy);
+  }
+
+  if (issueAssignee) {
+    query['issues.assignedTo'] = new ObjectId(issueAssignee);
   }
 
   const orders = await WorkOrder.find(query)
@@ -594,12 +609,13 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
         }
       } else if (key === 'issueAssignees') {
         const issues = rowData.issues || [];
-        const names = issues
-          .map((issue) => {
-            if (!issue || typeof issue !== 'object' || !issue.assignedTo) return null;
-            return issue.assignedTo.name || issue.assignedTo.customerName || null;
-          })
-          .filter(Boolean);
+        const names = issues.flatMap((issue) => {
+          if (!issue || typeof issue !== 'object' || !Array.isArray(issue.assignedTo)) return [];
+          return issue.assignedTo.map(user => {
+            if (!user) return null;
+            return user.name || user.customerName || null;
+          }).filter(Boolean);
+        });
         const unique = Array.from(new Set(names));
         row[key] = unique.join(', ') || '-';
       } else if (key === 'scheduledStartDate' || key === 'completedDate') {

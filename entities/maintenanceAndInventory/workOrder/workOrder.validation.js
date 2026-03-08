@@ -28,7 +28,7 @@ const workOrderCreateSchema = z.object({
       .array(
         z.object({
           issue: z.string(),
-          assignedTo: z.string().optional(),
+          assignedTo: z.array(z.string()).optional(),
         })
       )
       .optional(),
@@ -53,7 +53,7 @@ const workOrderUpdateSchema = z.object({
       .array(
         z.object({
           issue: z.string(),
-          assignedTo: z.string().optional(),
+          assignedTo: z.array(z.string()).optional(),
         })
       )
       .optional(),
