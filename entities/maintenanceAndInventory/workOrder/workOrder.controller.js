@@ -405,8 +405,10 @@ const closeWorkOrder = asyncHandler(async (req, res) => {
           // Catch insufficient stock error from utility
           await session.abortTransaction();
           session.endSession();
+
+          const partIdentifier = line.partSnapshot?.name || line.name || line.part;
           return res.status(400).json({
-            message: `Failed to consume part ${line.part}: ${err.message}`,
+            message: `Failed to consume part ${partIdentifier}: ${err.message}`,
           });
         }
       }

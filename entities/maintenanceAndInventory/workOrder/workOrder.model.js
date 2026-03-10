@@ -46,8 +46,9 @@ const workOrderSchema = new Schema(
     },
     category: {
       type: String,
+      required: true,
     },
-    scheduledStartDate: { type: Date },
+    scheduledStartDate: { type: Date, required: true },
     actualStartDate: { type: Date },
     completedDate: { type: Date },
 

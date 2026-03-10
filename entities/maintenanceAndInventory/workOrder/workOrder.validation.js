@@ -19,7 +19,10 @@ const workOrderCreateSchema = z.object({
     vehicle: z.string().min(1, 'Vehicle is required'),
     status: z.enum(Object.values(WORK_ORDER_STATUS)).optional(),
     priority: z.enum(Object.values(WORK_ORDER_PRIORITY)).optional(),
-    scheduledStartDate: z.coerce.date().optional(),
+    scheduledStartDate: z.coerce.date({
+      required_error: 'Scheduled Start Date is required',
+      invalid_type_error: 'Invalid Date for Scheduled Start Date',
+    }),
     actualStartDate: z.coerce.date().optional(),
     completedDate: z.coerce.date().optional(),
 
@@ -31,11 +34,11 @@ const workOrderCreateSchema = z.object({
           assignedTo: z.array(z.string()).optional(),
         })
       )
-      .optional(),
+      .min(1, 'At least 1 issue is required'),
     labourCharge: z.number().nonnegative().optional(),
     parts: z.array(partLineSchema).optional(),
     description: z.string().optional(),
-    category: z.string().optional(),
+    category: z.string().min(1, 'Category is required'),
   }),
 });
 
@@ -44,7 +47,10 @@ const workOrderUpdateSchema = z.object({
     vehicle: z.string().optional(),
     status: z.enum(Object.values(WORK_ORDER_STATUS)).optional(),
     priority: z.enum(Object.values(WORK_ORDER_PRIORITY)).optional(),
-    scheduledStartDate: z.coerce.date().optional(),
+    scheduledStartDate: z.coerce.date({
+      required_error: 'Scheduled Start Date is required',
+      invalid_type_error: 'Invalid Date for Scheduled Start Date',
+    }),
     actualStartDate: z.coerce.date().optional(),
     completedDate: z.coerce.date().optional(),
 
@@ -56,13 +62,12 @@ const workOrderUpdateSchema = z.object({
           assignedTo: z.array(z.string()).optional(),
         })
       )
-      .optional(),
+      .min(1, 'At least 1 issue is required'),
     labourCharge: z.number().nonnegative().optional(),
     parts: z.array(partLineSchema).optional(),
     description: z.string().optional(),
-    category: z.string().optional(),
+    category: z.string().min(1, 'Category is required'),
   }),
 });
 
 export { workOrderCreateSchema, workOrderUpdateSchema };
-
