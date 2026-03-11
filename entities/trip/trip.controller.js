@@ -387,6 +387,232 @@ const deleteTrip = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Trip deleted successfully" });
 });
 
+// Route Analyzer: aggregate trips by route signature
+const fetchRouteAnalytics = asyncHandler(async (req, res) => {
+  try {
+    const { limit, skip } = req.pagination || {};
+    const tenantId = req.tenant;
+
+    // Pipeline: join subtrips, build route signature, group, compute averages
+    const basePipeline = [
+      // 1. Only closed trips for this tenant that have subtrips
+      {
+        $match: {
+          tenant: tenantId,
+          tripStatus: TRIP_STATUS.CLOSED,
+          "subtrips.0": { $exists: true },
+        },
+      },
+      // 2. Lookup subtrips
+      {
+        $lookup: {
+          from: "subtrips",
+          localField: "subtrips",
+          foreignField: "_id",
+          as: "subtripDocs",
+        },
+      },
+      // 3. Sort subtripDocs by startDate to get correct order
+      {
+        $addFields: {
+          subtripDocs: {
+            $sortArray: { input: "$subtripDocs", sortBy: { startDate: 1 } },
+          },
+        },
+      },
+      // 4. Build route signature: "A>B>C>D" from loading/unloading points
+      {
+        $addFields: {
+          routeSegments: {
+            $reduce: {
+              input: "$subtripDocs",
+              initialValue: [],
+              in: {
+                $concatArrays: [
+                  "$$value",
+                  [
+                    { $ifNull: ["$$this.loadingPoint", "N/A"] },
+                    { $ifNull: ["$$this.unloadingPoint", "N/A"] },
+                  ],
+                ],
+              },
+            },
+          },
+        },
+      },
+      // 5. Deduplicate consecutive points (A>B>B>C => A>B>C)
+      {
+        $addFields: {
+          routePoints: {
+            $reduce: {
+              input: "$routeSegments",
+              initialValue: [],
+              in: {
+                $cond: [
+                  {
+                    $eq: [
+                      "$$this",
+                      { $arrayElemAt: ["$$value", { $subtract: [{ $size: "$$value" }, 1] }] },
+                    ],
+                  },
+                  "$$value",
+                  { $concatArrays: ["$$value", ["$$this"]] },
+                ],
+              },
+            },
+          },
+        },
+      },
+      // 6. Create route signature string
+      {
+        $addFields: {
+          routeSignature: {
+            $reduce: {
+              input: "$routePoints",
+              initialValue: "",
+              in: {
+                $cond: [
+                  { $eq: ["$$value", ""] },
+                  "$$this",
+                  { $concat: ["$$value", " > ", "$$this"] },
+                ],
+              },
+            },
+          },
+        },
+      },
+      // 7. Compute per-trip KM
+      {
+        $addFields: {
+          totalKm: {
+            $cond: [
+              {
+                $and: [
+                  { $isNumber: "$startKm" },
+                  { $isNumber: "$endKm" },
+                  { $gte: ["$endKm", "$startKm"] },
+                ],
+              },
+              { $subtract: ["$endKm", "$startKm"] },
+              0,
+            ],
+          },
+          profitAndLoss: {
+            $subtract: [
+              { $ifNull: ["$cachedTotalIncome", 0] },
+              { $ifNull: ["$cachedTotalExpense", 0] },
+            ],
+          },
+        },
+      },
+      // 8. Lookup vehicle & driver for per-trip details
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "vehicleId",
+          foreignField: "_id",
+          as: "vehicleDoc",
+        },
+      },
+      { $unwind: { path: "$vehicleDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "drivers",
+          localField: "driverId",
+          foreignField: "_id",
+          as: "driverDoc",
+        },
+      },
+      { $unwind: { path: "$driverDoc", preserveNullAndEmptyArrays: true } },
+      // 9. Group by routeSignature
+      {
+        $group: {
+          _id: "$routeSignature",
+          tripCount: { $sum: 1 },
+          avgIncome: { $avg: { $ifNull: ["$cachedTotalIncome", 0] } },
+          avgExpense: { $avg: { $ifNull: ["$cachedTotalExpense", 0] } },
+          avgDieselLtr: { $avg: { $ifNull: ["$cachedTotalDieselLtr", 0] } },
+          avgKm: { $avg: "$totalKm" },
+          avgProfit: { $avg: "$profitAndLoss" },
+          trips: {
+            $push: {
+              _id: "$_id",
+              tripNo: "$tripNo",
+              fromDate: "$fromDate",
+              toDate: "$toDate",
+              vehicleNo: "$vehicleDoc.vehicleNo",
+              driverName: "$driverDoc.driverName",
+              totalIncome: { $ifNull: ["$cachedTotalIncome", 0] },
+              totalExpense: { $ifNull: ["$cachedTotalExpense", 0] },
+              totalDieselLtr: { $ifNull: ["$cachedTotalDieselLtr", 0] },
+              totalKm: "$totalKm",
+              profitAndLoss: "$profitAndLoss",
+              subtripCount: { $size: { $ifNull: ["$subtrips", []] } },
+            },
+          },
+        },
+      },
+      // 10. Sort by trip count descending (most popular routes first)
+      { $sort: { tripCount: -1 } },
+    ];
+
+    // Count total unique routes
+    const countPipeline = [...basePipeline, { $count: "count" }];
+    const [countResult] = await Trip.aggregate(countPipeline);
+    const total = countResult?.count || 0;
+
+    // Paginated data pipeline
+    const dataPipeline = [
+      ...basePipeline,
+      { $skip: skip || 0 },
+      { $limit: limit || 10 },
+      // Round averages
+      {
+        $project: {
+          _id: 0,
+          routeSignature: "$_id",
+          tripCount: 1,
+          avgIncome: { $round: ["$avgIncome", 2] },
+          avgExpense: { $round: ["$avgExpense", 2] },
+          avgDieselLtr: { $round: ["$avgDieselLtr", 2] },
+          avgKm: { $round: ["$avgKm", 2] },
+          avgProfit: { $round: ["$avgProfit", 2] },
+          trips: 1,
+        },
+      },
+    ];
+
+    const routes = await Trip.aggregate(dataPipeline);
+
+    // Compute deviation percentages for each trip within its route group
+    for (const route of routes) {
+      for (const trip of route.trips) {
+        trip.deviations = {
+          income: route.avgIncome ? Math.round(((trip.totalIncome - route.avgIncome) / route.avgIncome) * 10000) / 100 : 0,
+          expense: route.avgExpense ? Math.round(((trip.totalExpense - route.avgExpense) / route.avgExpense) * 10000) / 100 : 0,
+          diesel: route.avgDieselLtr ? Math.round(((trip.totalDieselLtr - route.avgDieselLtr) / route.avgDieselLtr) * 10000) / 100 : 0,
+          km: route.avgKm ? Math.round(((trip.totalKm - route.avgKm) / route.avgKm) * 10000) / 100 : 0,
+          profit: route.avgProfit ? Math.round(((trip.profitAndLoss - route.avgProfit) / Math.abs(route.avgProfit)) * 10000) / 100 : 0,
+        };
+      }
+      // Sort trips within route by fromDate descending
+      route.trips.sort((a, b) => new Date(b.fromDate) - new Date(a.fromDate));
+    }
+
+    res.status(200).json({
+      routes,
+      total,
+      page: req.pagination?.page || 1,
+      rowsPerPage: limit || 10,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching route analytics",
+      error: error.message,
+    });
+  }
+});
+
 export {
   fetchTrips,
   fetchTripsPreview,
@@ -396,6 +622,7 @@ export {
   updateTrip,
   deleteTrip,
   exportTrips,
+  fetchRouteAnalytics,
 };
 
 // Export Trips to Excel

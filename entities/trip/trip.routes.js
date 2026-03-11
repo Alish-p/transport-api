@@ -8,6 +8,7 @@ import {
   deleteTrip,
   closeTrip,
   exportTrips,
+  fetchRouteAnalytics,
 } from './trip.controller.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
@@ -15,6 +16,7 @@ import pagination from '../../middlewares/pagination.js';
 const router = Router();
 
 router.get("/export", authenticate, exportTrips);
+router.get("/route-analytics", authenticate, pagination, fetchRouteAnalytics);
 router.get("/", authenticate, pagination, fetchTrips);
 router.get("/preview", authenticate, pagination, fetchTripsPreview);
 router.get("/vehicle/:vehicleId/active", authenticate, fetchVehicleActiveTrip);
