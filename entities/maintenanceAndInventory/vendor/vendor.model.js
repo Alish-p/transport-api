@@ -16,6 +16,7 @@ const vendorSchema = new Schema(
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, trim: true },
     address: { type: String, required: true, trim: true },
+    gstNumber: { type: String, trim: true },
     // Optional bank details; when provided, all fields inside remain required
     bankDetails: { type: bankDetailsSchema, required: false },
     tenant: {
