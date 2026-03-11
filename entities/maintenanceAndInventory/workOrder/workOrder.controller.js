@@ -175,7 +175,12 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
       query['issues.assignedTo'] = new ObjectId(issueAssignee);
     }
 
-    const [orders, total] = await Promise.all([
+    const aggMatch = { ...query };
+    if (aggMatch.tenant && typeof aggMatch.tenant === 'string') {
+      aggMatch.tenant = new ObjectId(aggMatch.tenant);
+    }
+
+    const [orders, total, statusAgg] = await Promise.all([
       WorkOrder.find(query)
         .populate('vehicle', 'vehicleNo vehicleType')
         .populate('createdBy closedBy', 'name')
@@ -184,10 +189,33 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
         .skip(skip)
         .limit(limit),
       WorkOrder.countDocuments(query),
+      WorkOrder.aggregate([
+        { $match: aggMatch },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
+
+    const totals = {
+      all: { count: total },
+      open: { count: 0 },
+      pending: { count: 0 },
+      completed: { count: 0 },
+    };
+
+    statusAgg.forEach((ag) => {
+      if (ag._id) {
+        totals[ag._id] = { count: ag.count };
+      }
+    });
 
     res.status(200).json({
       workOrders: orders,
+      totals,
       total,
       startRange: skip + 1,
       endRange: skip + orders.length,
