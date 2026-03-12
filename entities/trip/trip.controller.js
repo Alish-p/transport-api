@@ -33,7 +33,14 @@ const fetchTrips = asyncHandler(async (req, res) => {
       const escaped = String(tripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       query.tripNo = { $regex: escaped, $options: "i" };
     }
-    if (driverId) query.driverId = driverId;
+    if (driverId) {
+      const tripsWithDriver = await Subtrip.find({
+        driverId,
+        tenant: req.tenant,
+      }).distinct("tripId");
+
+      query._id = { $in: tripsWithDriver };
+    }
     // vehicleId will be applied below when considering isOwn as well
     if (subtripId) query.subtrips = subtripId;
 
@@ -100,9 +107,9 @@ const fetchTrips = asyncHandler(async (req, res) => {
           path: "subtrips",
           populate: [
             { path: "customerId", model: "Customer" },
+            { path: "driverId", select: "driverName" },
           ],
         })
-        .populate({ path: "driverId", select: "driverName driverCellNo" })
         .populate({ path: "vehicleId", select: "vehicleNo" })
         .sort({ fromDate: -1 })
         .lean()
@@ -156,13 +163,21 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
     const basePipeline = [
       {
         $lookup: {
-          from: "drivers",
-          localField: "driverId",
+          from: "subtrips",
+          localField: "subtrips",
           foreignField: "_id",
-          as: "driver",
+          as: "subtripDocs",
         },
       },
-      { $unwind: "$driver" },
+      {
+        $lookup: {
+          from: "drivers",
+          localField: "subtripDocs.driverId",
+          foreignField: "_id",
+          as: "subtripsDrivers",
+        },
+      },
+      // Removing driverId $lookup from Trip as we only use subtrip docs.
       {
         $lookup: {
           from: "vehicles",
@@ -183,7 +198,7 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
 
     if (search) {
       matchStage.$or = [
-        { "driver.driverName": { $regex: search, $options: "i" } },
+        { "subtripsDrivers.driverName": { $regex: search, $options: "i" } },
         { "vehicle.vehicleNo": { $regex: search, $options: "i" } },
       ];
     }
@@ -196,8 +211,17 @@ const fetchTripsPreview = asyncHandler(async (req, res) => {
       $project: {
         _id: 1,
         tripNo: 1,
-        driverId: {
-          driverName: "$driver.driverName",
+        subtrips: {
+          $map: {
+            input: "$subtripsDrivers",
+            as: "driver",
+            in: {
+              driverId: {
+                driverName: "$$driver.driverName",
+                driverCellNo: "$$driver.driverCellNo",
+              },
+            },
+          },
         },
         vehicleId: {
           vehicleNo: "$vehicle.vehicleNo",
@@ -252,7 +276,6 @@ const fetchVehicleActiveTrip = asyncHandler(async (req, res) => {
     tripStatus: TRIP_STATUS.OPEN,
   })
     .populate({ path: "vehicleId", select: "vehicleNo" })
-    .populate({ path: "driverId", select: "driverName" })
     .populate({
       path: "subtrips",
       select:
@@ -282,13 +305,13 @@ const fetchTrip = asyncHandler(async (req, res) => {
       populate: [
         { path: "expenses" },
         { path: "customerId" },
+        { path: "driverId", select: "driverName driverCellNo" },
       ],
     })
     .populate({
       path: "vehicleId",
       populate: { path: "transporter" },
-    })
-    .populate("driverId");
+    });
 
   if (!trip) {
     res.status(404).json({ message: "Trip not found" });
@@ -331,24 +354,7 @@ const updateTrip = asyncHandler(async (req, res) => {
 
   // 2. Removed check for updating a closed trip to allow editing startKm, endKm, and dates.
 
-  // 3. If the client is trying to change the driver...
-  if (
-    req.body.driverId &&
-    String(req.body.driverId) !== String(trip.driverId)
-  ) {
-    // 3a. Check for any subtrip with a salary already assigned
-    const lockedCount = await Subtrip.countDocuments({
-      tripId: trip._id,
-      driverSalaryId: { $exists: true, $ne: null },
-    });
-
-    if (lockedCount > 0) {
-      res.status(400);
-      throw new Error(
-        "Cannot change driver: one or more subtrips already have salary created."
-      );
-    }
-  }
+  // 3. (Removed driverId check because Trip no longer has driverId natively)
 
   // 4. Perform the update
   const updatedTrip = await Trip.findOneAndUpdate(
@@ -647,7 +653,14 @@ const exportTrips = asyncHandler(async (req, res) => {
     const escaped = String(tripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     query.tripNo = { $regex: escaped, $options: "i" };
   }
-  if (driverId) query.driverId = driverId;
+  if (driverId) {
+    const tripsWithDriver = await Subtrip.find({
+      driverId,
+      tenant: req.tenant,
+    }).distinct("tripId");
+
+    query._id = { $in: tripsWithDriver };
+  }
   if (subtripId) query.subtrips = subtripId;
 
   if (fromDate || toDate) {
@@ -753,7 +766,12 @@ const exportTrips = asyncHandler(async (req, res) => {
 
   // DB Query for Trips with Lookups
   const tripsRaw = await Trip.find(query)
-    .populate({ path: "driverId", select: "driverName" })
+    .populate({
+      path: "subtrips",
+      populate: [
+        { path: "driverId", select: "driverName" },
+      ],
+    })
     .populate({ path: "vehicleId", select: "vehicleNo" })
     .sort({ fromDate: -1 })
     .lean();
@@ -775,7 +793,13 @@ const exportTrips = asyncHandler(async (req, res) => {
       if (key === 'vehicleNo') {
         row[key] = trip.vehicleId?.vehicleNo || '-';
       } else if (key === 'driverName') {
-        row[key] = trip.driverId?.driverName || '-';
+        const drivers = new Set();
+        if (trip.subtrips && trip.subtrips.length > 0) {
+          trip.subtrips.forEach(st => {
+            if (st.driverId?.driverName) drivers.add(st.driverId.driverName);
+          });
+        }
+        row[key] = drivers.size > 0 ? Array.from(drivers).join(', ') : '-';
       } else if (key === 'jobsCount') {
         row[key] = trip.subtrips?.length || 0;
       } else if (key === 'fromDate' || key === 'toDate') {

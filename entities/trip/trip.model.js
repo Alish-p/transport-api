@@ -4,7 +4,6 @@ import CounterModel from '../../model/Counter.js';
 // Trip Schema
 const tripSchema = new Schema({
   tripNo: { type: String, required: true },
-  driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   tripStatus: { type: String, required: true }, // Billed or Pending
   fromDate: { type: Date, required: true },
