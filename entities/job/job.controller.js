@@ -312,6 +312,20 @@ const createJob = asyncHandler(async (req, res) => {
     }
 
     if (isLoaded) {
+      // Check for ewayBill uniqueness
+      if (ewayBill) {
+        const existingSubtrip = await Subtrip.findOne({
+          tenant: req.tenant,
+          ewayBill: ewayBill,
+        }).session(session);
+
+        if (existingSubtrip) {
+          const err = new Error('E-way bill already exists');
+          err.status = 400;
+          throw err;
+        }
+      }
+
       Object.assign(subtripFields, {
         customerId,
         consignee,

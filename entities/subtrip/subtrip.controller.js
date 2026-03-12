@@ -588,6 +588,19 @@ const updateSubtrip = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Subtrip not found" });
   }
 
+  // Check for ewayBill uniqueness if it's being updated
+  if (req.body.ewayBill && req.body.ewayBill !== existingSubtrip.ewayBill) {
+    const duplicateEwayBill = await Subtrip.findOne({
+      tenant: req.tenant,
+      ewayBill: req.body.ewayBill,
+      _id: { $ne: id }, // Exclude the current subtrip
+    });
+
+    if (duplicateEwayBill) {
+      return res.status(400).json({ message: "E-way bill already exists" });
+    }
+  }
+
   // Find and update the subtrip
   const updatedSubtrip = await Subtrip.findOneAndUpdate(
     { _id: id, tenant: req.tenant },
@@ -969,6 +982,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     shipmentNo: { header: 'Shipment No', key: 'shipmentNo', width: 15 },
     orderNo: { header: 'Order No', key: 'orderNo', width: 15 },
     referenceSubtripNo: { header: 'Reference Job No', key: 'referenceSubtripNo', width: 20 },
+    ewayBill: { header: 'E-way Bill No', key: 'ewayBill', width: 20 },
     consignee: { header: 'Consignee', key: 'consignee', width: 20 },
     materialType: { header: 'Material', key: 'materialType', width: 20 },
     quantity: { header: 'Quantity', key: 'quantity', width: 15 },
@@ -1102,6 +1116,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
         shipmentNo: 1,
         orderNo: 1,
         referenceSubtripNo: 1,
+        ewayBill: 1,
         consignee: 1,
         materialType: 1,
         quantity: 1,
