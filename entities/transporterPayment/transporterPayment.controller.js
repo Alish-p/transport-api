@@ -153,52 +153,6 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
 
 
-    // Fire WhatsApp notification (non-blocking for API correctness)
-    try {
-      const waRes = await sendTransporterPaymentNotification({
-        tenantId: req.tenant,
-        transporter,
-        receipt: saved,
-        tenantName: tenant?.name,
-      });
-      const toLast4 = String(transporter?.cellNo || '').slice(-4);
-      if (waRes?.skipped) {
-        console.info('[WA] Skipped transporter payment message', {
-          reason: waRes.reason,
-          tenantId: String(req.tenant),
-          transporterId: String(transporter?._id || ''),
-          paymentId: saved?.paymentId,
-          toLast4,
-        });
-      } else if (waRes?.ok) {
-        const messageId = waRes?.data?.messages?.[0]?.id;
-        console.info('[WA] Sent transporter payment message', {
-          messageId,
-          tenantId: String(req.tenant),
-          transporterId: String(transporter?._id || ''),
-          paymentId: saved?.paymentId,
-          toLast4,
-        });
-      } else {
-        console.error('[WA] Failed transporter payment message', {
-          status: waRes?.status,
-          error: waRes?.error,
-          data: waRes?.data,
-          tenantId: String(req.tenant),
-          transporterId: String(transporter?._id || ''),
-          paymentId: saved?.paymentId,
-          toLast4,
-        });
-      }
-    } catch (notifyErr) {
-      console.error('[WA] Error sending transporter payment message', {
-        error: notifyErr?.message || notifyErr,
-        tenantId: String(req.tenant),
-        transporterId: String(transporter?._id || ''),
-        paymentId: saved?.paymentId,
-      });
-    }
-
     res.status(201).json(saved);
   } catch (err) {
     await session.abortTransaction();
@@ -364,52 +318,6 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
           )
         )
       );
-
-      // Send WhatsApp notification per created receipt (log result, ignore failures)
-      try {
-        const waRes = await sendTransporterPaymentNotification({
-          tenantId: req.tenant,
-          transporter,
-          receipt: saved,
-          tenantName: tenant?.name,
-        });
-        const toLast4 = String(transporter?.cellNo || '').slice(-4);
-        if (waRes?.skipped) {
-          console.info('[WA] Skipped transporter payment message', {
-            reason: waRes.reason,
-            tenantId: String(req.tenant),
-            transporterId: String(transporter?._id || ''),
-            paymentId: saved?.paymentId,
-            toLast4,
-          });
-        } else if (waRes?.ok) {
-          const messageId = waRes?.data?.messages?.[0]?.id;
-          console.info('[WA] Sent transporter payment message', {
-            messageId,
-            tenantId: String(req.tenant),
-            transporterId: String(transporter?._id || ''),
-            paymentId: saved?.paymentId,
-            toLast4,
-          });
-        } else {
-          console.error('[WA] Failed transporter payment message', {
-            status: waRes?.status,
-            error: waRes?.error,
-            data: waRes?.data,
-            tenantId: String(req.tenant),
-            transporterId: String(transporter?._id || ''),
-            paymentId: saved?.paymentId,
-            toLast4,
-          });
-        }
-      } catch (notifyErr) {
-        console.error('[WA] Error sending transporter payment message', {
-          error: notifyErr?.message || notifyErr,
-          tenantId: String(req.tenant),
-          transporterId: String(transporter?._id || ''),
-          paymentId: saved?.paymentId,
-        });
-      }
 
     }
 
@@ -579,6 +487,17 @@ const fetchTransporterPaymentReceiptPublic = asyncHandler(async (req, res) => {
 
 // Update Transporter Payment Receipt
 const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
+  const existingReceipt = await TransporterPayment.findOne({
+    _id: req.params.id,
+    tenant: req.tenant,
+  });
+
+  if (!existingReceipt) {
+    return res.status(404).json({ message: "Transporter Payment Receipt not found" });
+  }
+
+  const wasPaid = existingReceipt.status === 'paid';
+
   const updatedReceipt = await TransporterPayment.findOneAndUpdate(
     { _id: req.params.id, tenant: req.tenant },
     req.body,
@@ -591,6 +510,57 @@ const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       path: "associatedSubtrips",
       populate: { path: "vehicleId" },
     });
+
+  if (!wasPaid && updatedReceipt.status === 'paid') {
+    const tenant = await Tenant.findById(req.tenant).select("name");
+    const transporter = updatedReceipt.transporterId;
+    
+    try {
+      const waRes = await sendTransporterPaymentNotification({
+        tenantId: req.tenant,
+        transporter,
+        receipt: updatedReceipt,
+        tenantName: tenant?.name,
+      });
+      const toLast4 = String(transporter?.cellNo || '').slice(-4);
+      if (waRes?.skipped) {
+        console.info('[WA] Skipped transporter payment message', {
+          reason: waRes.reason,
+          tenantId: String(req.tenant),
+          transporterId: String(transporter?._id || ''),
+          paymentId: updatedReceipt?.paymentId,
+          toLast4,
+        });
+      } else if (waRes?.ok) {
+        const messageId = waRes?.data?.messages?.[0]?.id;
+        console.info('[WA] Sent transporter payment message', {
+          messageId,
+          tenantId: String(req.tenant),
+          transporterId: String(transporter?._id || ''),
+          paymentId: updatedReceipt?.paymentId,
+          toLast4,
+        });
+      } else {
+        console.error('[WA] Failed transporter payment message', {
+          status: waRes?.status,
+          error: waRes?.error,
+          data: waRes?.data,
+          tenantId: String(req.tenant),
+          transporterId: String(transporter?._id || ''),
+          paymentId: updatedReceipt?.paymentId,
+          toLast4,
+        });
+      }
+    } catch (notifyErr) {
+      console.error('[WA] Error sending transporter payment message', {
+        error: notifyErr?.message || notifyErr,
+        tenantId: String(req.tenant),
+        transporterId: String(transporter?._id || ''),
+        paymentId: updatedReceipt?.paymentId,
+      });
+    }
+  }
+
   res.status(200).json(updatedReceipt);
 });
 

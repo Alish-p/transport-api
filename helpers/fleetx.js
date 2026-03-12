@@ -36,8 +36,6 @@ const fetchLiveAnalytics = async (token) => {
         // headers: { Authorization: `bearer ${token}` },
     });
 
-    console.log({ response });
-
     if (!response.ok) {
         throw new Error(`Fleetx analytics fetch failed: ${response.status} ${response.statusText}`);
     }
@@ -47,12 +45,8 @@ const fetchLiveAnalytics = async (token) => {
 
 const getFleetxVehicleData = async (vehicleNo) => {
 
-    console.log({ vehicleNo });
-
     // const token = await loginToFleetx();
     const analytics = await fetchLiveAnalytics();
-
-    console.log({ analytics });
 
     const vehicle = analytics.vehicles?.find((v) => v.vehicleNumber === vehicleNo);
     if (!vehicle) {

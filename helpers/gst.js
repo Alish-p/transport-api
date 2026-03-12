@@ -59,8 +59,6 @@ async function fetchGstDetails(gstin) {
     body: JSON.stringify({ gstin }),
   });
 
-  console.log({ res })
-
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`GST API failed: ${res.status} ${res.statusText} - ${text}`);
