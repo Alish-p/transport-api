@@ -12,8 +12,10 @@ dayjs.extend(relativeTime);
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-// Set app-wide default timezone to IST
-dayjs.tz.setDefault('Asia/Kolkata');
+// App-wide timezone constant – change this single value if the target TZ ever changes
+export const DEFAULT_TIMEZONE = 'Asia/Kolkata';
+
+dayjs.tz.setDefault(DEFAULT_TIMEZONE);
 
 export const formatStr = {
   dateTime: 'DD MMM YYYY h:mm a',
@@ -30,25 +32,25 @@ export const formatStr = {
 };
 
 export function today(format) {
-  return dayjs(new Date()).startOf('day').format(format);
+  return dayjs(new Date()).tz(DEFAULT_TIMEZONE).startOf('day').format(format);
 }
 
 export function fDateTime(date, format) {
   if (!date) return null;
   const isValid = dayjs(date).isValid();
-  return isValid ? dayjs(date).format(format ?? formatStr.dateTime) : 'Invalid time value';
+  return isValid ? dayjs(date).tz(DEFAULT_TIMEZONE).format(format ?? formatStr.dateTime) : 'Invalid time value';
 }
 
 export function fDate(date, format) {
   if (!date) return null;
   const isValid = dayjs(date).isValid();
-  return isValid ? dayjs(date).format(format ?? formatStr.date) : 'Invalid time value';
+  return isValid ? dayjs(date).tz(DEFAULT_TIMEZONE).format(format ?? formatStr.date) : 'Invalid time value';
 }
 
 export function fTime(date, format) {
   if (!date) return null;
   const isValid = dayjs(date).isValid();
-  return isValid ? dayjs(date).format(format ?? formatStr.time) : 'Invalid time value';
+  return isValid ? dayjs(date).tz(DEFAULT_TIMEZONE).format(format ?? formatStr.time) : 'Invalid time value';
 }
 
 export function fTimestamp(date) {
@@ -155,27 +157,27 @@ export function fSub({
 }
 
 export const getFirstDayOfCurrentMonth = () => {
-  return dayjs().tz('Asia/Kolkata').startOf('month').toDate();
+  return dayjs().tz(DEFAULT_TIMEZONE).startOf('month').toDate();
 };
 
 export const getStartOfTodayIST = () => {
-  return dayjs().tz('Asia/Kolkata').startOf('day').toDate();
+  return dayjs().tz(DEFAULT_TIMEZONE).startOf('day').toDate();
 };
 
 export const getStartOfMonthIST = (year, monthNum) => {
-  return dayjs().tz('Asia/Kolkata').year(year).month(monthNum - 1).startOf('month').toDate();
+  return dayjs().tz(DEFAULT_TIMEZONE).year(year).month(monthNum - 1).startOf('month').toDate();
 };
 
 export const getNextMonthStartIST = (year, monthNum) => {
-  return dayjs().tz('Asia/Kolkata').year(year).month(monthNum - 1).startOf('month').add(1, 'month').toDate();
+  return dayjs().tz(DEFAULT_TIMEZONE).year(year).month(monthNum - 1).startOf('month').add(1, 'month').toDate();
 };
 
 export const getStartOfYearIST = (year) => {
-  return dayjs().tz('Asia/Kolkata').year(year).startOf('year').toDate();
+  return dayjs().tz(DEFAULT_TIMEZONE).year(year).startOf('year').toDate();
 };
 
 export const getNextYearStartIST = (year) => {
-  return dayjs().tz('Asia/Kolkata').year(year).startOf('year').add(1, 'year').toDate();
+  return dayjs().tz(DEFAULT_TIMEZONE).year(year).startOf('year').add(1, 'year').toDate();
 };
 
 export function fDaysDuration(startDate, endDate) {
