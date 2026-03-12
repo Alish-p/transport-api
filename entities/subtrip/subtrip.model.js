@@ -39,6 +39,7 @@ const subtripSchema = new Schema({
   quantity: { type: Number },
   grade: { type: String },
   diNumber: { type: String },
+  docs: [{ type: String }],
 
   // Weight-related details
   loadingWeight: { type: Number },

@@ -10,6 +10,7 @@ import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import { recalculateTripFinancials } from '../trip/trip.service.js';
+import { buildPublicFileUrl, createPresignedPutUrl } from '../../services/s3.service.js';
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>
@@ -483,6 +484,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     shortageWeight,
     shortageAmount,
     endDate,
+    docs,
   } = req.body;
 
   const subtrip = await populateSubtrip(
@@ -501,6 +503,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,
     remarks,
     commissionRate,
+    docs,
   });
 
   // Record appropriate event
@@ -780,6 +783,38 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
   }
 });
 
+// GET presigned URL for subtrip document upload
+const getDocumentUploadUrl = asyncHandler(async (req, res) => {
+  const { contentType, fileExtension } = req.query;
+
+  if (!contentType || !fileExtension) {
+    res.status(400);
+    throw new Error('contentType and fileExtension are required');
+  }
+
+  const tenantStr = String(req.tenant);
+
+  const timestamp = Date.now();
+  const rand = Math.floor(Math.random() * 10000);
+
+  const s3Key = `logos/subtrips/${tenantStr}/documents/subtrip_${timestamp}_${rand}.${fileExtension}`;
+
+  try {
+    const uploadUrl = await createPresignedPutUrl({ key: s3Key, contentType, expiresIn: 900 });
+
+    const base = process.env.AWS_PUBLIC_BASE_URL;
+    const publicKey = s3Key.replace(/^logos\//, '');
+    const publicUrl = base
+      ? `${base.replace(/\/$/, '')}/${publicKey}`
+      : (buildPublicFileUrl(s3Key) || null);
+
+    return res.status(200).json({ key: s3Key, uploadUrl, publicUrl });
+  } catch (err) {
+    console.error('Failed to create subtrip document upload url:', err);
+    return res.status(500).json({ message: 'Failed to create upload URL', error: err.message });
+  }
+});
+
 export {
   fetchSubtrips,
   fetchSubtrip,
@@ -792,6 +827,7 @@ export {
   fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
   exportSubtrips,
+  getDocumentUploadUrl,
 };
 
 // Export Subtrips to Excel

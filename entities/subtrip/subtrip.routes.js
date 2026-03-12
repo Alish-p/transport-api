@@ -12,6 +12,7 @@ import {
   fetchSubtripsByTransporter,
   fetchPaginatedSubtrips,
   exportSubtrips,
+  getDocumentUploadUrl,
 } from './subtrip.controller.js';
 import { createJob } from '../job/job.controller.js';
 import validate from '../../middlewares/validate.js';
@@ -23,6 +24,7 @@ const router = Router();
 router.post('/jobs', authenticate, checkPermission('subtrip', 'create'), validate(jobCreateSchema), createJob);
 
 router.get("/export", authenticate, exportSubtrips);
+router.get("/upload-url", authenticate, getDocumentUploadUrl);
 router.get("/pagination", authenticate, pagination, fetchPaginatedSubtrips);
 router.get("/status", authenticate, pagination, fetchSubtripsByStatuses);
 router.get("/", authenticate, fetchSubtrips);
