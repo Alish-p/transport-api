@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import dayjs from 'dayjs';
 import mongoose from 'mongoose';
 import Loan from '../loan/loan.model.js';
 import Driver from '../driver/driver.model.js';
@@ -18,6 +19,7 @@ import { calculateTransporterPayment } from '../transporterPayment/transporterPa
 import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
 import { REQUIRED_DOC_TYPES } from '../vehicleDocument/vehicleDocument.constants.js';
 import SubtripEvent from '../subtripEvent/subtripEvent.model.js';
+import { DEFAULT_TIMEZONE, getStartOfMonthIST, getNextMonthStartIST, getStartOfYearIST, getNextYearStartIST } from '../../utils/time-utils.js';
 
 
 
@@ -75,8 +77,8 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
       .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
-  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
-  const endDate = new Date(Date.UTC(year, monthNum, 1));
+  const startDate = getStartOfMonthIST(year, monthNum);
+  const endDate = getNextMonthStartIST(year, monthNum);
 
   try {
     const tenantMatch = { tenant: req.tenant };
@@ -222,8 +224,8 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
     ? new Date().getUTCFullYear()
     : yearParam;
 
-  const startOfYear = new Date(Date.UTC(year, 0, 1));
-  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+  const startOfYear = getStartOfYearIST(year);
+  const endOfYear = getNextYearStartIST(year);
 
   try {
     const results = await Subtrip.aggregate([
@@ -292,8 +294,8 @@ const getMonthlySubtripExpenseSummary = asyncHandler(async (req, res) => {
       .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
-  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
-  const endDate = new Date(Date.UTC(year, monthNum, 1));
+  const startDate = getStartOfMonthIST(year, monthNum);
+  const endDate = getNextMonthStartIST(year, monthNum);
 
   try {
     const results = await Expense.aggregate([
@@ -356,8 +358,8 @@ const getMonthlyMaterialWeightSummary = asyncHandler(async (req, res) => {
       .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
-  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
-  const endDate = new Date(Date.UTC(year, monthNum, 1));
+  const startDate = getStartOfMonthIST(year, monthNum);
+  const endDate = getNextMonthStartIST(year, monthNum);
 
   try {
     const results = await Subtrip.aggregate([
@@ -421,8 +423,8 @@ const getMonthlyDestinationSubtrips = asyncHandler(async (req, res) => {
       .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
-  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
-  const endDate = new Date(Date.UTC(year, monthNum, 1));
+  const startDate = getStartOfMonthIST(year, monthNum);
+  const endDate = getNextMonthStartIST(year, monthNum);
 
   try {
     const results = await Subtrip.aggregate([
@@ -734,8 +736,8 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
     ? new Date().getUTCFullYear()
     : yearParam;
 
-  const startOfYear = new Date(Date.UTC(year, 0, 1));
-  const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+  const startOfYear = getStartOfYearIST(year);
+  const endOfYear = getNextYearStartIST(year);
 
   try {
     const [invoiceAgg, transporterAgg, driverAgg, loanAgg] = await Promise.all([
@@ -1153,8 +1155,8 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
       .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
-  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
-  const endDate = new Date(Date.UTC(year, monthNum, 1));
+  const startDate = getStartOfMonthIST(year, monthNum);
+  const endDate = getNextMonthStartIST(year, monthNum);
 
   try {
     // Aggregate subtrip metrics per own vehicle
@@ -1330,8 +1332,8 @@ const getMonthlyDriverSummary = asyncHandler(async (req, res) => {
       .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
-  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
-  const endDate = new Date(Date.UTC(year, monthNum, 1));
+  const startDate = getStartOfMonthIST(year, monthNum);
+  const endDate = getNextMonthStartIST(year, monthNum);
 
   try {
     const results = await Subtrip.aggregate([
@@ -1417,8 +1419,8 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
       .json({ message: "Invalid month format. Use YYYY-MM" });
   }
 
-  const startDate = new Date(Date.UTC(year, monthNum - 1, 1));
-  const endDate = new Date(Date.UTC(year, monthNum, 1));
+  const startDate = getStartOfMonthIST(year, monthNum);
+  const endDate = getNextMonthStartIST(year, monthNum);
 
   try {
     const results = await Subtrip.aggregate([
@@ -1549,8 +1551,8 @@ const getDailySummary = asyncHandler(async (req, res) => {
       .json({ message: "Invalid date format. Use YYYY-MM-DD" });
   }
 
-  const startOfDay = new Date(Date.UTC(year, monthNum - 1, dayNum, 0, 0, 0, 0));
-  const endOfDay = new Date(Date.UTC(year, monthNum - 1, dayNum + 1, 0, 0, 0, 0));
+  const startOfDay = dayjs.tz(`${date}`, DEFAULT_TIMEZONE).startOf('day').toDate();
+  const endOfDay = dayjs.tz(`${date}`, DEFAULT_TIMEZONE).add(1, 'day').startOf('day').toDate();
 
   try {
     // helper: resolve subtrips from event list supporting ObjectId or subtripNo strings

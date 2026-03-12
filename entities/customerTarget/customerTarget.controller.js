@@ -2,6 +2,7 @@ import CustomerTarget from './customerTarget.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import mongoose from 'mongoose';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
+import { getStartOfMonthIST, getNextMonthStartIST } from '../../utils/time-utils.js';
 
 export const createTarget = async (req, res, next) => {
     try {
@@ -80,9 +81,9 @@ export const getTargets = async (req, res, next) => {
         targetMonth.setUTCDate(1);
         targetMonth.setUTCHours(0, 0, 0, 0);
 
-        // Calculate start and end date for the month to filter subtrips in UTC
-        const startOfMonth = new Date(Date.UTC(parseInt(year), targetMonth.getUTCMonth(), 1));
-        const endOfMonth = new Date(Date.UTC(parseInt(year), targetMonth.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+        // Calculate start and end date for the month in IST
+        const startOfMonth = getStartOfMonthIST(parseInt(year), targetMonth.getUTCMonth() + 1);
+        const endOfMonth = getNextMonthStartIST(parseInt(year), targetMonth.getUTCMonth() + 1);
 
         const targets = await CustomerTarget.find({
             tenant,
@@ -112,7 +113,7 @@ export const getTargets = async (req, res, next) => {
                             },
                             startDate: {
                                 $gte: startOfMonth,
-                                $lte: endOfMonth,
+                                $lt: endOfMonth,
                             },
                         },
                     },
