@@ -201,6 +201,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       expiringIn,
       materials,
       subtripType,
+      transporterPaymentGenerated,
     } = req.query;
 
     const { limit, skip } = req.pagination;
@@ -296,6 +297,20 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
         });
       }
       query.vehicleId = { $in: vehicles.map((v) => v._id) };
+    }
+
+    // Transporter payment generated filter (market trips only)
+    if (transporterPaymentGenerated) {
+      // Ensure only market vehicles if not already filtered
+      if (!transporterId && !vehicleId && !vehicleOwnership) {
+        const marketVehicles = await Vehicle.find(addTenantToQuery(req, { isOwn: false })).select('_id');
+        query.vehicleId = { $in: marketVehicles.map((v) => v._id) };
+      }
+      if (transporterPaymentGenerated === 'yes') {
+        query.transporterPaymentReceiptId = { $exists: true, $ne: null };
+      } else if (transporterPaymentGenerated === 'no') {
+        query.transporterPaymentReceiptId = null;
+      }
     }
 
     // Fetch data and totals in parallel
@@ -864,6 +879,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     expiringIn,
     materials,
     subtripType,
+    transporterPaymentGenerated,
     columns,
   } = req.query;
 
@@ -968,6 +984,20 @@ const exportSubtrips = asyncHandler(async (req, res) => {
       return;
     }
     query.vehicleId = { $in: vehicles.map((v) => v._id) };
+  }
+
+  // Transporter payment generated filter (market trips only)
+  if (transporterPaymentGenerated) {
+    // Ensure only market vehicles if not already filtered
+    if (!transporterId && !vehicleId && !vehicleOwnership) {
+      const marketVehicles = await Vehicle.find(addTenantToQuery(req, { isOwn: false })).select('_id');
+      query.vehicleId = { $in: marketVehicles.map((v) => v._id) };
+    }
+    if (transporterPaymentGenerated === 'yes') {
+      query.transporterPaymentReceiptId = { $exists: true, $ne: null };
+    } else if (transporterPaymentGenerated === 'no') {
+      query.transporterPaymentReceiptId = null;
+    }
   }
 
   // Column Mapping
