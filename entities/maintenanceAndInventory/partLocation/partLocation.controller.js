@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import PartLocation from './partLocation.model.js';
 import Part from '../part/part.model.js';
 import PartStock from '../partStock/partStock.model.js';
@@ -111,17 +112,32 @@ const updatePartLocation = asyncHandler(async (req, res) => {
 const deletePartLocation = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    // Guard 1: Block if any PartStock at this location has quantity > 0
-    const stockWithQuantity = await PartStock.findOne({
-        tenant: req.tenant,
-        inventoryLocation: id,
-        quantity: { $gt: 0 },
-    });
+    // Guard 1: Block if any PartStock at this location has quantity > 0 for an active part
+    const activeStockAtLocation = await PartStock.aggregate([
+        {
+            $match: {
+                tenant: req.tenant,
+                inventoryLocation: new mongoose.Types.ObjectId(id),
+                quantity: { $gt: 0 },
+            },
+        },
+        {
+            $lookup: {
+                from: 'parts',
+                localField: 'part',
+                foreignField: '_id',
+                as: 'partDoc',
+            },
+        },
+        { $unwind: '$partDoc' },
+        { $match: { 'partDoc.isActive': { $ne: false } } },
+        { $limit: 1 },
+    ]);
 
-    if (stockWithQuantity) {
+    if (activeStockAtLocation.length > 0) {
         res.status(400);
         throw new Error(
-            'Location cannot be deleted as it still has parts in stock. Please transfer or adjust stock to zero before deleting.'
+            'Location cannot be deleted as it still has active parts in stock. Please transfer or adjust stock to zero before deleting.'
         );
     }
 
