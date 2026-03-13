@@ -23,6 +23,29 @@ const createPart = asyncHandler(async (req, res) => {
   const { initialInventory, inventory, inventoryLocation } = req.body;
   const inventoryData = initialInventory || inventory;
 
+  // Guard: Ensure at least one active part location exists
+  const activeLocationCount = await PartLocation.countDocuments({
+    tenant: req.tenant,
+    isActive: { $ne: false },
+  });
+
+  if (activeLocationCount === 0) {
+    res.status(400);
+    throw new Error('Cannot create parts. Please create at least one active Part Location first.');
+  }
+
+  // Guard: Check for duplicate partNumber among active parts only
+  const existingPart = await Part.findOne({
+    tenant: req.tenant,
+    partNumber: req.body.partNumber,
+    isActive: { $ne: false },
+  });
+
+  if (existingPart) {
+    res.status(400);
+    throw new Error(`A part with Part Number "${req.body.partNumber}" already exists.`);
+  }
+
   const part = new Part({
     ...req.body,
     tenant: req.tenant,
@@ -134,6 +157,31 @@ const createBulkParts = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
+    // Guard: Ensure at least one active part location exists
+    const activeLocationCount = await PartLocation.countDocuments({
+      tenant: req.tenant,
+      isActive: { $ne: false },
+    });
+
+    if (activeLocationCount === 0) {
+      res.status(400);
+      throw new Error('Cannot create parts. Please create at least one active Part Location first.');
+    }
+
+    // Guard: Check for duplicate partNumbers among active parts only
+    const incomingPartNumbers = parts.map((p) => String(p.partNumber));
+    const existingActiveParts = await Part.find({
+      tenant: req.tenant,
+      partNumber: { $in: incomingPartNumbers },
+      isActive: { $ne: false },
+    }).select('partNumber');
+
+    if (existingActiveParts.length > 0) {
+      const duplicates = existingActiveParts.map((p) => p.partNumber).join(', ');
+      res.status(400);
+      throw new Error(`The following Part Numbers already exist: ${duplicates}`);
+    }
+
     const createdParts = [];
 
     for (const partData of parts) {

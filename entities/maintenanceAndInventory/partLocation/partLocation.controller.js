@@ -2,6 +2,10 @@ import asyncHandler from 'express-async-handler';
 import PartLocation from './partLocation.model.js';
 import Part from '../part/part.model.js';
 import PartStock from '../partStock/partStock.model.js';
+import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
+import WorkOrder from '../workOrder/workOrder.model.js';
+import { PURCHASE_ORDER_STATUS } from '../purchaseOrder/purchaseOrder.constants.js';
+import { WORK_ORDER_STATUS } from '../workOrder/workOrder.constants.js';
 import { PART_LOCATION_SEARCH_FIELDS } from '../part/part.constants.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 
@@ -107,6 +111,54 @@ const updatePartLocation = asyncHandler(async (req, res) => {
 const deletePartLocation = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
+    // Guard 1: Block if any PartStock at this location has quantity > 0
+    const stockWithQuantity = await PartStock.findOne({
+        tenant: req.tenant,
+        inventoryLocation: id,
+        quantity: { $gt: 0 },
+    });
+
+    if (stockWithQuantity) {
+        res.status(400);
+        throw new Error(
+            'Location cannot be deleted as it still has parts in stock. Please transfer or adjust stock to zero before deleting.'
+        );
+    }
+
+    // Guard 2: Block if any active Purchase Orders reference this location
+    const activePO = await PurchaseOrder.findOne({
+        tenant: req.tenant,
+        partLocation: id,
+        status: {
+            $in: [
+                PURCHASE_ORDER_STATUS.PENDING_APPROVAL,
+                PURCHASE_ORDER_STATUS.APPROVED,
+                PURCHASE_ORDER_STATUS.PURCHASED,
+            ],
+        },
+    });
+
+    if (activePO) {
+        res.status(400);
+        throw new Error(
+            'Location cannot be deleted as it is associated with an active Purchase Order. Please ensure all related Purchase Orders are received or rejected.'
+        );
+    }
+
+    // Guard 3: Block if any open/pending Work Orders reference this location
+    const activeWO = await WorkOrder.findOne({
+        tenant: req.tenant,
+        'parts.partLocation': id,
+        status: { $in: [WORK_ORDER_STATUS.OPEN, WORK_ORDER_STATUS.PENDING] },
+    });
+
+    if (activeWO) {
+        res.status(400);
+        throw new Error(
+            'Location cannot be deleted as it is associated with an open Work Order. Please ensure all related Work Orders are completed.'
+        );
+    }
+
     const location = await PartLocation.findOneAndUpdate(
         { _id: id, tenant: req.tenant },
         { isActive: false },
@@ -117,13 +169,7 @@ const deletePartLocation = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: 'Part location not found' });
     }
 
-    // Remove associated PartStock records for this location
-    await PartStock.deleteMany({
-        tenant: req.tenant,
-        inventoryLocation: id
-    });
-
-    res.status(200).json({ ...location.toObject(), message: 'Part location deleted successfully and inventory records removed' });
+    res.status(200).json({ message: 'Part location deleted successfully (soft delete)', id: location._id });
 });
 
 export {

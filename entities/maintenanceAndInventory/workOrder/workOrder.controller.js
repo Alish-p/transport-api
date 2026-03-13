@@ -503,16 +503,25 @@ const closeWorkOrder = asyncHandler(async (req, res) => {
 const deleteWorkOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const workOrder = await WorkOrder.findOneAndDelete({
-    _id: id,
-    tenant: req.tenant,
-  });
+  // Explicit status check — completed WOs are permanent maintenance records
+  const existing = await WorkOrder.findOne({ _id: id, tenant: req.tenant });
 
-  if (!workOrder) {
+  if (!existing) {
     return res.status(404).json({ message: 'Work order not found' });
   }
 
-  res.status(200).json(workOrder);
+  if (existing.status === WORK_ORDER_STATUS.COMPLETED) {
+    res.status(400);
+    throw new Error(
+      'Completed work orders cannot be deleted as they are permanent maintenance records.'
+    );
+  }
+
+  // OPEN and PENDING WOs have no inventory transactions (parts are only
+  // consumed when closeWorkOrder is called), so safe to hard delete.
+  await WorkOrder.findOneAndDelete({ _id: id, tenant: req.tenant });
+
+  res.status(200).json({ message: 'Work order deleted successfully', id: existing._id });
 });
 
 // @desc    Export work orders to Excel

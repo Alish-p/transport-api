@@ -1,5 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import Vendor from './vendor.model.js';
+import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
+import { PURCHASE_ORDER_STATUS } from '../purchaseOrder/purchaseOrder.constants.js';
 import { VENDOR_SEARCH_FIELDS } from './vendor.constants.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 
@@ -73,9 +75,30 @@ const updateVendor = asyncHandler(async (req, res) => {
   res.status(200).json(vendor);
 });
 
-// Delete Vendor
+// Delete Vendor (soft delete)
 const deleteVendor = asyncHandler(async (req, res) => {
   const { id } = req.params;
+
+  // Guard: Block if vendor has active Purchase Orders
+  const activePO = await PurchaseOrder.findOne({
+    tenant: req.tenant,
+    vendor: id,
+    status: {
+      $in: [
+        PURCHASE_ORDER_STATUS.PENDING_APPROVAL,
+        PURCHASE_ORDER_STATUS.APPROVED,
+        PURCHASE_ORDER_STATUS.PURCHASED,
+      ],
+    },
+  });
+
+  if (activePO) {
+    res.status(400);
+    throw new Error(
+      'Vendor cannot be deleted as it is associated with an active Purchase Order. Please ensure all related Purchase Orders are received or rejected.'
+    );
+  }
+
   const vendor = await Vendor.findOneAndUpdate(
     { _id: id, tenant: req.tenant },
     { isActive: false },
@@ -86,7 +109,7 @@ const deleteVendor = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Vendor not found' });
   }
 
-  res.status(200).json(vendor);
+  res.status(200).json({ message: 'Vendor deleted successfully (soft delete)', id: vendor._id });
 });
 
 export {

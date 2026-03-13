@@ -22,7 +22,10 @@ const partSchema = new Schema(
   { timestamps: true },
 );
 
-partSchema.index({ tenant: 1, partNumber: 1 }, { unique: true });
+partSchema.index(
+  { tenant: 1, partNumber: 1 },
+  { unique: true, partialFilterExpression: { isActive: true } }
+);
 
 export default model('Part', partSchema);
 
