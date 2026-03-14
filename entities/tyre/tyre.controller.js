@@ -964,5 +964,27 @@ const exportTyres = asyncHandler(async (req, res) => {
     worksheet.commit();
     await workbook.commit();
 });
+// @desc    Delete tyre (soft delete)
+// @route   DELETE /api/tyre/:id
+// @access  Private
+const deleteTyre = asyncHandler(async (req, res) => {
+    const tyreId = req.params.id;
 
-export { createTyre, createBulkTyres, getTyres, exportTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory, remoldTyre };
+    const tyre = await Tyre.findOne({ _id: tyreId, tenant: req.tenant });
+    if (!tyre) {
+        res.status(404);
+        throw new Error('Tyre not found');
+    }
+
+    if (tyre.status === TYRE_STATUS.MOUNTED) {
+        res.status(400);
+        throw new Error('Cannot delete a tyre that is currently mounted');
+    }
+
+    tyre.isActive = false;
+    await tyre.save();
+
+    res.json({ message: 'Tyre deleted successfully' });
+});
+
+export { createTyre, createBulkTyres, getTyres, exportTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory, remoldTyre, deleteTyre };
