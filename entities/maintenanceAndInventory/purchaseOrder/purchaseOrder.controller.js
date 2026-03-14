@@ -5,6 +5,8 @@ import Vendor from '../vendor/vendor.model.js';
 import PartLocation from '../partLocation/partLocation.model.js';
 import PartStock from '../partStock/partStock.model.js';
 import Part from '../part/part.model.js';
+import Tyre from '../../tyre/tyre.model.js';
+import { TYRE_STATUS } from '../../tyre/tyre.constants.js';
 import {
   PURCHASE_ORDER_STATUS,
   PURCHASE_ORDER_DISCOUNT_TYPES,
@@ -616,6 +618,17 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
     const invalidLineIds = [];
     const inventoryUpdates = [];
 
+    // Pre-fetch parts to check category for tyre detection
+    const linePartIds = [...new Set(order.lines.map((l) => l.part.toString()))];
+    const partsForLines = await Part.find({
+      _id: { $in: linePartIds.map((pid) => new mongoose.Types.ObjectId(pid)) },
+      tenant: req.tenant,
+    }).session(session);
+    const partMap = partsForLines.reduce((acc, p) => {
+      acc[p._id.toString()] = p;
+      return acc;
+    }, {});
+
     for (const line of order.lines) {
       const lineIdStr = line._id.toString();
       if (!updatesMap.has(lineIdStr)) continue;
@@ -637,12 +650,44 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
         continue;
       }
 
+      // Check if this line's part is a Tyre (category === 'Tires')
+      const partRecord = partMap[line.part.toString()];
+      const isTyrePart = partRecord?.category === 'Tires' ||
+        line.partSnapshot?.category === 'Tires';
+
+      if (isTyrePart) {
+        // Validate tyreDetails array
+        const tyreDetails = updateData.tyreDetails;
+        if (!Array.isArray(tyreDetails) || tyreDetails.length !== qtyToReceive) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            message: `Tyre details required for line "${line.partSnapshot?.name || 'Unknown'}". ` +
+              `Expected ${qtyToReceive} tyre entries, got ${Array.isArray(tyreDetails) ? tyreDetails.length : 0}.`,
+          });
+        }
+
+        // Validate each tyre entry has at least a serialNumber
+        for (let i = 0; i < tyreDetails.length; i++) {
+          if (!tyreDetails[i].serialNumber || String(tyreDetails[i].serialNumber).trim() === '') {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({
+              message: `Serial number is required for tyre entry #${i + 1} in line "${line.partSnapshot?.name || 'Unknown'}".`,
+            });
+          }
+        }
+      }
+
       const delta = qtyToReceive;
       line.quantityReceived = newReceived;
       inventoryUpdates.push({
         partId: line.part,
         delta,
         lineId: line._id,
+        isTyrePart,
+        tyreDetails: isTyrePart ? updateData.tyreDetails : null,
+        partRecord,
       });
     }
 
@@ -673,10 +718,44 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
       const incomingCost = lineItem ? Number(lineItem.unitCost) || 0 : 0;
       const incomingQty = Number(update.delta) || 0;
 
+      // ─── TYRE PARTS: Create Tyre records instead of incrementing PartStock ───
+      if (update.isTyrePart) {
+        const tyresToCreate = update.tyreDetails.map((td) => ({
+          tenant: req.tenant,
+          serialNumber: String(td.serialNumber).trim(),
+          brand: td.brand || update.partRecord?.manufacturer || '',
+          model: td.model || '',
+          size: td.size || '',
+          type: td.type || 'New',
+          status: TYRE_STATUS.IN_STOCK,
+          currentKm: 0,
+          purchaseDate: new Date(),
+          cost: incomingCost,
+          purchaseOrderNumber: order.purchaseOrderNo,
+          purchaseOrder: order._id,
+          inventoryPart: update.partId,
+          currentVehicleId: null,
+          currentPosition: null,
+          threadDepth: {
+            original: td.originalThreadDepth || 0,
+            current: td.currentThreadDepth || td.originalThreadDepth || 0,
+            lastMeasuredDate: new Date(),
+          },
+          metadata: {
+            isRemoldable: true,
+            remoldCount: 0,
+          },
+        }));
+
+        await Tyre.insertMany(tyresToCreate, { session, ordered: true });
+        continue; // Skip PartStock for tyre parts
+      }
+
+      // ─── REGULAR PARTS: Existing flow (increment PartStock) ─────────────────
       // Calculate and update Tenant-Wide Average Unit Cost
       // We only update cost if we are adding stock
       if (incomingQty > 0) {
-        const part = await Part.findOne({
+        const part = update.partRecord || await Part.findOne({
           _id: update.partId,
           tenant: req.tenant,
         }).session(session);
@@ -760,6 +839,16 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
+    
+    // Handle MongoDB Duplicate Key Error for Tyre Serial Numbers
+    if (error.code === 11000 && error.message.includes('tyres index: serialNumber')) {
+      const match = error.message.match(/serialNumber:\s*"([^"]+)"/);
+      const duplicateSerial = match ? match[1] : 'Unknown';
+      return res.status(400).json({
+        message: `Serial number "${duplicateSerial}" is already in use by another tyre in the system.`,
+      });
+    }
+
     res.status(500).json({
       message: 'An error occurred while receiving purchase order',
       error: error.message,

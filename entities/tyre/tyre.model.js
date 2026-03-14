@@ -59,6 +59,16 @@ const tyreSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
+        purchaseOrder: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'PurchaseOrder',
+            default: null,
+        },
+        inventoryPart: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Part',
+            default: null,
+        },
         currentVehicleId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Vehicle',
