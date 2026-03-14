@@ -13,6 +13,7 @@ import {
     scrapTyre,
     updateTyreHistory,
     remoldTyre,
+    deleteTyre,
 } from "./tyre.controller.js";
 import pagination from "../../middlewares/pagination.js";
 import { authenticate, checkPermission } from "../../middlewares/auth.js";
@@ -53,7 +54,10 @@ router.route("/export").get(checkPermission("tyre", "view"), exportTyres);
 router.route("/").post(checkPermission("tyre", "create"), createTyre).get(checkPermission("tyre", "view"), pagination, getTyres);
 
 
-router.route("/:id").get(checkPermission("tyre", "view"), getTyreById).put(checkPermission("tyre", "update"), updateTyre);
+router.route("/:id")
+    .get(checkPermission("tyre", "view"), getTyreById)
+    .put(checkPermission("tyre", "update"), updateTyre)
+    .delete(checkPermission("tyre", "delete"), deleteTyre);
 
 router.route("/:id/thread").post(checkPermission("tyre", "update"), updateThreadDepth);
 
