@@ -40,6 +40,7 @@ const purchaseOrderReceiveSchema = z.object({
           quantityToReceive: z
             .number()
             .positive('Quantity to receive must be positive'),
+          tyreDetails: z.array(z.any()).optional(),
         }),
       )
       .min(1, 'At least one line update is required'),
