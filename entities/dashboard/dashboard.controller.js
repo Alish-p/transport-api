@@ -247,7 +247,7 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
       { $unwind: "$vehicle" },
       {
         $group: {
-          _id: { month: { $month: "$startDate" }, isOwn: "$vehicle.isOwn" },
+          _id: { month: { $month: { date: "$startDate", timezone: DEFAULT_TIMEZONE } }, isOwn: "$vehicle.isOwn" },
           count: { $sum: 1 },
         },
       },
@@ -750,7 +750,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         },
         {
           $group: {
-            _id: { month: { $month: "$issueDate" } },
+            _id: { month: { $month: { date: "$issueDate", timezone: DEFAULT_TIMEZONE } } },
             amount: { $sum: { $ifNull: ["$netTotal", 0] } },
           },
         },
@@ -764,7 +764,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         },
         {
           $group: {
-            _id: { month: { $month: "$issueDate" } },
+            _id: { month: { $month: { date: "$issueDate", timezone: DEFAULT_TIMEZONE } } },
             amount: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
           },
         },
@@ -778,7 +778,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         },
         {
           $group: {
-            _id: { month: { $month: "$issueDate" } },
+            _id: { month: { $month: { date: "$issueDate", timezone: DEFAULT_TIMEZONE } } },
             amount: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
           },
         },
@@ -792,7 +792,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
         },
         {
           $group: {
-            _id: { month: { $month: "$disbursementDate" } },
+            _id: { month: { $month: { date: "$disbursementDate", timezone: DEFAULT_TIMEZONE } } },
             amount: { $sum: { $ifNull: ["$principalAmount", 0] } },
           },
         },

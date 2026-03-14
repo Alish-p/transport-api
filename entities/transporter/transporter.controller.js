@@ -16,7 +16,7 @@ const createTransporter = asyncHandler(async (req, res) => {
 // Fetch Transporters with pagination and search
 const fetchTransporters = asyncHandler(async (req, res) => {
   try {
-    const { search, vehicleCount, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId } = req.query;
+    const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId } = req.query;
     const { limit, skip } = req.pagination;
 
     // Base match stage
@@ -97,12 +97,17 @@ const fetchTransporters = asyncHandler(async (req, res) => {
       }
     ];
 
-    if (vehicleCount !== undefined && vehicleCount !== null && vehicleCount !== '') {
-      pipeline.push({
-        $match: {
-          vehicleCount: parseInt(vehicleCount),
-        }
-      })
+    {
+      const vcMatch = {};
+      if (vehicleCountMin !== undefined && vehicleCountMin !== null && vehicleCountMin !== '') {
+        vcMatch.$gte = parseInt(vehicleCountMin);
+      }
+      if (vehicleCountMax !== undefined && vehicleCountMax !== null && vehicleCountMax !== '') {
+        vcMatch.$lte = parseInt(vehicleCountMax);
+      }
+      if (Object.keys(vcMatch).length > 0) {
+        pipeline.push({ $match: { vehicleCount: vcMatch } });
+      }
     }
 
     // Sort stage
@@ -262,7 +267,7 @@ const cleanupTransporters = asyncHandler(async (req, res) => {
 // @route   GET /api/transporter/export
 // @access  Private
 const exportTransporters = asyncHandler(async (req, res) => {
-  const { search, vehicleCount, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, columns } = req.query;
+  const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, columns } = req.query;
 
   const matchStage = { tenant: req.tenant };
 
@@ -336,12 +341,17 @@ const exportTransporters = asyncHandler(async (req, res) => {
     }
   ];
 
-  if (vehicleCount !== undefined && vehicleCount !== null && vehicleCount !== '') {
-    pipeline.push({
-      $match: {
-        vehicleCount: parseInt(vehicleCount),
-      }
-    });
+  {
+    const vcMatch = {};
+    if (vehicleCountMin !== undefined && vehicleCountMin !== null && vehicleCountMin !== '') {
+      vcMatch.$gte = parseInt(vehicleCountMin);
+    }
+    if (vehicleCountMax !== undefined && vehicleCountMax !== null && vehicleCountMax !== '') {
+      vcMatch.$lte = parseInt(vehicleCountMax);
+    }
+    if (Object.keys(vcMatch).length > 0) {
+      pipeline.push({ $match: { vehicleCount: vcMatch } });
+    }
   }
 
   // Define column mappings according to frontend transproter config
