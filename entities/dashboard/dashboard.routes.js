@@ -19,6 +19,8 @@ import {
   getVehicleDocumentStatusSummary,
   getExpiringDocuments,
   getMonthlyDestinationSubtrips,
+  getTyreDashboardSummary,
+  getInventoryDashboardSummary,
 } from './dashboard.controller.js';
 
 const router = Router();
@@ -69,5 +71,7 @@ router.get(
 router.get("/daily-summary", authenticate, getDailySummary);
 router.get("/vehicle-documents-summary", authenticate, getVehicleDocumentStatusSummary);
 router.get("/expiring-documents-list", authenticate, getExpiringDocuments);
+router.get("/tyre-summary", authenticate, getTyreDashboardSummary);
+router.get("/inventory-summary", authenticate, getInventoryDashboardSummary);
 
 export default router;

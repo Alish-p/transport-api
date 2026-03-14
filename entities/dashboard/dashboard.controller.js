@@ -20,6 +20,9 @@ import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
 import { REQUIRED_DOC_TYPES } from '../vehicleDocument/vehicleDocument.constants.js';
 import SubtripEvent from '../subtripEvent/subtripEvent.model.js';
 import { DEFAULT_TIMEZONE, getStartOfMonthIST, getNextMonthStartIST, getStartOfYearIST, getNextYearStartIST } from '../../utils/time-utils.js';
+import Tyre from '../tyre/tyre.model.js';
+import { TYRE_STATUS } from '../tyre/tyre.constants.js';
+import Part from '../maintenanceAndInventory/part/part.model.js';
 
 
 
@@ -1721,6 +1724,126 @@ const getDailySummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Tyre dashboard summary (pie chart by status + key stats)
+const getTyreDashboardSummary = asyncHandler(async (req, res) => {
+  try {
+    const baseQuery = { tenant: req.tenant, isActive: { $ne: false } };
+
+    const [statusAgg, valueAgg, kmAgg, lowThreadCount] = await Promise.all([
+      // 1. Count by status
+      Tyre.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      // 2. Total cost value
+      Tyre.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: null, totalValue: { $sum: { $ifNull: ['$cost', 0] } } } },
+      ]),
+      // 3. Average KM per tyre
+      Tyre.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: null, avgKm: { $avg: { $ifNull: ['$currentKm', 0] } } } },
+      ]),
+      // 4. Low thread-depth alerts (current ≤ 25% of original, only where original > 0)
+      Tyre.countDocuments({
+        ...baseQuery,
+        'threadDepth.original': { $gt: 0 },
+        $expr: {
+          $lte: [
+            '$threadDepth.current',
+            { $multiply: ['$threadDepth.original', 0.25] },
+          ],
+        },
+      }),
+    ]);
+
+    // Build status map
+    const statusMap = {};
+    Object.values(TYRE_STATUS).forEach((s) => { statusMap[s] = 0; });
+    statusAgg.forEach((r) => { statusMap[r._id] = r.count; });
+
+    const totalCount = Object.values(statusMap).reduce((a, b) => a + b, 0);
+
+    res.status(200).json({
+      statusBreakdown: [
+        { label: 'In Stock', value: statusMap[TYRE_STATUS.IN_STOCK] },
+        { label: 'Mounted', value: statusMap[TYRE_STATUS.MOUNTED] },
+        { label: 'Scrapped', value: statusMap[TYRE_STATUS.SCRAPPED] },
+      ],
+      totalCount,
+      totalValue: valueAgg[0]?.totalValue || 0,
+      avgKm: Math.round(kmAgg[0]?.avgKm || 0),
+      lowThreadAlerts: lowThreadCount,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
+// Inventory dashboard summary — matches part list view analytics
+const getInventoryDashboardSummary = asyncHandler(async (req, res) => {
+  try {
+    const inventoryTotals = await Part.aggregate([
+      { $match: { tenant: req.tenant, isActive: { $ne: false } } },
+      {
+        $lookup: {
+          from: 'partstocks',
+          localField: '_id',
+          foreignField: 'part',
+          as: 'inventories',
+        },
+      },
+      {
+        $unwind: {
+          path: '$inventories',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $group: {
+          _id: '$_id',
+          unitCost: { $first: '$unitCost' },
+          totalQuantity: {
+            $sum: { $ifNull: ['$inventories.quantity', 0] },
+          },
+          threshold: { $max: '$inventories.threshold' },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalQuantityItems: { $sum: '$totalQuantity' },
+          outOfStockItems: {
+            $sum: {
+              $cond: [{ $eq: ['$totalQuantity', 0] }, 1, 0],
+            },
+          },
+          totalInventoryValue: {
+            $sum: { $multiply: ['$totalQuantity', '$unitCost'] },
+          },
+        },
+      },
+    ]);
+
+    const totals = inventoryTotals[0] || {
+      totalQuantityItems: 0,
+      outOfStockItems: 0,
+      totalInventoryValue: 0,
+    };
+
+    res.status(200).json({
+      lowStockAlerts: totals.outOfStockItems,
+      totalInventoryValue: totals.totalInventoryValue,
+      totalQuantity: totals.totalQuantityItems,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
 export {
   getTotalCounts,
   getExpiringSubtrips,
@@ -1740,4 +1863,6 @@ export {
   getVehicleDocumentStatusSummary,
   getExpiringDocuments,
   getMonthlyDestinationSubtrips,
+  getTyreDashboardSummary,
+  getInventoryDashboardSummary,
 };
