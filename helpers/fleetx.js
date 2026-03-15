@@ -75,10 +75,16 @@ const getAllFleetxVehicleData = async () => {
                     totalOdometer: vehicle.totalOdometer != null ? Math.round(vehicle.totalOdometer) : null,
                     totalFuelConsumption: vehicle.totalFuelConsumption,
                     status: vehicle.status,
+                    currentStatus: vehicle.currentStatus,
+                    speed: vehicle.speed,
                     latitude: vehicle.latitude,
                     longitude: vehicle.longitude,
                     fuel: vehicle.otherAttributes?.fuel,
-                    address: vehicle.address
+                    address: vehicle.address,
+                    driverName: vehicle.driverName,
+                    driverNumber: vehicle.driverNumber,
+                    vehicleName: vehicle.vehicleName,
+                    lastUpdatedAt: vehicle.lastUpdatedAt,
                 };
             }
         });

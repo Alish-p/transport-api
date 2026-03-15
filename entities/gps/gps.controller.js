@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import Tenant from '../tenant/tenant.model.js';
-import { getFleetxVehicleData } from '../../helpers/fleetx.js';
+import { getFleetxVehicleData, getAllFleetxVehicleData } from '../../helpers/fleetx.js';
 import { GPS_PROVIDERS } from './gps.constants.js';
 
 const getVehicleGpsData = asyncHandler(async (req, res) => {
@@ -36,4 +36,31 @@ const getVehicleGpsData = asyncHandler(async (req, res) => {
   res.status(200).json(data);
 });
 
-export { getVehicleGpsData };
+const getAllVehicleGpsData = asyncHandler(async (req, res) => {
+  const tenant = await Tenant.findById(req.tenant);
+  const integration = tenant?.integrations?.vehicleGPS;
+
+  if (!integration?.enabled) {
+    return res.status(400).json({ message: 'GPS not integrated' });
+  }
+
+  const provider = integration?.provider?.toLowerCase();
+
+  if (!provider || !Object.values(GPS_PROVIDERS).includes(provider)) {
+    return res.status(400).json({ message: 'Unsupported GPS provider' });
+  }
+
+  let data;
+
+  switch (provider) {
+    case GPS_PROVIDERS.FLEETX:
+      data = await getAllFleetxVehicleData();
+      break;
+    default:
+      return res.status(400).json({ message: 'Unsupported GPS provider' });
+  }
+
+  res.status(200).json(data);
+});
+
+export { getVehicleGpsData, getAllVehicleGpsData };
