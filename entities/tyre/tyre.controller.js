@@ -336,7 +336,7 @@ const updateTyre = asyncHandler(async (req, res) => {
 // @route   POST /api/tyre/:id/thread
 // @access  Private
 const updateThreadDepth = asyncHandler(async (req, res) => {
-    const { current, measuringDate } = req.body;
+    const { current, measuringDate, odometer } = req.body;
 
     const tyre = await Tyre.findOne({ _id: req.params.id, tenant: req.tenant });
 
@@ -361,6 +361,9 @@ const updateThreadDepth = asyncHandler(async (req, res) => {
         previousThreadDepth,
         newThreadDepth: current,
         measuringDate: measuringDate || new Date(),
+        odometer,
+        ...(tyre.currentVehicleId && { vehicleId: tyre.currentVehicleId }),
+        ...(tyre.currentPosition && { position: tyre.currentPosition }),
     });
 
 
