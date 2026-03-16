@@ -58,7 +58,7 @@ const getFleetxVehicleData = async (vehicleNo) => {
         status: vehicle.status,
         latitude: vehicle.latitude,
         longitude: vehicle.longitude,
-        fuel: vehicle.otherAttributes?.fuel,
+        fuel: vehicle.otherAttributes?.fuel ? `${Math.round(parseFloat(String(vehicle.otherAttributes.fuel).replace(/[^\d.]/g, '')))} L` : null,
         address: vehicle.address
     };
 };
@@ -79,7 +79,7 @@ const getAllFleetxVehicleData = async () => {
                     speed: vehicle.speed,
                     latitude: vehicle.latitude,
                     longitude: vehicle.longitude,
-                    fuel: vehicle.otherAttributes?.fuel,
+                    fuel: vehicle.otherAttributes?.fuel ? `${Math.round(parseFloat(String(vehicle.otherAttributes.fuel).replace(/[^\d.]/g, '')))} L` : null,
                     address: vehicle.address,
                     driverName: vehicle.driverName,
                     driverNumber: vehicle.driverNumber,
