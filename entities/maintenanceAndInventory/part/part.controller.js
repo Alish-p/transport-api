@@ -261,7 +261,7 @@ const createBulkParts = asyncHandler(async (req, res) => {
 
 const fetchParts = asyncHandler(async (req, res) => {
   try {
-    const { search, category, manufacturer, inventoryLocation } = req.query;
+    const { search, category, manufacturer, inventoryLocation, status } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -281,11 +281,10 @@ const fetchParts = asyncHandler(async (req, res) => {
       query.manufacturer = { $regex: manufacturer, $options: 'i' };
     }
 
-    // Clone query for aggregations (Mongoose does not auto-cast inside $match)
     const aggQuery = { ...query };
 
-    // Build aggregation pipeline for inventory totals (respecting filters)
-    const inventoryTotalsPipeline = [
+    // Build aggregation pipeline for inventory totals
+    const pipeline = [
       { $match: aggQuery },
       {
         $lookup: {
@@ -304,36 +303,36 @@ const fetchParts = asyncHandler(async (req, res) => {
     ];
 
     if (inventoryLocation && mongoose.Types.ObjectId.isValid(inventoryLocation)) {
-      inventoryTotalsPipeline.push({
+      pipeline.push({
         $match: {
           'inventories.inventoryLocation': new mongoose.Types.ObjectId(inventoryLocation),
         },
       });
     }
 
-    inventoryTotalsPipeline.push(
-      {
-        $group: {
-          _id: '$_id',
-          unitCost: { $first: '$unitCost' },
-          totalQuantity: {
-            $sum: {
-              $ifNull: ['$inventories.quantity', 0],
-            },
+    pipeline.push({
+      $group: {
+        _id: '$_id',
+        unitCost: { $first: '$unitCost' },
+        totalQuantity: {
+          $sum: {
+            $ifNull: ['$inventories.quantity', 0],
           },
-          // If filtered by location, we have a unique threshold. 
-          // If not, this might be ambiguous, but taking max or sum is a heuristic.
-          // Usually threshold is per location.
-          threshold: { $max: '$inventories.threshold' },
         },
+        threshold: { $max: { $ifNull: ['$inventories.threshold', 0] } },
       },
+    });
+
+    // Compute stats BEFORE filtering by status
+    const statsPipeline = [
+      ...pipeline,
       {
         $group: {
           _id: null,
           totalQuantityItems: { $sum: '$totalQuantity' },
           outOfStockItems: {
             $sum: {
-              $cond: [{ $eq: ['$totalQuantity', 0] }, 1, 0],
+              $cond: [{ $lte: ['$totalQuantity', 0] }, 1, 0],
             },
           },
           lowStockItems: {
@@ -342,11 +341,7 @@ const fetchParts = asyncHandler(async (req, res) => {
                 {
                   $and: [
                     { $lt: ['$totalQuantity', '$threshold'] },
-                    // Optional: Exclude out of stock from low stock if desired. 
-                    // But "Low Stock" usually implies attention needed.
-                    // The user asked for "Out of stock items, low stock items and all".
-                    // Let's treat them as overlapping sets unless specified.
-                    // A part with 0 quantity and threshold 5 is BOTH Out of Stock AND Low Stock.
+                    { $gt: ['$totalQuantity', 0] }
                   ]
                 },
                 1,
@@ -357,60 +352,65 @@ const fetchParts = asyncHandler(async (req, res) => {
           totalInventoryValue: {
             $sum: { $multiply: ['$totalQuantity', '$unitCost'] },
           },
+          count: { $sum: 1 }
         },
       },
-    );
+    ];
 
-    // Fetch parts with pagination
-    const [parts, total, inventoryTotalsAgg] = await Promise.all([
-      Part.find(query)
-        .sort({ name: 1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Part.countDocuments(query),
-      Part.aggregate(inventoryTotalsPipeline),
-    ]);
+    // Pipeline for ids matching status filter
+    const idsPipeline = [...pipeline];
 
-    // Fetch inventory summary for these parts
-    const partIds = parts.map(p => p._id);
-    const inventoryMatch = {
-      part: { $in: partIds },
-      tenant: req.tenant,
-    };
-
-    if (inventoryLocation && mongoose.Types.ObjectId.isValid(inventoryLocation)) {
-      inventoryMatch.inventoryLocation = new mongoose.Types.ObjectId(inventoryLocation);
+    if (status && status !== 'all') {
+      if (status === 'outOfStock') {
+        idsPipeline.push({ $match: { totalQuantity: { $lte: 0 } } });
+      } else if (status === 'lowStock') {
+        idsPipeline.push({
+          $match: {
+            totalQuantity: { $gt: 0 },
+            $expr: { $lt: ['$totalQuantity', '$threshold'] },
+          },
+        });
+      } else if (status === 'inStock') {
+        idsPipeline.push({
+          $match: {
+            totalQuantity: { $gt: 0 },
+            $expr: { $gte: ['$totalQuantity', '$threshold'] },
+          },
+        });
+      }
     }
 
-    const inventoryStats = await PartStock.aggregate([
-      { $match: inventoryMatch },
-      {
-        $group: {
-          _id: '$part',
-          totalQuantity: { $sum: '$quantity' },
-          threshold: { $max: '$threshold' },
-          locations: { $addToSet: '$inventoryLocation' } // Just to know how many locations
-        }
-      }
+    const [statsResult, matchingDocs] = await Promise.all([
+      Part.aggregate(statsPipeline),
+      Part.aggregate(idsPipeline),
     ]);
 
-    const inventoryTotals =
-      inventoryTotalsAgg[0] || {
-        totalQuantityItems: 0,
-        outOfStockItems: 0,
-        lowStockItems: 0,
-        totalInventoryValue: 0,
-      };
+    const inventoryTotals = statsResult[0] || {
+      totalQuantityItems: 0,
+      outOfStockItems: 0,
+      lowStockItems: 0,
+      totalInventoryValue: 0,
+      count: 0,
+    };
 
-    // Map stats back to parts
-    const partsWithStats = parts.map(part => {
-      const stats = inventoryStats.find(s => s._id.toString() === part._id.toString());
+    const matchingPartIds = matchingDocs.map((doc) => doc._id);
+    const total = matchingPartIds.length;
+
+    // Fetch the paginated parts directly using matching IDs
+    const parts = await Part.find({ ...query, _id: { $in: matchingPartIds } })
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const partsWithStats = parts.map((part) => {
+      const stats = matchingDocs.find(
+        (d) => d._id.toString() === part._id.toString()
+      );
       return {
         ...part,
         totalQuantity: stats ? stats.totalQuantity : 0,
         threshold: stats ? stats.threshold : 0,
-        locationCount: stats ? stats.locations.length : 0
       };
     });
 
@@ -422,6 +422,7 @@ const fetchParts = asyncHandler(async (req, res) => {
       totalQuantityItems: inventoryTotals.totalQuantityItems || 0,
       outOfStockItems: inventoryTotals.outOfStockItems || 0,
       lowStockItems: inventoryTotals.lowStockItems || 0,
+      count: inventoryTotals.count || 0,
       totalInventoryValue: inventoryTotals.totalInventoryValue || 0,
     });
   } catch (error) {
