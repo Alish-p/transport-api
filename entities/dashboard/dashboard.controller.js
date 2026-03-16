@@ -23,8 +23,10 @@ import { DEFAULT_TIMEZONE, getStartOfMonthIST, getNextMonthStartIST, getStartOfY
 import Tyre from '../tyre/tyre.model.js';
 import { TYRE_STATUS } from '../tyre/tyre.constants.js';
 import Part from '../maintenanceAndInventory/part/part.model.js';
-
-
+import WorkOrder from '../maintenanceAndInventory/workOrder/workOrder.model.js';
+import { WORK_ORDER_STATUS } from '../maintenanceAndInventory/workOrder/workOrder.constants.js';
+import PurchaseOrder from '../maintenanceAndInventory/purchaseOrder/purchaseOrder.model.js';
+import { PURCHASE_ORDER_STATUS } from '../maintenanceAndInventory/purchaseOrder/purchaseOrder.constants.js';
 
 // Get basic entity counts
 const getTotalCounts = asyncHandler(async (req, res) => {
@@ -1785,7 +1787,7 @@ const getTyreDashboardSummary = asyncHandler(async (req, res) => {
 // Inventory dashboard summary — matches part list view analytics
 const getInventoryDashboardSummary = asyncHandler(async (req, res) => {
   try {
-    const inventoryTotals = await Part.aggregate([
+    const pipeline = [
       { $match: { tenant: req.tenant, isActive: { $ne: false } } },
       {
         $lookup: {
@@ -1808,7 +1810,7 @@ const getInventoryDashboardSummary = asyncHandler(async (req, res) => {
           totalQuantity: {
             $sum: { $ifNull: ['$inventories.quantity', 0] },
           },
-          threshold: { $max: '$inventories.threshold' },
+          threshold: { $max: { $ifNull: ['$inventories.threshold', 0] } },
         },
       },
       {
@@ -1817,27 +1819,110 @@ const getInventoryDashboardSummary = asyncHandler(async (req, res) => {
           totalQuantityItems: { $sum: '$totalQuantity' },
           outOfStockItems: {
             $sum: {
-              $cond: [{ $eq: ['$totalQuantity', 0] }, 1, 0],
+              $cond: [{ $lte: ['$totalQuantity', 0] }, 1, 0],
+            },
+          },
+          lowStockItems: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $lt: ['$totalQuantity', '$threshold'] },
+                    { $gt: ['$totalQuantity', 0] }
+                  ]
+                },
+                1,
+                0
+              ],
             },
           },
           totalInventoryValue: {
             $sum: { $multiply: ['$totalQuantity', '$unitCost'] },
           },
+          totalParts: { $sum: 1 },
         },
       },
+    ];
+
+    const [inventoryTotals, openPurchaseOrders] = await Promise.all([
+      Part.aggregate(pipeline),
+      PurchaseOrder.countDocuments({
+        tenant: req.tenant,
+        status: {
+          $in: [
+            PURCHASE_ORDER_STATUS.PENDING_APPROVAL,
+            PURCHASE_ORDER_STATUS.PURCHASED,
+            PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED,
+          ],
+        },
+      }),
     ]);
 
     const totals = inventoryTotals[0] || {
       totalQuantityItems: 0,
       outOfStockItems: 0,
+      lowStockItems: 0,
       totalInventoryValue: 0,
+      totalParts: 0,
     };
 
+    const inStockItems = totals.totalParts - totals.outOfStockItems - totals.lowStockItems;
+
     res.status(200).json({
-      lowStockAlerts: totals.outOfStockItems,
+      lowStockAlerts: totals.outOfStockItems + totals.lowStockItems, // Deprecated maybe but keeping just in case
       totalInventoryValue: totals.totalInventoryValue,
       totalQuantity: totals.totalQuantityItems,
+      // newly added attributes:
+      totalParts: totals.totalParts,
+      outOfStockItems: totals.outOfStockItems,
+      lowStockItems: totals.lowStockItems,
+      inStockItems: inStockItems > 0 ? inStockItems : 0, 
+      openPurchaseOrders,
     });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
+// WorkOrder dashboard summary
+const getWorkOrderDashboardSummary = asyncHandler(async (req, res) => {
+  try {
+    const pipeline = [
+      { $match: { tenant: req.tenant } },
+      {
+        $group: {
+          _id: null,
+          totalWorkOrders: { $sum: 1 },
+          openWorkOrders: {
+            $sum: {
+              $cond: [{ $eq: ['$status', WORK_ORDER_STATUS.OPEN] }, 1, 0],
+            },
+          },
+          pendingWorkOrders: {
+            $sum: {
+              $cond: [{ $eq: ['$status', WORK_ORDER_STATUS.PENDING] }, 1, 0],
+            },
+          },
+          completedWorkOrders: {
+            $sum: {
+              $cond: [{ $eq: ['$status', WORK_ORDER_STATUS.COMPLETED] }, 1, 0],
+            },
+          },
+        },
+      },
+    ];
+
+    const result = await WorkOrder.aggregate(pipeline);
+
+    const totals = result[0] || {
+      totalWorkOrders: 0,
+      openWorkOrders: 0,
+      pendingWorkOrders: 0,
+      completedWorkOrders: 0,
+    };
+
+    res.status(200).json(totals);
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: error.message || error });
@@ -1865,4 +1950,5 @@ export {
   getMonthlyDestinationSubtrips,
   getTyreDashboardSummary,
   getInventoryDashboardSummary,
+  getWorkOrderDashboardSummary,
 };
