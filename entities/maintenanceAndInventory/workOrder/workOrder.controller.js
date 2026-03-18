@@ -401,7 +401,7 @@ const closeWorkOrder = asyncHandler(async (req, res) => {
     }
 
     // Process parts consumption
-    if (workOrder.parts && workOrder.parts.length > 0) {
+    if (workOrder.category !== 'External Workshop' && workOrder.parts && workOrder.parts.length > 0) {
       for (const line of workOrder.parts) {
         if (!line.part) continue; // Skip non-part items (adhoc/provision)
 
