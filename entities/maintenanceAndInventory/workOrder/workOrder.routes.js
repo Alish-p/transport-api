@@ -7,6 +7,7 @@ import {
   closeWorkOrder,
   exportWorkOrders,
   deleteWorkOrder,
+  addWorkOrderExpense
 } from './workOrder.controller.js';
 import {
   workOrderCreateSchema,
@@ -57,6 +58,13 @@ router.delete(
 
   checkPermission('workOrder', 'delete'),
   deleteWorkOrder,
+);
+
+// Add final expense to a completed Work Order
+router.post(
+  '/:id/expense',
+  checkPermission('workOrder', 'update'),
+  addWorkOrderExpense
 );
 
 export default router;

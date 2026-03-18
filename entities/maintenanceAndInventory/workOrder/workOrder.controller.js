@@ -125,7 +125,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
 
 const fetchWorkOrders = asyncHandler(async (req, res) => {
   try {
-    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee } = req.query;
+    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, expenseAdded } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -173,6 +173,10 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
 
     if (issueAssignee) {
       query['issues.assignedTo'] = new ObjectId(issueAssignee);
+    }
+
+    if (expenseAdded !== undefined && expenseAdded !== '') {
+      query.expenseAdded = expenseAdded === 'true';
     }
 
     const aggMatch = { ...query };
@@ -453,21 +457,24 @@ const closeWorkOrder = asyncHandler(async (req, res) => {
     workOrder.partsCost = partsCost;
     workOrder.totalCost = totalCost;
 
+    // Make sure we validate cost BEFORE proceeding if they want to create an expense
+    if (req.body.createExpense && (!totalCost || totalCost <= 0)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: 'Cannot create expense for work order with 0 total cost.',
+      });
+    }
+
+    if (req.body.createExpense) {
+      workOrder.expenseAdded = true;
+    }
+
     const updated = await workOrder.save({ session });
 
     // Handle Optional Expense Creation
     if (req.body.createExpense) {
-      if (!workOrder.totalCost || workOrder.totalCost <= 0) {
-        // Decide if we want to block or just skip. 
-        // Skipping with a warning might be better, or erroring out.
-        // Let's error out to be safe if user explicitly asked for expense.
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          message: 'Cannot create expense for work order with 0 cost',
-        });
-      }
-
+    // Validation is done earlier now
       const expense = new Expense({
         vehicleId: workOrder.vehicle,
         date: workOrder.completedDate || new Date(),
@@ -528,7 +535,7 @@ const deleteWorkOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/work-orders/export
 // @access  Private
 const exportWorkOrders = asyncHandler(async (req, res) => {
-  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, columns } = req.query;
+  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, columns, expenseAdded } = req.query;
 
   const query = addTenantToQuery(req);
 
@@ -577,6 +584,10 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     query['issues.assignedTo'] = new ObjectId(issueAssignee);
   }
 
+  if (expenseAdded !== undefined && expenseAdded !== '') {
+    query.expenseAdded = expenseAdded === 'true';
+  }
+
   const orders = await WorkOrder.find(query)
     .populate('vehicle', 'vehicleNo')
     .populate('issues.assignedTo', 'name customerName')
@@ -594,6 +605,7 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     issueAssignees: { header: 'Issue Assignees', key: 'issueAssignees', width: 25 },
     scheduledStartDate: { header: 'Scheduled Start', key: 'scheduledStartDate', width: 15 },
     completedDate: { header: 'Completed On', key: 'completedDate', width: 15 },
+    expenseAdded: { header: 'Expense Added', key: 'expenseAdded', width: 15 },
     totalCost: { header: 'Total Cost', key: 'totalCost', width: 15 },
   };
 
@@ -660,6 +672,8 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
       } else if (key === 'scheduledStartDate' || key === 'completedDate') {
         const dateStr = rowData[key] ? new Date(rowData[key]).toLocaleDateString() : '-';
         row[key] = dateStr;
+      } else if (key === 'expenseAdded') {
+        row[key] = rowData[key] ? 'Yes' : 'No';
       } else {
         row[key] = (rowData[key] !== undefined && rowData[key] !== null) ? rowData[key] : '-';
       }
@@ -685,6 +699,73 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
   await workbook.commit();
 });
 
+// ─── ADD WORK ORDER EXPENSE ──────────────────────────────────────────────────
+
+const addWorkOrderExpense = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const workOrder = await WorkOrder.findOne({
+      _id: id,
+      tenant: req.tenant,
+    }).session(session);
+
+    if (!workOrder) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: 'Work order not found' });
+    }
+
+    if (workOrder.status !== WORK_ORDER_STATUS.COMPLETED) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: 'Can only add expense to completed work orders' });
+    }
+
+    if (workOrder.expenseAdded) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: 'Expense already added for this work order' });
+    }
+
+    if (!workOrder.totalCost || workOrder.totalCost <= 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: 'Cannot create expense for work order with 0 cost' });
+    }
+
+    const expense = new Expense({
+      vehicleId: workOrder.vehicle,
+      date: workOrder.completedDate || new Date(),
+      expenseCategory: 'vehicle',
+      expenseType: 'Work Order',
+      amount: workOrder.totalCost,
+      remarks: `Created from Work Order #${workOrder.workOrderNo || workOrder._id}`,
+      tenant: req.tenant,
+    });
+
+    await expense.save({ session });
+
+    workOrder.expenseAdded = true;
+    const updated = await workOrder.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json(updated);
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({
+      message: 'An error occurred while adding work order expense',
+      error: error.message,
+    });
+  }
+});
+
 export {
   createWorkOrder,
   fetchWorkOrders,
@@ -693,4 +774,5 @@ export {
   closeWorkOrder,
   exportWorkOrders,
   deleteWorkOrder,
+  addWorkOrderExpense,
 };

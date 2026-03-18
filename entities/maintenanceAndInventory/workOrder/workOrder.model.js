@@ -73,6 +73,8 @@ const workOrderSchema = new Schema(
     partsCost: { type: Number, default: 0, min: 0 },
     totalCost: { type: Number, default: 0, min: 0 },
 
+    expenseAdded: { type: Boolean, default: false },
+
     description: { type: String },
 
     createdBy: {
