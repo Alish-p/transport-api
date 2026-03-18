@@ -3,6 +3,7 @@ import {
   fetchTrips,
   fetchTripsPreview,
   fetchVehicleActiveTrip,
+  fetchActiveTripsMap,
   fetchTrip,
   updateTrip,
   deleteTrip,
@@ -20,6 +21,7 @@ router.get("/route-analytics", authenticate, pagination, fetchRouteAnalytics);
 router.get("/", authenticate, pagination, fetchTrips);
 router.get("/preview", authenticate, pagination, fetchTripsPreview);
 router.get("/vehicle/:vehicleId/active", authenticate, fetchVehicleActiveTrip);
+router.get("/active-trips-map", authenticate, fetchActiveTripsMap);
 router.get("/:id", authenticate, fetchTrip);
 router.put(
   "/:id",

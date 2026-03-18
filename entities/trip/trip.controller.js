@@ -296,6 +296,29 @@ const fetchVehicleActiveTrip = asyncHandler(async (req, res) => {
     activeTrip);
 });
 
+// Fetch a map of vehicleNo → { tripId, tripNo } for all open trips
+const fetchActiveTripsMap = asyncHandler(async (req, res) => {
+  const openTrips = await Trip.find({
+    tenant: req.tenant,
+    tripStatus: TRIP_STATUS.OPEN,
+  })
+    .populate({ path: "vehicleId", select: "vehicleNo" })
+    .select("tripNo vehicleId")
+    .lean();
+
+  const tripsMap = {};
+  for (const trip of openTrips) {
+    if (trip.vehicleId?.vehicleNo) {
+      tripsMap[trip.vehicleId.vehicleNo] = {
+        tripId: trip._id,
+        tripNo: trip.tripNo,
+      };
+    }
+  }
+
+  res.status(200).json(tripsMap);
+});
+
 // fetch All details of trip
 const fetchTrip = asyncHandler(async (req, res) => {
 
@@ -623,6 +646,7 @@ export {
   fetchTrips,
   fetchTripsPreview,
   fetchVehicleActiveTrip,
+  fetchActiveTripsMap,
   fetchTrip,
   closeTrip,
   updateTrip,
