@@ -304,9 +304,7 @@ const updateTyre = asyncHandler(async (req, res) => {
         tyre.purchaseDate = req.body.purchaseDate || tyre.purchaseDate;
         tyre.cost = req.body.cost || tyre.cost;
         tyre.type = req.body.type || tyre.type;
-        if (req.body.category !== undefined) {
-            tyre.category = req.body.category;
-        }
+        tyre.category = req.body.category;
         tyre.purchaseOrderNumber = req.body.purchaseOrderNumber || tyre.purchaseOrderNumber;
 
         // Handle metadata updates if needed
