@@ -35,7 +35,10 @@ const tyreSchema = new mongoose.Schema(
             enum: Object.values(TYRE_TYPE),
             required: true,
         },
-
+        category: {
+            type: String,
+            trim: true,
+        },
         status: {
             type: String,
             enum: Object.values(TYRE_STATUS),

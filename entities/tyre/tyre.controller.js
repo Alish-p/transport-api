@@ -18,6 +18,7 @@ const createTyre = asyncHandler(async (req, res) => {
         model,
         size,
         type,
+        category,
         // status is forced to In_Stock by business logic if not provided or overridden
         // openingkm (currentKm) is 0 if type is New
         purchaseDate,
@@ -47,6 +48,7 @@ const createTyre = asyncHandler(async (req, res) => {
         model,
         size,
         type,
+        category,
         status,
         currentKm: currentKm || 0,
         purchaseDate: purchaseDate || new Date(),
@@ -86,6 +88,7 @@ const createBulkTyres = asyncHandler(async (req, res) => {
             model,
             size,
             type,
+            category,
             purchaseDate,
             cost,
             purchaseOrderNumber,
@@ -109,6 +112,7 @@ const createBulkTyres = asyncHandler(async (req, res) => {
             model,
             size,
             type,
+            category,
             status,
             currentKm: currentKm || 0,
             purchaseDate: purchaseDate || new Date(),
@@ -148,7 +152,7 @@ const createBulkTyres = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre
 // @access  Private
 const getTyres = asyncHandler(async (req, res) => {
-    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread } = req.query;
+    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, category } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -198,6 +202,10 @@ const getTyres = asyncHandler(async (req, res) => {
 
     if (size) {
         query.size = { $regex: size, $options: 'i' };
+    }
+
+    if (category) {
+        query.category = { $regex: category, $options: 'i' };
     }
 
     // Analytics Aggregation
@@ -296,6 +304,9 @@ const updateTyre = asyncHandler(async (req, res) => {
         tyre.purchaseDate = req.body.purchaseDate || tyre.purchaseDate;
         tyre.cost = req.body.cost || tyre.cost;
         tyre.type = req.body.type || tyre.type;
+        if (req.body.category !== undefined) {
+            tyre.category = req.body.category;
+        }
         tyre.purchaseOrderNumber = req.body.purchaseOrderNumber || tyre.purchaseOrderNumber;
 
         // Handle metadata updates if needed
@@ -824,7 +835,7 @@ const remoldTyre = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre/export
 // @access  Private
 const exportTyres = asyncHandler(async (req, res) => {
-    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, columns } = req.query;
+    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, columns, category } = req.query;
 
     const query = addTenantToQuery(req);
     query.isActive = { $ne: false };
@@ -873,6 +884,10 @@ const exportTyres = asyncHandler(async (req, res) => {
         query.size = { $regex: size, $options: 'i' };
     }
 
+    if (category) {
+        query.category = { $regex: category, $options: 'i' };
+    }
+
     const COLUMN_MAPPING = {
         serialNumber: { header: 'Tyre Number', key: 'serialNumber', width: 20 },
         vehicle: { header: 'Vehicle', key: 'vehicle', width: 20 },
@@ -883,6 +898,7 @@ const exportTyres = asyncHandler(async (req, res) => {
         model: { header: 'Model', key: 'model', width: 20 },
         size: { header: 'Size', key: 'size', width: 20 },
         type: { header: 'Type', key: 'type', width: 15 },
+        category: { header: 'Category', key: 'category', width: 20 },
         cost: { header: 'Cost', key: 'cost', width: 15 },
         threadDepth: { header: 'Thread Depth', key: 'threadDepth', width: 20 },
         createdAt: { header: 'Added on', key: 'createdAt', width: 20 },
