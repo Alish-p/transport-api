@@ -7,4 +7,5 @@ export {
   sendTemplateMessage,
   sendTransporterPaymentNotification,
   sendLRGenerationNotification,
+  sendDriverJobAssignedNotification,
 } from "./whatsapp/index.js";

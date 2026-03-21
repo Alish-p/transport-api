@@ -10,7 +10,7 @@ import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
-import { sendLRGenerationNotification } from '../../services/whatsapp.service.js';
+import { sendLRGenerationNotification, sendDriverJobAssignedNotification } from '../../services/whatsapp.service.js';
 import { getStartOfTodayIST } from '../../utils/time-utils.js';
 
 
@@ -493,6 +493,20 @@ const createJob = asyncHandler(async (req, res) => {
         console.error('Failed to send LR WhatsApp notification:', err?.message || err);
       }
     }
+
+    // // WhatsApp: Notify driver on job assignment (loaded jobs only)
+    // if (isLoaded) {
+    //   try {
+    //     await sendDriverJobAssignedNotification({
+    //       tenantId: req.tenant,
+    //       driverId,
+    //       vehicle,
+    //       subtrip: newSubtrip,
+    //     });
+    //   } catch (err) {
+    //     console.error('Failed to send driver WhatsApp notification:', err?.message || err);
+    //   }
+    // }
 
     const populatedSubtrip = await newSubtrip.populate('driverId');
     return res.status(201).json(populatedSubtrip);

@@ -84,6 +84,9 @@ const integrationSchema = new Schema(
       enabled: { type: Boolean, default: false },
       config: { type: Schema.Types.Mixed },
     },
+    epod: {
+      enabled: { type: Boolean, default: false },
+    },
   },
   { _id: false }
 );

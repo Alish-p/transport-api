@@ -35,9 +35,6 @@ const CustomerSchema = new Schema({
   invoiceSuffix: { type: String },
   currentInvoiceSerialNumber: { type: Number, required: true },
 
-  // Electronic Proof of Delivery (EPOD)
-  epodEnabled: { type: Boolean, default: false },
-
   // days within which invoice should be paid
   invoiceDueInDays: { type: Number, default: 10 },
   tenant: {
