@@ -6,7 +6,7 @@ import { sendTemplateMessage } from "../api.js";
 /**
  * Send WhatsApp notification to driver when a job is assigned.
  * Template: driver_job_assigned
- * Body params: driverName, vehicleNo, lrNumber, fromCity, toCity, material, ewayExpiry, destinationMapLink
+ * Body params: driverName, tenantName, vehicleNo, lrNumber, fromCity, toCity, material, ewayExpiry, destinationMapLink
  * Button (URL): EPOD link
  */
 async function sendDriverJobAssignedNotification({ tenantId, driverId, vehicle, subtrip }) {
@@ -41,9 +41,9 @@ async function sendDriverJobAssignedNotification({ tenantId, driverId, vehicle, 
   const material = subtrip?.materialType || "";
   const ewayExpiry = subtrip?.ewayExpiryDate ? fDate(subtrip.ewayExpiryDate) : "-";
 
-  // Google Maps link for destination (unloading point as search query)
+  // Google Maps link for destination
   const destinationMapLink = toCity
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(toCity)}`
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(toCity)}`
     : "";
 
   const components = [
@@ -51,6 +51,7 @@ async function sendDriverJobAssignedNotification({ tenantId, driverId, vehicle, 
       type: "body",
       parameters: [
         driverName,
+        tenantName || "the company",
         vehicleNo,
         lrNumber,
         fromCity,

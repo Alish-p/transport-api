@@ -494,7 +494,7 @@ const createJob = asyncHandler(async (req, res) => {
       }
     }
 
-    // // WhatsApp: Notify driver on job assignment (loaded jobs only)
+    // WhatsApp: Notify driver on job assignment (loaded jobs only)
     // if (isLoaded) {
     //   try {
     //     await sendDriverJobAssignedNotification({

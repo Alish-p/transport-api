@@ -303,15 +303,33 @@ const fetchActiveTripsMap = asyncHandler(async (req, res) => {
     tripStatus: TRIP_STATUS.OPEN,
   })
     .populate({ path: "vehicleId", select: "vehicleNo" })
-    .select("tripNo vehicleId")
+    .populate({
+      path: "subtrips",
+      select: "subtripNo subtripStatus loadingPoint unloadingPoint driverId customerId",
+      populate: [
+        { path: "driverId", select: "driverName driverCellNo" },
+        { path: "customerId", select: "customerName" }
+      ]
+    })
+    .select("tripNo vehicleId subtrips")
     .lean();
 
   const tripsMap = {};
   for (const trip of openTrips) {
     if (trip.vehicleId?.vehicleNo) {
+      const loadedSubtrips = (trip.subtrips || []).filter(st => st.subtripStatus === SUBTRIP_STATUS.LOADED);
+
       tripsMap[trip.vehicleId.vehicleNo] = {
         tripId: trip._id,
         tripNo: trip.tripNo,
+        loadedSubtrips: loadedSubtrips.map(st => ({
+          subtripNo: st.subtripNo,
+          driverName: st.driverId?.driverName,
+          driverCellNo: st.driverId?.driverCellNo,
+          loadingPoint: st.loadingPoint,
+          unloadingPoint: st.unloadingPoint,
+          customerName: st.customerId?.customerName
+        }))
       };
     }
   }
