@@ -62,6 +62,16 @@ const subtripSchema = new Schema({
   // Status tracking
   subtripStatus: { type: String },
 
+  // Electronic Proof of Delivery (EPOD)
+  podSignature: { type: String },       // S3 URL of signature image
+  podSignedBy: { type: String },        // Name of the person who signed
+  podSignedAt: { type: Date },          // Timestamp when signed
+  podRemarks: { type: String },         // Optional remarks from consignee
+  podGeoLocation: {
+    latitude: { type: Number },
+    longitude: { type: Number },
+  },
+
   // Incase of any error
   hasError: { type: Boolean, default: false },
   errorRemarks: { type: String },
