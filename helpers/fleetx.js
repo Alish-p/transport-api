@@ -87,6 +87,7 @@ const getAllFleetxVehicleData = async () => {
                     driverNumber: vehicle.driverNumber,
                     vehicleName: vehicle.vehicleName,
                     lastUpdatedAt: vehicle.lastUpdatedAt,
+                    course: vehicle.otherAttributes?.course ?? null,
                 };
             }
         });
