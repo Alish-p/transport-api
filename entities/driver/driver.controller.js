@@ -101,6 +101,7 @@ const fetchDrivers = asyncHandler(async (req, res) => {
       .select(
         '-guarantorName -guarantorCellNo -dob -dlImage -photoImage -aadharImage -bankDetails'
       )
+      .lean()
       .sort({ driverName: 1 })
       .skip(skip)
       .limit(limit),
@@ -109,8 +110,42 @@ const fetchDrivers = asyncHandler(async (req, res) => {
     Driver.countDocuments(filterQuery),
   ]);
 
+  const driverIds = drivers.map((d) => d._id);
+
+  // Safely aggregate first and last job dates for these drivers
+  const subtripStatsArr = await Subtrip.aggregate([
+    {
+      $match: {
+        driverId: { $in: driverIds },
+        tenant: req.tenant,
+        startDate: { $type: 'date' },
+      },
+    },
+    {
+      $group: {
+        _id: '$driverId',
+        firstJobAt: { $min: '$startDate' },
+        lastJobAt: { $max: '$startDate' },
+      },
+    },
+  ]);
+
+  const subtripStatsMap = subtripStatsArr.reduce((acc, stat) => {
+    acc[stat._id.toString()] = {
+      firstJobAt: stat.firstJobAt,
+      lastJobAt: stat.lastJobAt,
+    };
+    return acc;
+  }, {});
+
+  const enrichedDrivers = drivers.map((d) => ({
+    ...d,
+    firstJobAt: subtripStatsMap[d._id.toString()]?.firstJobAt || null,
+    lastJobAt: subtripStatsMap[d._id.toString()]?.lastJobAt || null,
+  }));
+
   res.status(200).json({
-    drivers,
+    drivers: enrichedDrivers,
     total: filteredCount,
     totals: {
       all: { count: totalAll },
