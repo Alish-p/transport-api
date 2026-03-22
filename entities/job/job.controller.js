@@ -5,6 +5,7 @@ import Subtrip from '../subtrip/subtrip.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import Expense from '../expense/expense.model.js';
+import Tenant from '../tenant/tenant.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
@@ -474,39 +475,45 @@ const createJob = asyncHandler(async (req, res) => {
       );
     }
 
-    // WhatsApp: Notify transporter on LR generation for market vehicles only
-    if (!isOwnVehicle) {
-      try {
-        let transporterDoc = null;
-        if (vehicle?.transporter) {
-          transporterDoc = await Transporter.findOne({ _id: vehicle.transporter, tenant: req.tenant });
+    const tenantObj = await Tenant.findById(req.tenant);
+    const whatsappEnabled = tenantObj?.integrations?.whatsapp?.enabled;
+    const epodEnabled = tenantObj?.integrations?.epod?.enabled;
+
+    if (whatsappEnabled) {
+      // WhatsApp: Notify transporter on LR generation for market vehicles only
+      if (!isOwnVehicle) {
+        try {
+          let transporterDoc = null;
+          if (vehicle?.transporter) {
+            transporterDoc = await Transporter.findOne({ _id: vehicle.transporter, tenant: req.tenant });
+          }
+          await sendLRGenerationNotification({
+            tenantId: req.tenant,
+            transporter: transporterDoc,
+            vehicle,
+            subtrip: newSubtrip,
+            createdBy: req.user,
+          });
+        } catch (err) {
+          // Non-blocking; log and continue
+          console.error('Failed to send LR WhatsApp notification:', err?.message || err);
         }
-        await sendLRGenerationNotification({
-          tenantId: req.tenant,
-          transporter: transporterDoc,
-          vehicle,
-          subtrip: newSubtrip,
-          createdBy: req.user,
-        });
-      } catch (err) {
-        // Non-blocking; log and continue
-        console.error('Failed to send LR WhatsApp notification:', err?.message || err);
+      }
+
+      // WhatsApp: Notify driver on job assignment (loaded jobs only)
+      if (isLoaded && epodEnabled) {
+        try {
+          await sendDriverJobAssignedNotification({
+            tenantId: req.tenant,
+            driverId,
+            vehicle,
+            subtrip: newSubtrip,
+          });
+        } catch (err) {
+          console.error('Failed to send driver WhatsApp notification:', err?.message || err);
+        }
       }
     }
-
-    // WhatsApp: Notify driver on job assignment (loaded jobs only)
-    // if (isLoaded) {
-    //   try {
-    //     await sendDriverJobAssignedNotification({
-    //       tenantId: req.tenant,
-    //       driverId,
-    //       vehicle,
-    //       subtrip: newSubtrip,
-    //     });
-    //   } catch (err) {
-    //     console.error('Failed to send driver WhatsApp notification:', err?.message || err);
-    //   }
-    // }
 
     const populatedSubtrip = await newSubtrip.populate('driverId');
     return res.status(201).json(populatedSubtrip);

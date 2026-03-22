@@ -5,6 +5,7 @@ import Driver from '../driver/driver.model.js';
 import Expense from '../expense/expense.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import Customer from '../customer/customer.model.js';
+import Tenant from '../tenant/tenant.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { SUBTRIP_STATUS } from './subtrip.constants.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
@@ -847,21 +848,21 @@ const getDocumentUploadUrl = asyncHandler(async (req, res) => {
 // Public: Submit EPOD signature (no auth required)
 const submitEpod = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { podSignature, podSignedBy, podRemarks, podGeoLocation } = req.body;
+  const { podSignature, podSignedBy, podRemarks, podGeoLocation, podImages } = req.body;
 
   if (!podSignature || !podSignedBy) {
     return res.status(400).json({ message: 'Signature and signer name are required' });
   }
 
-  const subtrip = await Subtrip.findById(id).populate('customerId');
+  const subtrip = await Subtrip.findById(id).populate('tenant');
 
   if (!subtrip) {
     return res.status(404).json({ message: 'Job not found' });
   }
 
-  // Check customer has EPOD enabled
-  if (!subtrip.customerId?.epodEnabled) {
-    return res.status(403).json({ message: 'EPOD is not enabled for this customer' });
+  // Check tenant has EPOD enabled
+  if (!subtrip.tenant?.integrations?.epod?.enabled) {
+    return res.status(403).json({ message: 'epod is not enabled for Your company, Please contact Tranzit team' });
   }
 
   // Check if already signed
@@ -881,6 +882,7 @@ const submitEpod = asyncHandler(async (req, res) => {
     podSignedAt: new Date(),
     podRemarks: podRemarks || undefined,
     podGeoLocation: podGeoLocation || undefined,
+    podImages: podImages || [],
   });
 
   // Record EPOD event

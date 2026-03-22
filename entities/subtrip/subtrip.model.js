@@ -64,6 +64,7 @@ const subtripSchema = new Schema({
 
   // Electronic Proof of Delivery (EPOD)
   podSignature: { type: String },       // S3 URL of signature image
+  podImages: [{ type: String }],        // S3 URLs of evidence images
   podSignedBy: { type: String },        // Name of the person who signed
   podSignedAt: { type: Date },          // Timestamp when signed
   podRemarks: { type: String },         // Optional remarks from consignee
