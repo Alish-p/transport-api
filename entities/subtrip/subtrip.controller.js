@@ -848,10 +848,10 @@ const getDocumentUploadUrl = asyncHandler(async (req, res) => {
 // Public: Submit EPOD signature (no auth required)
 const submitEpod = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { podSignature, podSignedBy, podRemarks, podGeoLocation, podImages } = req.body;
+  const { podSignature, podSignedBy, podSigneeMobile, podRemarks, podGeoLocation, podImages } = req.body;
 
-  if (!podSignature || !podSignedBy) {
-    return res.status(400).json({ message: 'Signature and signer name are required' });
+  if (!podSignature || !podSignedBy || !podSigneeMobile) {
+    return res.status(400).json({ message: 'Signature, signer name, and mobile number are required' });
   }
 
   const subtrip = await Subtrip.findById(id).populate('tenant');
@@ -879,6 +879,7 @@ const submitEpod = asyncHandler(async (req, res) => {
   Object.assign(subtrip, {
     podSignature,
     podSignedBy,
+    podSigneeMobile,
     podSignedAt: new Date(),
     podRemarks: podRemarks || undefined,
     podGeoLocation: podGeoLocation || undefined,
@@ -889,7 +890,7 @@ const submitEpod = asyncHandler(async (req, res) => {
   await recordSubtripEvent(
     subtrip._id,
     SUBTRIP_EVENT_TYPES.EPOD_SUBMITTED,
-    { podSignedBy, podRemarks },
+    { podSignedBy, podSigneeMobile, podRemarks },
     null, // no user (public)
     subtrip.tenant
   );
