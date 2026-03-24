@@ -234,6 +234,7 @@ export {
   cleanupVehicles,
   getVehicleKmTemplate,
   bulkUpdateVehicleKm,
+  exportVehicles,
 };
 
 /**
@@ -411,4 +412,159 @@ export const lookupVehicleDetails = asyncHandler(async (req, res) => {
     vehicle: normalized,
     documentsSuggested: docs,
   });
+});
+
+// Export Vehicles to Excel
+const exportVehicles = asyncHandler(async (req, res) => {
+  const {
+    vehicleNo,
+    vehicleType,
+    isOwn,
+    transporter,
+    noOfTyres,
+    columns, // Comma separated column IDs
+  } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  if (vehicleNo) {
+    query.vehicleNo = { $regex: vehicleNo, $options: "i" };
+  }
+
+  if (vehicleType) {
+    const types = Array.isArray(vehicleType) ? vehicleType : [vehicleType];
+    query.vehicleType = { $in: types };
+  }
+
+  if (typeof isOwn !== "undefined") {
+    query.isOwn = isOwn === "true" || isOwn === true || isOwn === "1";
+  }
+
+  // Helper helper to cast to ObjectId safely
+  async function toObjectId(id) {
+    const { Types } = await import('mongoose');
+    if (Types.ObjectId.isValid(id)) return new Types.ObjectId(id);
+    return id;
+  }
+
+  if (transporter) {
+    const ids = Array.isArray(transporter) ? transporter : [transporter];
+    const obIds = await Promise.all(ids.map(toObjectId));
+    query.transporter = { $in: obIds };
+  }
+
+  if (noOfTyres) {
+    const tyres = Array.isArray(noOfTyres) ? noOfTyres : [noOfTyres];
+    query.noOfTyres = { $in: tyres.map((t) => Number(t)) };
+  }
+
+  // Column Mapping
+  const COLUMN_MAPPING = {
+    vehicleNo: { header: 'Vehicle No', key: 'vehicleNo', width: 20 },
+    vehicleType: { header: 'Vehicle Type', key: 'vehicleType', width: 20 },
+    isOwn: { header: 'Ownership', key: 'isOwn', width: 15 },
+    transporter: { header: 'Transport Company', key: 'transporter', width: 25 },
+    noOfTyres: { header: 'No Of Tyres', key: 'noOfTyres', width: 15 },
+    tyreLayout: { header: 'Tyre Layout', key: 'tyreLayoutId', width: 20 },
+    manufacturingYear: { header: 'Manufacturing Year', key: 'manufacturingYear', width: 20 },
+    loadingCapacity: { header: 'Loading Capacity', key: 'loadingCapacity', width: 20 },
+    fuelTankCapacity: { header: 'Fuel Tank Capacity', key: 'fuelTankCapacity', width: 20 },
+    vehicleCompany: { header: 'Vehicle Company', key: 'vehicleCompany', width: 20 },
+    modelType: { header: 'Vehicle Model', key: 'modelType', width: 20 },
+    chasisNo: { header: 'Chasis No', key: 'chasisNo', width: 20 },
+    engineNo: { header: 'Engine No', key: 'engineNo', width: 20 },
+    engineType: { header: 'Engine Type', key: 'engineType', width: 20 },
+  };
+
+  // Determine Columns
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col); // Filter out undefined mappings
+  }
+
+  // Fallback to default columns if no valid columns provided
+  if (exportColumns.length === 0) {
+    exportColumns = [
+      COLUMN_MAPPING.vehicleNo,
+      COLUMN_MAPPING.vehicleType,
+      COLUMN_MAPPING.isOwn,
+      COLUMN_MAPPING.transporter,
+      COLUMN_MAPPING.noOfTyres,
+    ];
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=Vehicles.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Vehicles');
+  worksheet.columns = exportColumns;
+
+  // AGGREGATION PIPELINE
+  const pipeline = [
+    { $match: query },
+    { $sort: { isOwn: -1, vehicleNo: 1 } },
+    {
+      $lookup: {
+        from: 'transporters',
+        localField: 'transporter',
+        foreignField: '_id',
+        as: 'transporterDoc',
+      },
+    },
+    { $unwind: { path: '$transporterDoc', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        vehicleNo: 1,
+        vehicleType: 1,
+        isOwn: 1,
+        noOfTyres: 1,
+        tyreLayoutId: 1,
+        manufacturingYear: 1,
+        loadingCapacity: 1,
+        fuelTankCapacity: 1,
+        vehicleCompany: 1,
+        modelType: 1,
+        chasisNo: 1,
+        engineNo: 1,
+        engineType: 1,
+        transporter: '$transporterDoc.transportName',
+      },
+    },
+  ];
+
+  const cursor = Vehicle.aggregate(pipeline).cursor();
+
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    const row = {};
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+
+      if (key === 'isOwn') {
+        row[key] = doc.isOwn ? 'Own' : 'Market';
+      } else {
+        row[key] = doc[key] || '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  worksheet.commit();
+  await workbook.commit();
 });

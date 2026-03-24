@@ -6,6 +6,7 @@ import DriverSalary from '../driverSalary/driverSalary.model.js';
 import Loan from '../loan/loan.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { buildPublicFileUrl, createPresignedPutUrl } from '../../services/s3.service.js';
+import dayjs from 'dayjs';
 
 const createDriver = asyncHandler(async (req, res) => {
   const { driverName, driverCellNo } = req.body;
@@ -283,6 +284,149 @@ const getPhotoUploadUrl = asyncHandler(async (req, res) => {
   }
 });
 
+export const exportDrivers = asyncHandler(async (req, res) => {
+  const { search, status, includeInactive, driverType, columns } = req.query;
+
+  const query = addTenantToQuery({ tenant: req.tenant });
+
+  if (includeInactive !== 'true') {
+    query.isActive = { $ne: false };
+  }
+
+  if (driverType) {
+    query.type = driverType;
+  }
+
+  if (search) {
+    query.$or = [
+      { driverName: { $regex: search, $options: 'i' } },
+      { driverCellNo: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  const now = new Date();
+  let filterQuery = { ...query };
+
+  if (status === 'valid') {
+    filterQuery.licenseTo = { $gte: now };
+  } else if (status === 'expired') {
+    const expiredCondition = {
+      $or: [{ licenseTo: { $lt: now } }, { licenseTo: { $exists: false } }, { licenseTo: null }],
+    };
+
+    if (filterQuery.$or) {
+      filterQuery = {
+        $and: [filterQuery, expiredCondition],
+      };
+    } else {
+      filterQuery = { ...filterQuery, ...expiredCondition };
+    }
+  }
+
+  const COLUMN_MAPPING = {
+    driverName: { header: 'Driver', key: 'driverName', width: 25 },
+    type: { header: 'Type', key: 'type', width: 15 },
+    driverCellNo: { header: 'Mobile', key: 'driverCellNo', width: 20 },
+    permanentAddress: { header: 'Address', key: 'permanentAddress', width: 30 },
+    experience: { header: 'Experience', key: 'experience', width: 15 },
+    licenseTo: { header: 'License Valid Till', key: 'licenseTo', width: 20 },
+    aadharNo: { header: 'Aadhar No', key: 'aadharNo', width: 20 },
+    status: { header: 'Status', key: 'status', width: 15 },
+    iitrition: { header: 'Duration', key: 'iitrition', width: 30 },
+  };
+
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds.map((id) => COLUMN_MAPPING[id]).filter(Boolean);
+  }
+
+  if (exportColumns.length === 0) {
+    exportColumns = [
+      COLUMN_MAPPING.driverName,
+      COLUMN_MAPPING.type,
+      COLUMN_MAPPING.driverCellNo,
+      COLUMN_MAPPING.status,
+    ];
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader("Content-Disposition", "attachment; filename=Drivers.xlsx");
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Drivers');
+  worksheet.columns = exportColumns;
+  
+  const drivers = await Driver.find(filterQuery)
+    .select('_id driverName type driverCellNo permanentAddress experience licenseTo aadharNo')
+    .sort({ driverName: 1 })
+    .lean();
+    
+  const driverIds = drivers.map(d => d._id);
+
+  const subtripStatsArr = await Subtrip.aggregate([
+    {
+      $match: {
+        driverId: { $in: driverIds },
+        tenant: req.tenant,
+        startDate: { $type: 'date' },
+      },
+    },
+    {
+      $group: {
+        _id: '$driverId',
+        firstJobAt: { $min: '$startDate' },
+        lastJobAt: { $max: '$startDate' },
+      },
+    },
+  ]);
+  
+  const subtripStatsMap = {};
+  subtripStatsArr.forEach(stat => {
+    subtripStatsMap[stat._id.toString()] = stat;
+  });
+
+  for (const doc of drivers) {
+    const row = {};
+    const firstJobAt = subtripStatsMap[doc._id.toString()]?.firstJobAt;
+    const lastJobAt = subtripStatsMap[doc._id.toString()]?.lastJobAt;
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+      
+      if (key === 'status') {
+         const licDate = doc.licenseTo ? new Date(doc.licenseTo) : null;
+         row[key] = licDate && licDate > now ? 'valid' : 'expired';
+      } else if (key === 'licenseTo') {
+         row[key] = doc.licenseTo ? new Date(doc.licenseTo).toISOString().split('T')[0] : '-';
+      } else if (key === 'iitrition') {
+         if (firstJobAt && lastJobAt) {
+           const startStr = dayjs(firstJobAt).format('MM-YYYY');
+           const endStr = dayjs(lastJobAt).format('MM-YYYY');
+           row[key] = `${startStr} to ${endStr}`;
+         } else {
+           row[key] = '-';
+         }
+      } else {
+         row[key] = doc[key] || '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  worksheet.commit();
+  await workbook.commit();
+});
+
 export {
   createDriver,
   fetchDrivers,
@@ -294,4 +438,3 @@ export {
   cleanupDrivers,
   getPhotoUploadUrl,
 };
-

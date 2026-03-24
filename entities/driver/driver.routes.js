@@ -9,6 +9,7 @@ import {
   fetchOrphanDrivers,
   cleanupDrivers,
   getPhotoUploadUrl,
+  exportDrivers,
 } from './driver.controller.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
@@ -19,6 +20,7 @@ router.post('/', authenticate, checkPermission('driver', 'create'), createDriver
 router.get('/', authenticate, pagination, fetchDrivers);
 router.get('/summary', authenticate, fetchDriversSummary);
 router.get('/upload-url', authenticate, getPhotoUploadUrl);
+router.get('/export', authenticate, checkPermission('driver', 'view'), exportDrivers);
 router.get('/orphans', authenticate, checkPermission('driver', 'delete'), fetchOrphanDrivers);
 router.post('/cleanup', authenticate, checkPermission('driver', 'delete'), cleanupDrivers);
 router.get('/:id', authenticate, fetchDriverById);
