@@ -336,7 +336,7 @@ export const deleteSubtask = asyncHandler(async (req, res) => {
   const subtaskText = subtask.text;
 
   // Remove the subtask
-  subtask.remove();
+  task.subtasks.pull({ _id: req.params.subtaskId });
 
   // Add activity for subtask deletion
   task.activities.push({
