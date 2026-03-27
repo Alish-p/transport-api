@@ -108,7 +108,10 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
     if (materials) {
       const materialsArray = Array.isArray(materials) ? materials : [materials];
       query.materialType = {
-        $in: materialsArray.map((mat) => new RegExp(`^${mat}$`, "i")),
+        $in: materialsArray.map((mat) => {
+          const escaped = String(mat).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          return new RegExp(`^${escaped}$`, "i");
+        }),
       };
     }
 
@@ -249,7 +252,10 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
     if (materials) {
       const materialsArray = Array.isArray(materials) ? materials : [materials];
       query.materialType = {
-        $in: materialsArray.map((mat) => new RegExp(`^${mat}$`, "i")),
+        $in: materialsArray.map((mat) => {
+          const escaped = String(mat).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          return new RegExp(`^${escaped}$`, "i");
+        }),
       };
     }
 
@@ -1025,7 +1031,10 @@ const exportSubtrips = asyncHandler(async (req, res) => {
   if (materials) {
     const materialsArray = Array.isArray(materials) ? materials : [materials];
     query.materialType = {
-      $in: materialsArray.map((mat) => new RegExp(`^${mat}$`, "i")),
+      $in: materialsArray.map((mat) => {
+        const escaped = String(mat).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`^${escaped}$`, "i");
+      }),
     };
   }
 
