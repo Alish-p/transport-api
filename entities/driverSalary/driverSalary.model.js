@@ -80,6 +80,12 @@ const driverSalarySchema = new Schema({
       amount: Number,
     },
   ],
+  loanDeductions: [
+    {
+      loanId: { type: Schema.Types.ObjectId, ref: "Loan" },
+      amount: Number,
+    },
+  ],
 
   // Summary of computed values
   summary: {

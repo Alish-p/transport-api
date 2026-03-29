@@ -5,6 +5,7 @@ import Tenant from '../tenant/tenant.model.js';
 import { sendTransporterPaymentNotification } from '../../services/whatsapp.service.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Transporter from '../transporter/transporter.model.js';
+import Loan from '../loan/loan.model.js';
 import TransporterPayment from './transporterPayment.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import {
@@ -22,6 +23,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     transporterId,
     associatedSubtrips,
     additionalCharges = [],
+    loanDeductions = [],
     meta,
   } = req.body;
 
@@ -120,6 +122,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       associatedSubtrips,
       subtripSnapshot,
       additionalCharges,
+      loanDeductions,
       taxBreakup: summary.taxBreakup,
       summary,
       meta,
@@ -127,6 +130,34 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     });
 
     const saved = await receipt.save({ session });
+
+    // 5b. Process loan deductions within the same transaction
+    if (loanDeductions.length > 0) {
+      for (const { loanId, amount } of loanDeductions) {
+        const loan = await Loan.findOne({
+          _id: loanId,
+          borrowerId: transporterId,
+          borrowerType: 'Transporter',
+          status: 'active',
+          tenant: req.tenant,
+        }).session(session);
+
+        if (!loan) {
+          throw new Error(`Active loan ${loanId} not found for this transporter`);
+        }
+
+        const paymentDate = new Date();
+        loan.payments.push({
+          paymentDate,
+          amount,
+          source: `Transporter Payment ${saved.paymentId}`,
+          remarks: `Deducted from Transporter Payment ${saved.paymentId}`,
+        });
+        loan.outstandingBalance = Math.max(0, Math.round((loan.outstandingBalance - amount) * 100) / 100);
+        if (loan.outstandingBalance <= 0) loan.status = 'closed';
+        await loan.save({ session });
+      }
+    }
 
     // 6. Link subtrips
     await Subtrip.updateMany(
@@ -182,6 +213,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         transporterId,
         associatedSubtrips,
         additionalCharges = [],
+        loanDeductions = [],
         meta,
       } = item;
 
@@ -290,6 +322,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         associatedSubtrips,
         subtripSnapshot,
         additionalCharges,
+        loanDeductions,
         taxBreakup: summary.taxBreakup,
         summary,
         meta,
@@ -298,6 +331,34 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
 
       const saved = await receipt.save({ session });
       savedReceipts.push(saved);
+
+      // 6b. Process loan deductions
+      if (loanDeductions.length > 0) {
+        for (const { loanId, amount } of loanDeductions) {
+          const loan = await Loan.findOne({
+            _id: loanId,
+            borrowerId: transporterId,
+            borrowerType: 'Transporter',
+            status: 'active',
+            tenant: req.tenant,
+          }).session(session);
+
+          if (!loan) {
+            throw new Error(`Active loan ${loanId} not found for transporter ${transporterId}`);
+          }
+
+          const paymentDate = new Date();
+          loan.payments.push({
+            paymentDate,
+            amount,
+            source: `Transporter Payment ${saved.paymentId}`,
+            remarks: `Deducted from Transporter Payment ${saved.paymentId}`,
+          });
+          loan.outstandingBalance = Math.max(0, Math.round((loan.outstandingBalance - amount) * 100) / 100);
+          if (loan.outstandingBalance <= 0) loan.status = 'closed';
+          await loan.save({ session });
+        }
+      }
 
       // 7. Link subtrips to this receipt
       await Subtrip.updateMany(

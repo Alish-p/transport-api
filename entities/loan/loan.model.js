@@ -1,32 +1,8 @@
 import mongoose from 'mongoose';
+import CounterModel from '../../model/Counter.js';
 
 const { Schema, model, Types } = mongoose;
 
-// Remove any existing Loan model
-if (mongoose.models.Loan) {
-  delete mongoose.connection.models.Loan;
-}
-/**
- * Subdocument: one scheduled installment (EMI)
- */
-const installmentSchema = new Schema(
-  {
-    installmentNumber: { type: Number, required: true },
-    dueDate: { type: Date, required: true },
-    principalDue: { type: Number, required: true },
-    interestDue: { type: Number, required: true },
-    totalDue: { type: Number, required: true },
-    status: {
-      type: String,
-      enum: ["pending", "paid"],
-      default: "pending",
-    },
-    paidAmount: { type: Number, default: 0 },
-    paidDate: { type: Date },
-    remarks: { type: String },
-  },
-  { _id: false }
-);
 
 /**
  * Subdocument: every payment made against the loan
@@ -35,16 +11,19 @@ const paymentSchema = new Schema(
   {
     paymentDate: { type: Date, required: true, default: Date.now },
     amount: { type: Number, required: true },
+    source: { type: String }, // e.g. "Driver Salary DSR-5", "Transporter Payment TPR-3", "Manual"
     remarks: String,
   },
   { _id: true }
 );
 
 /**
- * Main Loan schema
+ * Simplified Loan schema
+ * Just tracks: loan amount, payments, outstanding balance
  */
 const loanSchema = new Schema(
   {
+    loanNo: { type: String, required: true },
     borrowerId: {
       type: Types.ObjectId,
       required: true,
@@ -59,18 +38,7 @@ const loanSchema = new Schema(
     tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 
     principalAmount: { type: Number, required: true },
-    interestRate: { type: Number, required: true }, // annual %
-    tenureMonths: { type: Number, required: true },
-
     disbursementDate: { type: Date, required: true },
-
-    emi: {
-      amount: { type: Number, required: true },
-      frequency: { type: String, enum: ["monthly"], default: "monthly" },
-      nextDueDate: { type: Date },
-    },
-
-    totalAmount: { type: Number, required: true },
     outstandingBalance: { type: Number, required: true },
 
     status: {
@@ -79,9 +47,7 @@ const loanSchema = new Schema(
       default: "active",
     },
 
-    installments: [installmentSchema],
     payments: [paymentSchema],
-
     remarks: String,
   },
   {
@@ -89,110 +55,34 @@ const loanSchema = new Schema(
   }
 );
 
-// Auto-generate installment schedule upon creation
-loanSchema.pre("validate", function (next) {
+// Unique loan number per tenant
+loanSchema.index({ tenant: 1, loanNo: 1 }, { unique: true });
+
+// Set outstandingBalance = principalAmount on creation and calculate loanNo
+loanSchema.pre("validate", async function (next) {
   if (!this.isNew) return next();
 
-  const P = this.principalAmount;
-  const n = this.tenureMonths;
+  this.outstandingBalance = this.principalAmount;
 
-  let EMI;
-  let monthlyRate = this.interestRate / 12 / 100;
+  try {
+    const counterQuery = CounterModel.findOneAndUpdate(
+      { model: "Loan", tenant: this.tenant },
+      { $inc: { seq: 1 }, $setOnInsert: { tenant: this.tenant, model: "Loan" } },
+      { new: true, upsert: true }
+    );
 
-  if (this.interestRate === 0) {
-    // Zero‐interest: equally split principal
-    EMI = Math.round((P / n) * 100) / 100;
-  } else {
-    // Standard annuity formula
-    EMI =
-      (P * monthlyRate * Math.pow(1 + monthlyRate, n)) /
-      (Math.pow(1 + monthlyRate, n) - 1);
-    EMI = Math.round(EMI * 100) / 100;
-  }
-
-  this.emi.amount = EMI;
-
-  // build installments
-  let balance = P;
-  let totalPayment = 0;
-  this.installments = [];
-
-  for (let i = 1; i <= n; i++) {
-    let interest, principalComp;
-
-    if (this.interestRate === 0) {
-      interest = 0;
-      principalComp = EMI;
-      // on the last installment, absorb any rounding difference
-      if (i === n) principalComp = Math.round(balance * 100) / 100;
-    } else {
-      interest = Math.round(balance * monthlyRate * 100) / 100;
-      principalComp = Math.round((EMI - interest) * 100) / 100;
+    const session = this.$session();
+    if (session) {
+      counterQuery.session(session);
     }
 
-    balance = Math.round((balance - principalComp) * 100) / 100;
-    const dueAmt = principalComp + interest;
-    totalPayment += dueAmt;
-
-    this.installments.push({
-      installmentNumber: i,
-      dueDate: new Date(
-        this.disbursementDate.getTime() + i * 30 * 24 * 60 * 60 * 1000
-      ),
-      principalDue: principalComp,
-      interestDue: interest,
-      totalDue: dueAmt,
-    });
+    const counter = await counterQuery;
+    const loanNo = counter ? `LN-${counter.seq}` : "LN-1";
+    this.loanNo = this.loanNo || loanNo;
+    next();
+  } catch (error) {
+    return next(error);
   }
-
-  this.totalAmount = Math.round(totalPayment * 100) / 100;
-  this.outstandingBalance = this.totalAmount;
-  this.emi.nextDueDate = this.installments[0].dueDate;
-
-  next();
 });
-
-loanSchema.methods.applyRepayment = function ({ amount, paidDate }) {
-  let remaining = amount;
-  const insts = this.installments;
-
-  // Determine starting index:
-  let idx = -1;
-  // No valid number given → first pending installment
-  idx = insts.findIndex((i) => i.status === "pending");
-  if (idx < 0) return; // nothing to pay
-
-  // Distribute the payment across installments
-  for (let i = idx; i < insts.length && remaining > 0; i++) {
-    const inst = insts[i];
-    const due = inst.totalDue - (inst.paidAmount || 0);
-    if (due <= 0) continue;
-
-    if (remaining >= due) {
-      inst.paidAmount = inst.totalDue;
-      inst.status = "paid";
-      inst.paidDate = paidDate;
-      remaining -= due;
-    } else {
-      inst.paidAmount = (inst.paidAmount || 0) + remaining;
-      // status stays 'pending'
-      inst.paidDate = paidDate;
-      remaining = 0;
-    }
-  }
-
-  // Update global balance
-  this.outstandingBalance = Math.max(0, this.outstandingBalance - amount);
-
-  // Advance nextDueDate or close the loan
-  const next = insts.find((i) => i.status === "pending");
-  if (next) {
-    this.emi.nextDueDate = next.dueDate;
-    this.status = "active";
-  } else {
-    this.status = "closed";
-    this.emi.nextDueDate = null;
-  }
-};
 
 export default model("Loan", loanSchema);

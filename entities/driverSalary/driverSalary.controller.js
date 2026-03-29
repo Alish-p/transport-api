@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Driver from '../driver/driver.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
+import Loan from '../loan/loan.model.js';
 import DriverSalary from './driverSalary.model.js';
 import {
   calculateDriverSalary,
@@ -22,6 +23,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
     associatedSubtrips,
     additionalPayments = [],
     additionalDeductions = [],
+    loanDeductions = [],
     meta,
   } = req.body;
 
@@ -109,12 +111,41 @@ const createDriverSalary = asyncHandler(async (req, res) => {
       subtripSnapshot,
       additionalPayments,
       additionalDeductions,
+      loanDeductions,
       summary,
       meta,
       tenant: req.tenant,
     });
 
     const saved = await salaryDoc.save({ session });
+
+    // 5b. Process loan deductions within the same transaction
+    if (loanDeductions.length > 0) {
+      for (const { loanId, amount } of loanDeductions) {
+        const loan = await Loan.findOne({
+          _id: loanId,
+          borrowerId: driverId,
+          borrowerType: 'Driver',
+          status: 'active',
+          tenant: req.tenant,
+        }).session(session);
+
+        if (!loan) {
+          throw new Error(`Active loan ${loanId} not found for this driver`);
+        }
+
+        const paymentDate = new Date();
+        loan.payments.push({
+          paymentDate,
+          amount,
+          source: `Driver Salary ${saved.paymentId}`,
+          remarks: `Deducted from Driver Salary ${saved.paymentId}`,
+        });
+        loan.outstandingBalance = Math.max(0, Math.round((loan.outstandingBalance - amount) * 100) / 100);
+        if (loan.outstandingBalance <= 0) loan.status = 'closed';
+        await loan.save({ session });
+      }
+    }
 
     // 6. Link subtrips back to this salary receipt
     await Subtrip.updateMany(
@@ -167,6 +198,7 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
         associatedSubtrips,
         additionalPayments = [],
         additionalDeductions = [],
+        loanDeductions = [],
         meta,
       } = item;
 
@@ -261,12 +293,41 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
         subtripSnapshot,
         additionalPayments,
         additionalDeductions,
+        loanDeductions,
         summary,
         meta,
         tenant: req.tenant,
       });
       const saved = await doc.save({ session });
       savedDocs.push(saved);
+
+      // Process loan deductions
+      if (loanDeductions.length > 0) {
+        for (const { loanId, amount } of loanDeductions) {
+          const loan = await Loan.findOne({
+            _id: loanId,
+            borrowerId: driverId,
+            borrowerType: 'Driver',
+            status: 'active',
+            tenant: req.tenant,
+          }).session(session);
+
+          if (!loan) {
+            throw new Error(`Active loan ${loanId} not found for driver ${driverId}`);
+          }
+
+          const paymentDate = new Date();
+          loan.payments.push({
+            paymentDate,
+            amount,
+            source: `Driver Salary ${saved.paymentId}`,
+            remarks: `Deducted from Driver Salary ${saved.paymentId}`,
+          });
+          loan.outstandingBalance = Math.max(0, Math.round((loan.outstandingBalance - amount) * 100) / 100);
+          if (loan.outstandingBalance <= 0) loan.status = 'closed';
+          await loan.save({ session });
+        }
+      }
 
       // Link subtrips
       await Subtrip.updateMany(

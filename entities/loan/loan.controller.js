@@ -1,14 +1,83 @@
 // controllers/loanController.js
+import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Loan from './loan.model.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 
 /**
  * @route   GET /api/loans
- * @desc    Fetch all loans (Driver & Transporter)
+ * @desc    Fetch paginated loans with filters and status aggregation
  */
-const fetchAllLoans = asyncHandler(async (req, res) => {
-  const loans = await Loan.find({ tenant: req.tenant }).populate("borrowerId");
-  res.status(200).json(loans);
+const fetchPaginatedLoans = asyncHandler(async (req, res) => {
+  try {
+    const { borrowerType, loanStatus, loanNo, fromDate, endDate } = req.query;
+    const { limit, skip } = req.pagination;
+
+    const query = addTenantToQuery(req);
+
+    if (borrowerType) {
+      query.borrowerType = borrowerType;
+    }
+
+    if (loanStatus) {
+      query.status = loanStatus;
+    }
+
+    if (loanNo) {
+      query.loanNo = { $regex: loanNo, $options: 'i' };
+    }
+
+    if (fromDate || endDate) {
+      query.createdAt = {};
+      if (fromDate) query.createdAt.$gte = new Date(fromDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    // Build aggregation match (ObjectIds must be cast manually for aggregation)
+    const aggMatch = { ...query };
+    if (aggMatch.tenant) {
+      aggMatch.tenant = new mongoose.Types.ObjectId(aggMatch.tenant);
+    }
+
+    const [loans, total, statusAgg] = await Promise.all([
+      Loan.find(query)
+        .populate('borrowerId')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Loan.countDocuments(query),
+      Loan.aggregate([
+        { $match: aggMatch },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+            amount: { $sum: { $ifNull: ['$principalAmount', 0] } },
+            outstanding: { $sum: { $ifNull: ['$outstandingBalance', 0] } },
+          },
+        },
+      ]),
+    ]);
+
+    const totals = {
+      all: { count: total, amount: 0, outstanding: 0 },
+      active: { count: 0, amount: 0, outstanding: 0 },
+      closed: { count: 0, amount: 0, outstanding: 0 },
+    };
+
+    statusAgg.forEach((ag) => {
+      totals.all.amount += ag.amount;
+      totals.all.outstanding += ag.outstanding;
+      totals[ag._id] = { count: ag.count, amount: ag.amount, outstanding: ag.outstanding };
+    });
+
+    res.status(200).json({ loans, totals, total });
+  } catch (error) {
+    res.status(500).json({
+      message: 'An error occurred while fetching paginated loans',
+      error: error.message,
+    });
+  }
 });
 
 /**
@@ -29,27 +98,18 @@ const fetchLoanById = asyncHandler(async (req, res) => {
 
 /**
  * @route   POST /api/loans
- * @desc    Create a new loan
+ * @desc    Create a new loan (simple: just amount + borrower)
  */
 const createLoan = asyncHandler(async (req, res) => {
   const {
     borrowerId,
     borrowerType,
     principalAmount,
-    interestRate,
-    tenureMonths,
     disbursementDate,
     remarks,
   } = req.body;
 
-  // minimal validation
-  if (
-    !borrowerId ||
-    !borrowerType ||
-    !principalAmount ||
-    !tenureMonths ||
-    !disbursementDate
-  ) {
+  if (!borrowerId || !borrowerType || !principalAmount || !disbursementDate) {
     res.status(400);
     throw new Error("Missing required loan fields");
   }
@@ -58,20 +118,18 @@ const createLoan = asyncHandler(async (req, res) => {
     borrowerId,
     borrowerType,
     principalAmount,
-    interestRate,
-    tenureMonths,
-    remarks,
     disbursementDate: new Date(disbursementDate),
+    remarks,
     tenant: req.tenant,
   });
 
-  await loan.save(); // pre-save hook will build EMI schedule
+  await loan.save();
   res.status(201).json(loan);
 });
 
 /**
  * @route   PUT /api/loans/:id
- * @desc    Update loan terms or remarks
+ * @desc    Update loan remarks
  */
 const updateLoan = asyncHandler(async (req, res) => {
   const loan = await Loan.findOne({ _id: req.params.id, tenant: req.tenant });
@@ -80,13 +138,9 @@ const updateLoan = asyncHandler(async (req, res) => {
     throw new Error("Loan not found");
   }
 
-  // allow updating only certain fields
-  const updatable = ["interestRate", "remarks"];
-  updatable.forEach((key) => {
-    if (req.body[key] !== undefined) {
-      loan[key] = req.body[key];
-    }
-  });
+  if (req.body.remarks !== undefined) {
+    loan.remarks = req.body.remarks;
+  }
 
   await loan.save();
   res.status(200).json(loan);
@@ -103,19 +157,19 @@ const deleteLoan = asyncHandler(async (req, res) => {
     throw new Error("Loan not found");
   }
 
-  await loan.remove();
+  await loan.deleteOne();
   res.status(200).json({ message: "Loan deleted" });
 });
 
 /**
  * @route   POST /api/loans/:id/repay
- * @desc    Make a repayment (any amount, any time or EMI)
+ * @desc    Record a payment against the loan
  */
 const repayLoan = asyncHandler(async (req, res) => {
-  const { amount, paidDate, remarks } = req.body;
-  if (amount == null) {
+  const { amount, paidDate, remarks, source } = req.body;
+  if (amount == null || amount <= 0) {
     res.status(400);
-    throw new Error("`amount` is required for repayment");
+    throw new Error("`amount` is required and must be positive");
   }
 
   const loan = await Loan.findOne({ _id: req.params.id, tenant: req.tenant });
@@ -124,105 +178,42 @@ const repayLoan = asyncHandler(async (req, res) => {
     throw new Error("Loan not found");
   }
 
-  // Round both to 2 decimals
   const outstanding = Math.round(loan.outstandingBalance * 100) / 100;
   const payment = Math.round(amount * 100) / 100;
 
   if (payment > outstanding) {
     res.status(400);
     throw new Error(
-      `Repayment amount (${payment.toFixed(
-        2
-      )}) exceeds outstanding balance (${outstanding.toFixed(2)}).`
+      `Repayment amount (${payment.toFixed(2)}) exceeds outstanding balance (${outstanding.toFixed(2)}).`
     );
   }
 
   const paymentDate = paidDate ? new Date(paidDate) : new Date();
 
-  // 1) record the payment
+  // Record the payment
   loan.payments.push({
     paymentDate,
-    amount,
+    amount: payment,
+    source: source || "Manual",
     remarks,
   });
 
-  // 2) apply it across installments (with rollover)
-  loan.applyRepayment({ amount, paidDate: paymentDate });
+  // Update balance
+  loan.outstandingBalance = Math.max(0, Math.round((loan.outstandingBalance - payment) * 100) / 100);
 
-  await loan.save();
-  res.status(200).json(loan);
-});
-
-const deferNextInstallment = asyncHandler(async (req, res) => {
-  const { deferredTo } = req.body;
-  if (!deferredTo) {
-    res.status(400);
-    throw new Error("`deferredTo` date is required");
+  // Close loan if fully paid
+  if (loan.outstandingBalance <= 0) {
+    loan.status = "closed";
   }
-
-  const date = new Date(deferredTo);
-  if (isNaN(date)) {
-    res.status(400);
-    throw new Error("`deferredTo` must be a valid date");
-  }
-
-  const loan = await Loan.findOne({ _id: req.params.id, tenant: req.tenant });
-  if (!loan) {
-    res.status(404);
-    throw new Error("Loan not found");
-  }
-
-  // find next pending installment
-  const inst = loan.installments.find((i) => i.status === "pending");
-  if (!inst) {
-    res.status(400);
-    throw new Error("No pending installment to defer");
-  }
-
-  // overwrite the installment's dueDate
-  inst.dueDate = date;
-
-  // update the loan-level nextDueDate
-  loan.emi.nextDueDate = date;
 
   await loan.save();
   res.status(200).json(loan);
 });
 
 /**
- * @route   POST /api/loans/:id/defer-all
- * @desc    Defer all pending EMIs by a number of days
- * @body    { days: number }
+ * @route   GET /api/loans/pending/:borrowerType/:id
+ * @desc    Fetch active loans for a specific borrower
  */
-const deferAllInstallments = asyncHandler(async (req, res) => {
-  const { days } = req.body;
-  if (days == null || !Number.isInteger(days)) {
-    res.status(400);
-    throw new Error("`days` (integer) is required");
-  }
-
-  const loan = await Loan.findOne({ _id: req.params.id, tenant: req.tenant });
-  if (!loan) {
-    res.status(404);
-    throw new Error("Loan not found");
-  }
-
-  const msShift = days * 24 * 60 * 60 * 1000;
-  loan.installments.forEach((inst) => {
-    if (inst.status !== "paid") {
-      inst.dueDate = new Date(inst.dueDate.getTime() + msShift);
-    }
-  });
-
-  // set nextDueDate to the first pending installment
-  const next = loan.installments.find((i) => i.status === "pending");
-  loan.emi.nextDueDate = next ? next.dueDate : null;
-
-  await loan.save();
-  res.status(200).json(loan);
-});
-
-// fetch pending loans
 const fetchPendingLoans = asyncHandler(async (req, res) => {
   const { borrowerType, id } = req.params;
   if (!["Driver", "Transporter", "Employee"].includes(borrowerType)) {
@@ -238,12 +229,12 @@ const fetchPendingLoans = asyncHandler(async (req, res) => {
   res.status(200).json(loans);
 });
 
-export { fetchAllLoans,
+export {
+  fetchPaginatedLoans,
   fetchLoanById,
   createLoan,
   updateLoan,
   deleteLoan,
   repayLoan,
   fetchPendingLoans,
-  deferNextInstallment,
-  deferAllInstallments, };
+};

@@ -112,6 +112,13 @@ const transporterPaymentReceiptSchema = new Schema(
         amount: Number,
       },
     ],
+    // Loan deductions applied during this payment
+    loanDeductions: [
+      {
+        loanId: { type: Schema.Types.ObjectId, ref: "Loan" },
+        amount: Number,
+      },
+    ],
 
     // Tax details for audit
     taxBreakup: taxBreakupSchema,
