@@ -9,12 +9,14 @@ import {
   repayLoan,
   updateLoan,
   fetchPendingLoans,
+  exportLoans,
 } from './loan.controller.js';
 
 const router = Router();
 
 router.post('/', authenticate, checkPermission('loan', 'create'), createLoan);
 router.post('/:id/repay', authenticate, repayLoan);
+router.get('/export', authenticate, exportLoans);
 router.get('/', authenticate, pagination, fetchPaginatedLoans);
 router.get('/pending/:borrowerType/:id', authenticate, fetchPendingLoans);
 router.get('/:id', authenticate, fetchLoanById);

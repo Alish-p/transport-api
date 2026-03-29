@@ -37,6 +37,7 @@ const loanSchema = new Schema(
 
     tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 
+    loanReason: { type: String },
     principalAmount: { type: Number, required: true },
     disbursementDate: { type: Date, required: true },
     outstandingBalance: { type: Number, required: true },

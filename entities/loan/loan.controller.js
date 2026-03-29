@@ -10,13 +10,21 @@ import { addTenantToQuery } from '../../utils/tenant-utils.js';
  */
 const fetchPaginatedLoans = asyncHandler(async (req, res) => {
   try {
-    const { borrowerType, loanStatus, loanNo, fromDate, endDate } = req.query;
+    const { driverId, transporterId, loanStatus, loanNo, loanReason, fromDate, endDate } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
 
-    if (borrowerType) {
-      query.borrowerType = borrowerType;
+    if (driverId) {
+      query.borrowerType = 'Driver';
+      query.borrowerId = new mongoose.Types.ObjectId(driverId);
+    } else if (transporterId) {
+      query.borrowerType = 'Transporter';
+      query.borrowerId = new mongoose.Types.ObjectId(transporterId);
+    }
+
+    if (loanReason) {
+      query.loanReason = loanReason;
     }
 
     if (loanStatus) {
@@ -104,6 +112,7 @@ const createLoan = asyncHandler(async (req, res) => {
   const {
     borrowerId,
     borrowerType,
+    loanReason,
     principalAmount,
     disbursementDate,
     remarks,
@@ -117,6 +126,7 @@ const createLoan = asyncHandler(async (req, res) => {
   const loan = new Loan({
     borrowerId,
     borrowerType,
+    loanReason,
     principalAmount,
     disbursementDate: new Date(disbursementDate),
     remarks,
@@ -140,6 +150,9 @@ const updateLoan = asyncHandler(async (req, res) => {
 
   if (req.body.remarks !== undefined) {
     loan.remarks = req.body.remarks;
+  }
+  if (req.body.loanReason !== undefined) {
+    loan.loanReason = req.body.loanReason;
   }
 
   await loan.save();
@@ -229,6 +242,169 @@ const fetchPendingLoans = asyncHandler(async (req, res) => {
   res.status(200).json(loans);
 });
 
+/**
+ * @route   GET /api/loans/export
+ * @desc    Export loans to excel
+ */
+const exportLoans = asyncHandler(async (req, res) => {
+  const { driverId, transporterId, loanStatus, loanNo, loanReason, fromDate, endDate, columns } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  if (driverId) {
+    query.borrowerType = 'Driver';
+    query.borrowerId = new mongoose.Types.ObjectId(driverId);
+  } else if (transporterId) {
+    query.borrowerType = 'Transporter';
+    query.borrowerId = new mongoose.Types.ObjectId(transporterId);
+  }
+  
+  if (loanReason) query.loanReason = loanReason;
+  if (loanStatus) {
+    const statuses = Array.isArray(loanStatus) ? loanStatus : [loanStatus];
+    query.status = { $in: statuses };
+  }
+  if (loanNo) query.loanNo = { $regex: loanNo, $options: 'i' };
+
+  if (fromDate || endDate) {
+    query.createdAt = {};
+    if (fromDate) query.createdAt.$gte = new Date(fromDate);
+    if (endDate) query.createdAt.$lte = new Date(endDate);
+  }
+
+  const aggMatch = { ...query };
+  if (aggMatch.tenant) {
+    aggMatch.tenant = new mongoose.Types.ObjectId(aggMatch.tenant);
+  }
+
+  const COLUMN_MAPPING = {
+    loanNo: { header: 'Loan No', key: 'loanNo', width: 20 },
+    borrower: { header: 'Borrower', key: 'borrowerName', width: 25 },
+    borrowerType: { header: 'Type', key: 'borrowerType', width: 15 },
+    loanReason: { header: 'Reason', key: 'loanReason', width: 25 },
+    principalAmount: { header: 'Loan Amount', key: 'principalAmount', width: 20 },
+    outstandingBalance: { header: 'Outstanding', key: 'outstandingBalance', width: 20 },
+    status: { header: 'Status', key: 'status', width: 15 },
+    remarks: { header: 'Remarks', key: 'remarks', width: 30 },
+    createdAt: { header: 'Created', key: 'createdAt', width: 20 },
+  };
+
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds.map((id) => COLUMN_MAPPING[id]).filter((col) => col);
+  }
+
+  if (exportColumns.length === 0) {
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=Loans.xlsx');
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Loans');
+  worksheet.columns = exportColumns;
+
+  const pipeline = [
+    { $match: aggMatch },
+    { $sort: { createdAt: -1 } },
+    {
+      $lookup: {
+        from: 'drivers',
+        localField: 'borrowerId',
+        foreignField: '_id',
+        as: 'driverDetails'
+      }
+    },
+    {
+      $lookup: {
+        from: 'transporters',
+        localField: 'borrowerId',
+        foreignField: '_id',
+        as: 'transporterDetails'
+      }
+    },
+    {
+      $addFields: {
+        driverObj: { $arrayElemAt: ['$driverDetails', 0] },
+        transporterObj: { $arrayElemAt: ['$transporterDetails', 0] }
+      }
+    },
+    {
+      $project: {
+        loanNo: 1,
+        borrowerType: 1,
+        loanReason: { $ifNull: ['$loanReason', '-'] },
+        principalAmount: { $ifNull: ['$principalAmount', 0] },
+        outstandingBalance: { $ifNull: ['$outstandingBalance', 0] },
+        status: { $ifNull: ['$status', ''] },
+        remarks: { $ifNull: ['$remarks', '-'] },
+        createdAt: 1,
+        borrowerName: {
+          $cond: {
+            if: { $eq: ['$borrowerType', 'Driver'] },
+            then: '$driverObj.driverName',
+            else: {
+              $cond: {
+                if: { $eq: ['$borrowerType', 'Transporter'] },
+                then: '$transporterObj.transportName',
+                else: '-'
+              }
+            }
+          }
+        }
+      }
+    }
+  ];
+
+  const cursor = Loan.aggregate(pipeline).cursor();
+
+  let totalPrincipal = 0;
+  let totalOutstanding = 0;
+
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    const row = {};
+
+    totalPrincipal += doc.principalAmount;
+    totalOutstanding += doc.outstandingBalance;
+
+    exportColumns.forEach((col) => {
+      const key = col.key;
+      if (key === 'createdAt') {
+        row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
+      } else if (typeof doc[key] === 'number') {
+        row[key] = Math.round(doc[key] * 100) / 100;
+      } else {
+        row[key] = doc[key] !== undefined && doc[key] !== null ? doc[key] : '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    const key = col.key;
+    if (key === 'loanNo') totalRow[key] = 'TOTAL';
+    else if (key === 'principalAmount') totalRow[key] = Math.round(totalPrincipal * 100) / 100;
+    else if (key === 'outstandingBalance') totalRow[key] = Math.round(totalOutstanding * 100) / 100;
+    else totalRow[key] = '';
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
+
+  worksheet.commit();
+  await workbook.commit();
+});
+
 export {
   fetchPaginatedLoans,
   fetchLoanById,
@@ -237,4 +413,5 @@ export {
   deleteLoan,
   repayLoan,
   fetchPendingLoans,
+  exportLoans,
 };
