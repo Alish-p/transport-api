@@ -7,6 +7,7 @@ import Subtrip from '../subtrip/subtrip.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import Loan from '../loan/loan.model.js';
 import TransporterPayment from './transporterPayment.model.js';
+import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import {
   recordSubtripEvent,
@@ -54,6 +55,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       .populate({ path: "vehicleId" })
       .populate("customerId")
       .populate("expenses")
+      .populate("advances")
       .session(session);
 
     const subtrips = subtripsRaw.filter(
@@ -80,6 +82,11 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
         totalTransporterPayment,
       } = calculateTransporterPayment(st);
 
+      // Use advances for market vehicles, fallback to expenses
+      const deductionSource = Array.isArray(st.advances) && st.advances.length > 0
+        ? st.advances
+        : st.expenses || [];
+
       return {
         subtripId: st._id,
         subtripNo: st.subtripNo,
@@ -96,10 +103,10 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
         freightAmount: totalFreightAmount,
         shortageWeight: st.shortageWeight || 0,
         shortageAmount: st.shortageAmount || 0,
-        expenses: st.expenses.map((ex) => ({
-          expenseType: ex.expenseType,
-          amount: ex.amount,
-          remarks: ex.remarks,
+        expenses: deductionSource.map((item) => ({
+          expenseType: item.advanceType || item.expenseType,
+          amount: item.amount,
+          remarks: item.remarks,
         })),
         totalExpense,
         totalTransporterPayment,
@@ -163,6 +170,12 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     await Subtrip.updateMany(
       { _id: { $in: associatedSubtrips }, tenant: req.tenant },
       { $set: { transporterPaymentReceiptId: saved._id } },
+      { session }
+    );
+
+    await TransporterAdvance.updateMany(
+      { subtripId: { $in: associatedSubtrips }, tenant: req.tenant },
+      { $set: { status: 'Recovered' } },
       { session }
     );
 
@@ -251,6 +264,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         .populate({ path: "vehicleId" })
         .populate("customerId")
         .populate("expenses")
+        .populate("advances")
         .session(session);
 
       const subtrips = rawSubtrips.filter(
@@ -280,6 +294,11 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
           totalTransporterPayment,
         } = calculateTransporterPayment(st);
 
+        // Use advances for market vehicles, fallback to expenses
+        const deductionSource = Array.isArray(st.advances) && st.advances.length > 0
+          ? st.advances
+          : st.expenses || [];
+
         return {
           subtripId: st._id,
           subtripNo: st.subtripNo,
@@ -296,10 +315,10 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
           freightAmount: totalFreightAmount,
           shortageWeight: st.shortageWeight || 0,
           shortageAmount: st.shortageAmount || 0,
-          expenses: st.expenses.map((ex) => ({
-            expenseType: ex.expenseType,
-            amount: ex.amount,
-            remarks: ex.remarks,
+          expenses: deductionSource.map((item) => ({
+            expenseType: item.advanceType || item.expenseType,
+            amount: item.amount,
+            remarks: item.remarks,
           })),
           totalExpense,
           totalTransporterPayment,
@@ -364,6 +383,12 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       await Subtrip.updateMany(
         { _id: { $in: associatedSubtrips }, tenant: req.tenant },
         { $set: { transporterPaymentReceiptId: saved._id } },
+        { session }
+      );
+
+      await TransporterAdvance.updateMany(
+        { subtripId: { $in: associatedSubtrips }, tenant: req.tenant },
+        { $set: { status: 'Recovered' } },
         { session }
       );
 
@@ -648,6 +673,12 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     await Subtrip.updateMany(
       { _id: { $in: receipt.associatedSubtrips }, tenant: req.tenant },
       { $unset: { transporterPaymentReceiptId: "" } },
+      { session }
+    );
+
+    await TransporterAdvance.updateMany(
+      { subtripId: { $in: receipt.associatedSubtrips }, tenant: req.tenant },
+      { $set: { status: 'Pending' } },
       { session }
     );
 

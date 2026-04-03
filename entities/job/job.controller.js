@@ -5,6 +5,7 @@ import Subtrip from '../subtrip/subtrip.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import Expense from '../expense/expense.model.js';
+import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
@@ -405,21 +406,35 @@ const createJob = asyncHandler(async (req, res) => {
     }
 
     const expensesToInsert = [];
+    const advancesToInsert = [];
 
     // Driver Advance: add if > 0
     if (typeof driverAdvance === 'number' && driverAdvance > 0) {
-      expensesToInsert.push({
-        tenant: req.tenant,
-        tripId: newSubtrip.tripId,
-        subtripId: newSubtrip._id,
-        vehicleId,
-        amount: driverAdvance,
-        expenseType: 'Trip Advance',
-        expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-        remarks: 'Driver advance from UI',
-        paidThrough: isGivenByPump ? 'Pump' : 'Cash',
-        pumpCd: isGivenByPump ? pumpCd || null : null,
-      });
+      if (isOwnVehicle) {
+        expensesToInsert.push({
+          tenant: req.tenant,
+          tripId: newSubtrip.tripId,
+          subtripId: newSubtrip._id,
+          vehicleId,
+          amount: driverAdvance,
+          expenseType: 'Trip Advance',
+          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+          remarks: 'Driver advance from UI',
+          paidThrough: isGivenByPump ? 'Pump' : 'Cash',
+          pumpCd: isGivenByPump ? pumpCd || null : null,
+        });
+      } else {
+        advancesToInsert.push({
+          tenant: req.tenant,
+          subtripId: newSubtrip._id,
+          vehicleId,
+          amount: driverAdvance,
+          advanceType: 'Trip Advance',
+          remarks: 'Driver advance from UI',
+          paidThrough: isGivenByPump ? 'Pump' : 'Cash',
+          pumpCd: isGivenByPump ? pumpCd || null : null,
+        });
+      }
     }
 
     // Initial Advance Diesel: if unit is amount, add expense with pumpCd; if litre, don't add
@@ -428,24 +443,44 @@ const createJob = asyncHandler(async (req, res) => {
       initialAdvanceDiesel > 0 &&
       normDieselUnit === 'amount'
     ) {
-      expensesToInsert.push({
-        tenant: req.tenant,
-        tripId: newSubtrip.tripId,
-        subtripId: newSubtrip._id,
-        vehicleId,
-        amount: initialAdvanceDiesel,
-        expenseType: 'Diesel',
-        expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-        remarks: 'Initial advance diesel (amount) from UI',
-        paidThrough: 'Pump',
-        pumpCd: pumpCd || null,
-      });
+      if (isOwnVehicle) {
+        expensesToInsert.push({
+          tenant: req.tenant,
+          tripId: newSubtrip.tripId,
+          subtripId: newSubtrip._id,
+          vehicleId,
+          amount: initialAdvanceDiesel,
+          expenseType: 'Diesel',
+          expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+          remarks: 'Initial advance diesel (amount) from UI',
+          paidThrough: 'Pump',
+          pumpCd: pumpCd || null,
+        });
+      } else {
+        advancesToInsert.push({
+          tenant: req.tenant,
+          subtripId: newSubtrip._id,
+          vehicleId,
+          amount: initialAdvanceDiesel,
+          advanceType: 'Diesel',
+          remarks: 'Initial advance diesel (amount) from UI',
+          paidThrough: 'Pump',
+          pumpCd: pumpCd || null,
+        });
+      }
     }
 
     if (expensesToInsert.length) {
       const createdExpenses = await Expense.insertMany(expensesToInsert, { session });
       if (!newSubtrip.expenses) newSubtrip.expenses = [];
       newSubtrip.expenses.push(...createdExpenses.map((e) => e._id));
+      await newSubtrip.save({ session });
+    }
+
+    if (advancesToInsert.length) {
+      const createdAdvances = await TransporterAdvance.insertMany(advancesToInsert, { session });
+      if (!newSubtrip.advances) newSubtrip.advances = [];
+      newSubtrip.advances.push(...createdAdvances.map((a) => a._id));
       await newSubtrip.save({ session });
     }
 

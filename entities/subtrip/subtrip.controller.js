@@ -3,6 +3,7 @@ import Trip from '../trip/trip.model.js';
 import Subtrip from './subtrip.model.js';
 import Driver from '../driver/driver.model.js';
 import Expense from '../expense/expense.model.js';
+import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import Customer from '../customer/customer.model.js';
 import Tenant from '../tenant/tenant.model.js';
@@ -19,6 +20,10 @@ const populateSubtrip = (query) =>
   query
     .populate({
       path: "expenses",
+      populate: [{ path: "pumpCd", model: "Pump" }],
+    })
+    .populate({
+      path: "advances",
       populate: [{ path: "pumpCd", model: "Pump" }],
     })
     .populate("intentFuelPump")
@@ -368,7 +373,7 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
 // Fetch Subtrips by selected Statuses with optional search and pagination
 const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
   try {
-    const { subtripStatus, search } = req.query;
+    const { subtripStatus, search, excludeBilled, excludeIsOwn, excludeIsMarket } = req.query;
     const { limit, skip } = req.pagination;
 
     if (
@@ -386,6 +391,28 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
       subtripStatus: { $in: statusArray },
       isEmpty: false,
     });
+
+    if (excludeBilled === 'true') {
+      query.transporterPaymentReceiptId = null;
+    }
+
+    if (excludeIsOwn === 'true') {
+      const ownVehicles = await Vehicle.find({ isOwn: true, tenant: req.tenant }).select('_id').lean();
+      if (ownVehicles.length > 0) {
+        query.vehicleId = { $nin: ownVehicles.map(v => v._id) };
+      }
+    }
+
+    if (excludeIsMarket === 'true') {
+      const marketVehicles = await Vehicle.find({ isOwn: false, tenant: req.tenant }).select('_id').lean();
+      if (marketVehicles.length > 0) {
+        if (query.vehicleId && query.vehicleId.$nin) {
+           query.vehicleId.$nin.push(...marketVehicles.map(v => v._id));
+        } else {
+           query.vehicleId = { $nin: marketVehicles.map(v => v._id) };
+        }
+      }
+    }
 
     if (search) {
       // Case-insensitive, partial match across subtripNo, driverName, vehicleNo
@@ -716,6 +743,11 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
       await Expense.deleteMany({ _id: { $in: subtrip.expenses } });
     }
 
+    // 2b. Delete all related advances
+    if (subtrip.advances && subtrip.advances.length > 0) {
+      await TransporterAdvance.deleteMany({ _id: { $in: subtrip.advances } });
+    }
+
     // 3. Delete the subtrip itself
     await Subtrip.findOneAndDelete({ _id: id, tenant: req.tenant });
 
@@ -771,6 +803,7 @@ const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
         populate: { path: "transporter" },
       })
       .populate("expenses")
+      .populate("advances")
       .lean();
 
     // Group subtrips by transporter

@@ -7,6 +7,7 @@ import Vehicle from '../vehicle/vehicle.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
+import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import Customer from '../customer/customer.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
@@ -1680,6 +1681,21 @@ const getDailySummary = asyncHandler(async (req, res) => {
 
     const totalExpenseAmount = expensesOnDate.reduce((sum, e) => sum + (e.amount || 0), 0);
 
+    // 8. Transporter Advances on the given day
+    const advancesOnDate = await TransporterAdvance.find({
+      tenant: req.tenant,
+      date: { $gte: startOfDay, $lt: endOfDay },
+    })
+      .select(
+        '_id date advanceType amount paidThrough remarks dieselLtr dieselPrice adblueLiters adbluePrice vehicleId subtripId pumpCd'
+      )
+      .populate('vehicleId', 'vehicleNo')
+      .populate('subtripId', 'subtripNo')
+      .populate('pumpCd', 'pumpName')
+      .lean();
+
+    const totalAdvanceAmount = advancesOnDate.reduce((sum, a) => sum + (a.amount || 0), 0);
+
     res.status(200).json({
       date,
       subtrips: {
@@ -1718,6 +1734,11 @@ const getDailySummary = asyncHandler(async (req, res) => {
         count: expensesOnDate.length,
         amount: totalExpenseAmount,
         list: expensesOnDate,
+      },
+      advances: {
+        count: advancesOnDate.length,
+        amount: totalAdvanceAmount,
+        list: advancesOnDate,
       },
     });
   } catch (error) {
@@ -1929,6 +1950,113 @@ const getWorkOrderDashboardSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Monthly profitability summary (own vs market vehicles)
+const getProfitabilitySummary = asyncHandler(async (req, res) => {
+  const { month } = req.query;
+
+  if (!month) {
+    return res
+      .status(400)
+      .json({ message: "Month query parameter required in YYYY-MM format" });
+  }
+
+  const [yearStr, monthStr] = month.split("-");
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNum) ||
+    monthNum < 1 ||
+    monthNum > 12
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Invalid month format. Use YYYY-MM" });
+  }
+
+  const startDate = getStartOfMonthIST(year, monthNum);
+  const endDate = getNextMonthStartIST(year, monthNum);
+
+  try {
+    // Get all own and market vehicle IDs
+    const [ownVehicles, marketVehicles] = await Promise.all([
+      Vehicle.find({ tenant: req.tenant, isOwn: true }).select("_id").lean(),
+      Vehicle.find({ tenant: req.tenant, isOwn: false }).select("_id").lean(),
+    ]);
+
+    const ownVehicleIds = ownVehicles.map((v) => v._id);
+    const marketVehicleIds = marketVehicles.map((v) => v._id);
+
+    // Fetch billed subtrips for own vehicles in the month (with expenses populated)
+    const ownSubtrips = await Subtrip.find({
+      tenant: req.tenant,
+      subtripStatus: SUBTRIP_STATUS.BILLED,
+      isEmpty: false,
+      startDate: { $gte: startDate, $lt: endDate },
+      vehicleId: { $in: ownVehicleIds },
+    })
+      .populate("expenses")
+      .lean();
+
+    // Calculate own vehicle profitability
+    let ownTotalFreight = 0;
+    let ownTotalExpenses = 0;
+
+    ownSubtrips.forEach((st) => {
+      const freight = (st.rate || 0) * (st.loadingWeight || 0);
+      const expenses = (st.expenses || []).reduce(
+        (sum, exp) => sum + (exp.amount || 0),
+        0
+      );
+      ownTotalFreight += freight;
+      ownTotalExpenses += expenses;
+    });
+
+    const ownProfit = ownTotalFreight - ownTotalExpenses;
+
+    // Fetch billed subtrips for market vehicles in the month
+    const marketSubtrips = await Subtrip.find({
+      tenant: req.tenant,
+      subtripStatus: SUBTRIP_STATUS.BILLED,
+      isEmpty: false,
+      startDate: { $gte: startDate, $lt: endDate },
+      vehicleId: { $in: marketVehicleIds },
+    })
+      .lean();
+
+    // Calculate market vehicle commission
+    let marketTotalCommission = 0;
+    let marketTotalLoadingWeight = 0;
+
+    marketSubtrips.forEach((st) => {
+      const commission = (st.loadingWeight || 0) * (st.commissionRate || 0);
+      marketTotalCommission += commission;
+      marketTotalLoadingWeight += st.loadingWeight || 0;
+    });
+
+    res.status(200).json({
+      own: {
+        subtripCount: ownSubtrips.length,
+        totalFreight: Math.round(ownTotalFreight * 100) / 100,
+        totalExpenses: Math.round(ownTotalExpenses * 100) / 100,
+        profit: Math.round(ownProfit * 100) / 100,
+      },
+      market: {
+        subtripCount: marketSubtrips.length,
+        totalLoadingWeight: Math.round(marketTotalLoadingWeight * 100) / 100,
+        totalCommission: Math.round(marketTotalCommission * 100) / 100,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      message: "An error occurred while fetching profitability summary",
+      error: error.message,
+    });
+  }
+});
+
 export {
   getTotalCounts,
   getExpiringSubtrips,
@@ -1951,4 +2079,5 @@ export {
   getTyreDashboardSummary,
   getInventoryDashboardSummary,
   getWorkOrderDashboardSummary,
+  getProfitabilitySummary,
 };

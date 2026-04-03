@@ -17,18 +17,24 @@ const createExpense = asyncHandler(async (req, res) => {
     const subtrip = await Subtrip.findOne({
       _id: subtripId,
       tenant: req.tenant,
-    });
+    }).populate({ path: 'vehicleId', select: 'isOwn' });
 
     if (!subtrip) {
       res.status(404).json({ message: "Subtrip not found" });
       return;
     }
 
+    if (!subtrip.vehicleId?.isOwn) {
+      return res.status(400).json({
+        message: 'Expenses are only for own vehicle subtrips. Use advances for market vehicles.',
+      });
+    }
+
     const expense = new Expense({
       ...req.body,
       subtripId,
       tripId: subtrip?.tripId,
-      vehicleId: subtrip?.vehicleId,
+      vehicleId: subtrip?.vehicleId?._id || subtrip?.vehicleId,
       tenant: req.tenant,
     });
 

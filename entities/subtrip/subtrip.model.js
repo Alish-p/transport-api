@@ -17,6 +17,7 @@ const subtripSchema = new Schema({
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
   expenses: [{ type: Schema.Types.ObjectId, ref: "Expense" }],
+  advances: [{ type: Schema.Types.ObjectId, ref: "TransporterAdvance" }],
 
   // Route and logistics details
   loadingPoint: { type: String },

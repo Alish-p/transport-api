@@ -90,6 +90,12 @@ const generateEventMessage = (event) => {
       );
       return `Updated subtrip fields: ${changedFieldsList} ${userInfo}`;
 
+    case SUBTRIP_EVENT_TYPES.ADVANCE_ADDED:
+      return `Advance added: ${details.advanceType} - ₹${details.amount} ${userInfo}`;
+
+    case SUBTRIP_EVENT_TYPES.ADVANCE_DELETED:
+      return `Advance deleted: ${details.advanceType} - ₹${details.amount} ${userInfo}`;
+
     default:
       return `${eventType} ${userInfo}`;
   }

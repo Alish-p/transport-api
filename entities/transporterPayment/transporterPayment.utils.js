@@ -11,11 +11,11 @@ const calculateTransporterPayment = (subtrip) => {
   // 🚛 Total Freight
   const totalFreightAmount = effectiveFreightRate * loadingWeight;
 
-  // ⛽ Total Expenses
-  const totalExpense =
-    Array.isArray(subtrip.expenses) && subtrip.expenses.length > 0
-      ? subtrip.expenses.reduce((acc, exp) => acc + (exp.amount || 0), 0)
-      : 0;
+  // ⛽ Total Deductions (advances for market vehicles, expenses for own)
+  const deductionSource = Array.isArray(subtrip.advances) && subtrip.advances.length > 0
+    ? subtrip.advances
+    : (Array.isArray(subtrip.expenses) ? subtrip.expenses : []);
+  const totalExpense = deductionSource.reduce((acc, item) => acc + (item.amount || 0), 0);
 
   // 📉 Shortage Deduction
   const totalShortageAmount = subtrip.shortageAmount || 0;
