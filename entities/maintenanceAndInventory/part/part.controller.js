@@ -168,8 +168,31 @@ const createBulkParts = asyncHandler(async (req, res) => {
       throw new Error('Cannot create parts. Please create at least one active Part Location first.');
     }
 
+    const normalizedParts = parts.map((part, index) => ({
+      ...part,
+      rowNumber: index + 1,
+      normalizedPartNumber: String(part.partNumber).trim(),
+    }));
+
+    const duplicateRowsByPartNumber = normalizedParts.reduce((acc, part) => {
+      if (!acc[part.normalizedPartNumber]) {
+        acc[part.normalizedPartNumber] = [];
+      }
+      acc[part.normalizedPartNumber].push(part.rowNumber);
+      return acc;
+    }, {});
+
+    const duplicateEntriesInFile = Object.entries(duplicateRowsByPartNumber)
+      .filter(([, rows]) => rows.length > 1)
+      .map(([partNumber, rows]) => `"${partNumber}" on rows ${rows.join(', ')}`);
+
+    if (duplicateEntriesInFile.length > 0) {
+      res.status(400);
+      throw new Error(`Duplicate Part Numbers found in the import file: ${duplicateEntriesInFile.join('; ')}`);
+    }
+
     // Guard: Check for duplicate partNumbers among active parts only
-    const incomingPartNumbers = parts.map((p) => String(p.partNumber));
+    const incomingPartNumbers = normalizedParts.map((p) => p.normalizedPartNumber);
     const existingActiveParts = await Part.find({
       tenant: req.tenant,
       partNumber: { $in: incomingPartNumbers },
@@ -177,14 +200,20 @@ const createBulkParts = asyncHandler(async (req, res) => {
     }).select('partNumber');
 
     if (existingActiveParts.length > 0) {
-      const duplicates = existingActiveParts.map((p) => p.partNumber).join(', ');
+      const duplicates = existingActiveParts
+        .map((p) => {
+          const matchingPart = normalizedParts.find((part) => part.normalizedPartNumber === p.partNumber);
+          const rowLabel = matchingPart ? `row ${matchingPart.rowNumber}` : 'uploaded rows';
+          return `"${p.partNumber}" (${rowLabel})`;
+        })
+        .join(', ');
       res.status(400);
       throw new Error(`The following Part Numbers already exist: ${duplicates}`);
     }
 
     const createdParts = [];
 
-    for (const partData of parts) {
+    for (const partData of normalizedParts) {
       const {
         partNumber,
         name,
@@ -193,7 +222,8 @@ const createBulkParts = asyncHandler(async (req, res) => {
         unitCost,
         measurementUnit,
         description,
-        inventory = []
+        inventory = [],
+        rowNumber,
       } = partData;
 
       // 1. Create the Part
@@ -210,7 +240,14 @@ const createBulkParts = asyncHandler(async (req, res) => {
         isActive: true
       });
 
-      await newPart.save({ session });
+      try {
+        await newPart.save({ session });
+      } catch (error) {
+        if (error?.code === 11000) {
+          error.message = `Part import failed on row ${rowNumber} for Part Number "${String(partNumber).trim()}". A part with this Part Number already exists.`;
+        }
+        throw error;
+      }
       createdParts.push(newPart);
 
       // 2. Insert corresponding PartStock & Inventory Activities

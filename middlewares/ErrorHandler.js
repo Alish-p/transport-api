@@ -9,8 +9,17 @@ const handleCastErrorDB = (err) => {
 
 const handleDuplicateFieldsDB = (err) => {
   console.log("Duplicate error");
-  // const value = err.errmsg.match(/(["'])(?:(?=(\\?))\2.)*?\1/)[0];
-  const message = ` Value already Exist. Please use anothe value!`;
+  const duplicateFields = err.keyValue
+    ? Object.entries(err.keyValue)
+        .map(([field, value]) => `${field}: "${value}"`)
+        .join(', ')
+    : null;
+
+  const message = err.message && !err.message.includes('E11000')
+    ? err.message
+    : duplicateFields
+      ? `Value already exists for ${duplicateFields}. Please use another value.`
+      : 'Value already exists. Please use another value.';
   const error = new Error(message);
   error.status = 400;
   return error;
