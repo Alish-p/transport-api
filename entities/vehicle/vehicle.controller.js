@@ -10,6 +10,7 @@ import Trip from '../trip/trip.model.js';
 import Expense from '../expense/expense.model.js';
 import Tyre from '../tyre/tyre.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { deleteObjectFromS3 } from '../../services/s3.service.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import { TYRE_LAYOUTS } from '../../constants/tyreLayouts.js';
@@ -216,7 +217,48 @@ const deleteVehicle = asyncHandler(async (req, res) => {
     tenant: req.tenant,
   });
 
-  res.status(200).json(vehicle);
+  if (!vehicle) {
+    return res.status(200).json(vehicle);
+  }
+
+  try {
+    const associatedDocs = await VehicleDocument.find({
+      tenant: req.tenant,
+      vehicle: id,
+    })
+      .select('fileKey')
+      .lean();
+
+    if (associatedDocs.length > 0) {
+      await VehicleDocument.deleteMany({
+        tenant: req.tenant,
+        vehicle: id,
+      });
+
+      const s3Keys = associatedDocs.map((doc) => doc.fileKey).filter(Boolean);
+      if (s3Keys.length > 0) {
+        const s3DeletionResults = await Promise.allSettled(
+          s3Keys.map((key) => deleteObjectFromS3(key))
+        );
+        const failedS3Deletes = s3DeletionResults.filter(
+          (result) => result.status === 'rejected'
+        ).length;
+
+        if (failedS3Deletes > 0) {
+          console.error(
+            `Vehicle ${id} deleted, but failed to delete ${failedS3Deletes} associated document file(s) from S3`
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error(
+      `Vehicle ${id} deleted, but failed to clean up associated documents:`,
+      error?.message || error
+    );
+  }
+
+  return res.status(200).json(vehicle);
 });
 
 
