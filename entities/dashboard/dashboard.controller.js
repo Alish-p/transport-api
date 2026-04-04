@@ -252,23 +252,108 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
       },
       { $unwind: "$vehicle" },
       {
+        $lookup: {
+          from: "expenses",
+          let: { subtripId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$subtripId", "$$subtripId"] },
+                    { $eq: ["$tenant", req.tenant] },
+                  ],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                totalExpenses: { $sum: { $ifNull: ["$amount", 0] } },
+              },
+            },
+          ],
+          as: "expenseSummary",
+        },
+      },
+      {
+        $addFields: {
+          month: { $month: { date: "$startDate", timezone: DEFAULT_TIMEZONE } },
+          expenseAmount: {
+            $ifNull: [{ $arrayElemAt: ["$expenseSummary.totalExpenses", 0] }, 0],
+          },
+          freightAmount: {
+            $multiply: [
+              { $ifNull: ["$loadingWeight", 0] },
+              { $ifNull: ["$rate", 0] },
+            ],
+          },
+          commissionAmount: {
+            $multiply: [
+              { $ifNull: ["$loadingWeight", 0] },
+              { $ifNull: ["$commissionRate", 0] },
+            ],
+          },
+        },
+      },
+      {
         $group: {
-          _id: { month: { $month: { date: "$startDate", timezone: DEFAULT_TIMEZONE } }, isOwn: "$vehicle.isOwn" },
+          _id: { month: "$month", isOwn: "$vehicle.isOwn" },
           count: { $sum: 1 },
+          totalIncome: {
+            $sum: {
+              $cond: ["$vehicle.isOwn", "$freightAmount", 0],
+            },
+          },
+          totalExpenses: {
+            $sum: {
+              $cond: ["$vehicle.isOwn", "$expenseAmount", 0],
+            },
+          },
+          totalCommission: {
+            $sum: {
+              $cond: ["$vehicle.isOwn", 0, "$commissionAmount"],
+            },
+          },
         },
       },
     ]);
 
     const own = Array(12).fill(0);
     const market = Array(12).fill(0);
+    const monthlyMetrics = {
+      own: Array.from({ length: 12 }, () => ({
+        totalSubtrips: 0,
+        totalIncome: 0,
+        totalExpense: 0,
+        profit: 0,
+      })),
+      market: Array.from({ length: 12 }, () => ({
+        totalSubtrips: 0,
+        totalCommission: 0,
+      })),
+    };
 
     results.forEach((r) => {
       const monthIndex = r._id.month - 1; // $month is 1-indexed
-      if (r._id.isOwn) own[monthIndex] = r.count;
-      else market[monthIndex] = r.count;
+      if (r._id.isOwn) {
+        own[monthIndex] = r.count;
+        monthlyMetrics.own[monthIndex] = {
+          totalSubtrips: r.count,
+          totalIncome: Math.round((r.totalIncome || 0) * 100) / 100,
+          totalExpense: Math.round((r.totalExpenses || 0) * 100) / 100,
+          profit: Math.round(((r.totalIncome || 0) - (r.totalExpenses || 0)) * 100) / 100,
+        };
+      } else {
+        market[monthIndex] = r.count;
+        monthlyMetrics.market[monthIndex] = {
+          totalSubtrips: r.count,
+          totalCommission: Math.round((r.totalCommission || 0) * 100) / 100,
+        };
+      }
     });
 
-    res.status(200).json({ year, own, market });
+    res.status(200).json({ year, own, market, monthlyMetrics });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error });
@@ -1950,113 +2035,6 @@ const getWorkOrderDashboardSummary = asyncHandler(async (req, res) => {
   }
 });
 
-// Monthly profitability summary (own vs market vehicles)
-const getProfitabilitySummary = asyncHandler(async (req, res) => {
-  const { month } = req.query;
-
-  if (!month) {
-    return res
-      .status(400)
-      .json({ message: "Month query parameter required in YYYY-MM format" });
-  }
-
-  const [yearStr, monthStr] = month.split("-");
-  const year = parseInt(yearStr, 10);
-  const monthNum = parseInt(monthStr, 10);
-
-  if (
-    Number.isNaN(year) ||
-    Number.isNaN(monthNum) ||
-    monthNum < 1 ||
-    monthNum > 12
-  ) {
-    return res
-      .status(400)
-      .json({ message: "Invalid month format. Use YYYY-MM" });
-  }
-
-  const startDate = getStartOfMonthIST(year, monthNum);
-  const endDate = getNextMonthStartIST(year, monthNum);
-
-  try {
-    // Get all own and market vehicle IDs
-    const [ownVehicles, marketVehicles] = await Promise.all([
-      Vehicle.find({ tenant: req.tenant, isOwn: true }).select("_id").lean(),
-      Vehicle.find({ tenant: req.tenant, isOwn: false }).select("_id").lean(),
-    ]);
-
-    const ownVehicleIds = ownVehicles.map((v) => v._id);
-    const marketVehicleIds = marketVehicles.map((v) => v._id);
-
-    // Fetch billed subtrips for own vehicles in the month (with expenses populated)
-    const ownSubtrips = await Subtrip.find({
-      tenant: req.tenant,
-      subtripStatus: SUBTRIP_STATUS.BILLED,
-      isEmpty: false,
-      startDate: { $gte: startDate, $lt: endDate },
-      vehicleId: { $in: ownVehicleIds },
-    })
-      .populate("expenses")
-      .lean();
-
-    // Calculate own vehicle profitability
-    let ownTotalFreight = 0;
-    let ownTotalExpenses = 0;
-
-    ownSubtrips.forEach((st) => {
-      const freight = (st.rate || 0) * (st.loadingWeight || 0);
-      const expenses = (st.expenses || []).reduce(
-        (sum, exp) => sum + (exp.amount || 0),
-        0
-      );
-      ownTotalFreight += freight;
-      ownTotalExpenses += expenses;
-    });
-
-    const ownProfit = ownTotalFreight - ownTotalExpenses;
-
-    // Fetch billed subtrips for market vehicles in the month
-    const marketSubtrips = await Subtrip.find({
-      tenant: req.tenant,
-      subtripStatus: SUBTRIP_STATUS.BILLED,
-      isEmpty: false,
-      startDate: { $gte: startDate, $lt: endDate },
-      vehicleId: { $in: marketVehicleIds },
-    })
-      .lean();
-
-    // Calculate market vehicle commission
-    let marketTotalCommission = 0;
-    let marketTotalLoadingWeight = 0;
-
-    marketSubtrips.forEach((st) => {
-      const commission = (st.loadingWeight || 0) * (st.commissionRate || 0);
-      marketTotalCommission += commission;
-      marketTotalLoadingWeight += st.loadingWeight || 0;
-    });
-
-    res.status(200).json({
-      own: {
-        subtripCount: ownSubtrips.length,
-        totalFreight: Math.round(ownTotalFreight * 100) / 100,
-        totalExpenses: Math.round(ownTotalExpenses * 100) / 100,
-        profit: Math.round(ownProfit * 100) / 100,
-      },
-      market: {
-        subtripCount: marketSubtrips.length,
-        totalLoadingWeight: Math.round(marketTotalLoadingWeight * 100) / 100,
-        totalCommission: Math.round(marketTotalCommission * 100) / 100,
-      },
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      message: "An error occurred while fetching profitability summary",
-      error: error.message,
-    });
-  }
-});
-
 export {
   getTotalCounts,
   getExpiringSubtrips,
@@ -2079,5 +2057,4 @@ export {
   getTyreDashboardSummary,
   getInventoryDashboardSummary,
   getWorkOrderDashboardSummary,
-  getProfitabilitySummary,
 };

@@ -22,7 +22,6 @@ import {
   getTyreDashboardSummary,
   getInventoryDashboardSummary,
   getWorkOrderDashboardSummary,
-  getProfitabilitySummary,
 } from './dashboard.controller.js';
 
 const router = Router();
@@ -76,6 +75,5 @@ router.get("/expiring-documents-list", authenticate, getExpiringDocuments);
 router.get("/tyre-summary", authenticate, getTyreDashboardSummary);
 router.get("/inventory-summary", authenticate, getInventoryDashboardSummary);
 router.get("/work-order-summary", authenticate, getWorkOrderDashboardSummary);
-router.get("/profitability-summary", authenticate, getProfitabilitySummary);
 
 export default router;
