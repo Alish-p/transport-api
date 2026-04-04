@@ -15,7 +15,6 @@ const transporterAdvanceSchema = new Schema(
     },
     advanceType: {
       type: String,
-      enum: ADVANCE_TYPES,
       required: true,
     },
     amount: {
