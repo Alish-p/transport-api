@@ -2,8 +2,10 @@
 // money paid on behalf of the transporter's vehicle during a delivery.
 export const ADVANCE_TYPES = [
   'Diesel',
+  'diesel',
   'Adblue',
   'Trip Advance',
+  'trip-advance',
   'Driver Salary',
   'Extra Advance',
   'Bhatta',

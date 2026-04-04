@@ -38,6 +38,10 @@ const transporterAdvanceSchema = new Schema(
       enum: ['Pending', 'Recovered'],
       default: 'Pending',
     },
+    transporterPaymentReceiptId: {
+      type: String,
+      ref: 'TransporterPayment',
+    },
     tenant: {
       type: Schema.Types.ObjectId,
       ref: 'Tenant',
