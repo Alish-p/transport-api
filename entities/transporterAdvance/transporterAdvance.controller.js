@@ -7,12 +7,13 @@ import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 
 const buildAdvanceBaseQuery = async (req) => {
-  const { subtripId, vehicleId, transporterId, startDate, endDate, advanceType } = req.query;
+  const { subtripId, vehicleId, transporterId, startDate, endDate, advanceType, pumpId } = req.query;
 
   const baseQuery = addTenantToQuery(req);
 
   if (subtripId) baseQuery.subtripId = subtripId;
   if (vehicleId) baseQuery.vehicleId = vehicleId;
+  if (pumpId) baseQuery.pumpCd = pumpId;
   if (advanceType) {
     const typeArray = Array.isArray(advanceType) ? advanceType : [advanceType];
     baseQuery.advanceType = { $in: typeArray };
