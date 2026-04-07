@@ -211,7 +211,9 @@ const createBulkParts = asyncHandler(async (req, res) => {
       throw new Error(`The following Part Numbers already exist: ${duplicates}`);
     }
 
-    const createdParts = [];
+    const partsToInsert = [];
+    const partStocksToInsert = [];
+    const transactionsToInsert = [];
 
     for (const partData of normalizedParts) {
       const {
@@ -228,6 +230,7 @@ const createBulkParts = asyncHandler(async (req, res) => {
 
       // 1. Create the Part
       const newPart = new Part({
+        _id: new mongoose.Types.ObjectId(),
         tenant: req.tenant,
         partNumber: String(partNumber),
         name: String(name),
@@ -240,15 +243,7 @@ const createBulkParts = asyncHandler(async (req, res) => {
         isActive: true
       });
 
-      try {
-        await newPart.save({ session });
-      } catch (error) {
-        if (error?.code === 11000) {
-          error.message = `Part import failed on row ${rowNumber} for Part Number "${String(partNumber).trim()}". A part with this Part Number already exists.`;
-        }
-        throw error;
-      }
-      createdParts.push(newPart);
+      partsToInsert.push(newPart);
 
       // 2. Insert corresponding PartStock & Inventory Activities
       if (Array.isArray(inventory) && inventory.length > 0) {
@@ -257,36 +252,59 @@ const createBulkParts = asyncHandler(async (req, res) => {
 
           const quantity = Number(item.quantity) || 0;
           const threshold = Number(item.threshold) || 0;
+          const partStockId = new mongoose.Types.ObjectId();
 
-          const partStock = new PartStock({
+          partStocksToInsert.push(new PartStock({
+            _id: partStockId,
             tenant: req.tenant,
             part: newPart._id,
             inventoryLocation: item.inventoryLocation,
-            quantity: 0, // Starts at 0, populated via activity if qty > 0
+            quantity: quantity, // Start at populated quantity directly
             threshold,
-          });
-          await partStock.save({ session });
+          }));
 
           if (quantity > 0) {
-            await recordInventoryActivity({
+            transactionsToInsert.push(new PartTransaction({
               tenant: req.tenant,
-              partId: newPart._id,
-              locationId: item.inventoryLocation,
+              part: newPart._id,
+              inventoryLocation: item.inventoryLocation,
+              partStock: partStockId,
               type: INVENTORY_ACTIVITY_TYPES.INITIAL,
               direction: 'IN',
+              quantityBefore: 0,
               quantityChange: quantity,
+              quantityAfter: quantity,
               performedBy: req.user._id,
               sourceDocumentType: SOURCE_DOCUMENT_TYPES.MANUAL,
               reason: 'Bulk Initial Stock',
+              averageUnitCost: newPart.unitCost,
+              totalCost: quantity * newPart.unitCost,
               meta: { unitCost: newPart.unitCost }
-            }, session);
+            }));
           }
         }
       }
     }
 
+    try {
+      if (partsToInsert.length > 0) {
+        await Part.insertMany(partsToInsert, { session });
+      }
+      if (partStocksToInsert.length > 0) {
+        await PartStock.insertMany(partStocksToInsert, { session });
+      }
+      if (transactionsToInsert.length > 0) {
+        await PartTransaction.insertMany(transactionsToInsert, { session });
+      }
+    } catch (error) {
+      if (error?.code === 11000) {
+        error.message = `Part import failed. A part with this Part Number already exists.`;
+      }
+      throw error;
+    }
+
     await session.commitTransaction();
-    res.status(201).json(createdParts);
+    res.status(201).json(partsToInsert);
   } catch (error) {
     await session.abortTransaction();
     res.status(400); // Validation/duplicate key errors
