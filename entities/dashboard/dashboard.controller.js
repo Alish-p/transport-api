@@ -234,7 +234,8 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
   const endOfYear = getNextYearStartIST(year);
 
   try {
-    const results = await Subtrip.aggregate([
+    const [results, vehicleExpenses] = await Promise.all([
+      Subtrip.aggregate([
       {
         $match: {
           tenant: req.tenant,
@@ -317,6 +318,40 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
           },
         },
       },
+      ]), // End Subtrip.aggregate
+      Expense.aggregate([
+        {
+          $match: {
+            tenant: req.tenant,
+            expenseCategory: "vehicle",
+            date: { $gte: startOfYear, $lt: endOfYear },
+          },
+        },
+        {
+          $lookup: {
+            from: "vehicles",
+            localField: "vehicleId",
+            foreignField: "_id",
+            as: "vehicle",
+          },
+        },
+        { $unwind: { path: "$vehicle", preserveNullAndEmptyArrays: true } },
+        {
+          $match: {
+            $or: [
+              { "vehicle.isOwn": true },
+              { vehicleId: { $exists: false } },
+              { vehicleId: null },
+            ],
+          },
+        },
+        {
+          $group: {
+            _id: { month: { $month: { date: "$date", timezone: DEFAULT_TIMEZONE } } },
+            amount: { $sum: { $ifNull: ["$amount", 0] } },
+          },
+        },
+      ]), // End Expense.aggregate
     ]);
 
     const own = Array(12).fill(0);
@@ -325,7 +360,8 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
       own: Array.from({ length: 12 }, () => ({
         totalSubtrips: 0,
         totalIncome: 0,
-        totalExpense: 0,
+        subtripExpense: 0,
+        vehicleExpense: 0,
         profit: 0,
       })),
       market: Array.from({ length: 12 }, () => ({
@@ -338,12 +374,9 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
       const monthIndex = r._id.month - 1; // $month is 1-indexed
       if (r._id.isOwn) {
         own[monthIndex] = r.count;
-        monthlyMetrics.own[monthIndex] = {
-          totalSubtrips: r.count,
-          totalIncome: Math.round((r.totalIncome || 0) * 100) / 100,
-          totalExpense: Math.round((r.totalExpenses || 0) * 100) / 100,
-          profit: Math.round(((r.totalIncome || 0) - (r.totalExpenses || 0)) * 100) / 100,
-        };
+        monthlyMetrics.own[monthIndex].totalSubtrips = r.count;
+        monthlyMetrics.own[monthIndex].totalIncome = Math.round((r.totalIncome || 0) * 100) / 100;
+        monthlyMetrics.own[monthIndex].subtripExpense = Math.round((r.totalExpenses || 0) * 100) / 100;
       } else {
         market[monthIndex] = r.count;
         monthlyMetrics.market[monthIndex] = {
@@ -351,6 +384,16 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
           totalCommission: Math.round((r.totalCommission || 0) * 100) / 100,
         };
       }
+    });
+
+    vehicleExpenses.forEach((v) => {
+      const monthIndex = v._id.month - 1;
+      monthlyMetrics.own[monthIndex].vehicleExpense = Math.round((v.amount || 0) * 100) / 100;
+    });
+
+    // Calculate profit
+    monthlyMetrics.own.forEach((m) => {
+      m.profit = Math.round((m.totalIncome - m.subtripExpense - m.vehicleExpense) * 100) / 100;
     });
 
     res.status(200).json({ year, own, market, monthlyMetrics });
