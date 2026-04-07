@@ -25,6 +25,11 @@ import Tyre from '../tyre/tyre.model.js';
 import { TYRE_STATUS, TYRE_TYPE, TYRE_HISTORY_ACTION } from '../tyre/tyre.constants.js';
 import TyreHistory from '../tyre/tyre-history.model.js';
 import Part from '../maintenanceAndInventory/part/part.model.js';
+import PartStock from '../maintenanceAndInventory/partStock/partStock.model.js';
+import PartLocation from '../maintenanceAndInventory/partLocation/partLocation.model.js';
+import PartTransaction from '../maintenanceAndInventory/partTransaction/partTransaction.model.js';
+import { INVENTORY_ACTIVITY_TYPES } from '../maintenanceAndInventory/partTransaction/partTransaction.constants.js';
+import Vendor from '../maintenanceAndInventory/vendor/vendor.model.js';
 import WorkOrder from '../maintenanceAndInventory/workOrder/workOrder.model.js';
 import { WORK_ORDER_STATUS } from '../maintenanceAndInventory/workOrder/workOrder.constants.js';
 import PurchaseOrder from '../maintenanceAndInventory/purchaseOrder/purchaseOrder.model.js';
@@ -2318,6 +2323,392 @@ const getWorkOrderDashboardSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Detailed Maintenance & Inventory Dashboard
+const getMaintenanceDashboard = asyncHandler(async (req, res) => {
+  try {
+    const tenantQuery = { tenant: req.tenant };
+
+    const [
+      // Parts
+      partCount,
+      partCategoryAgg,
+      partStockAgg,
+      lowStockAgg,
+      outOfStockAgg,
+      totalInventoryValueAgg,
+      // Locations
+      locationCount,
+      locationStockAgg,
+      // Purchase Orders
+      poStatusAgg,
+      poTotalSpendAgg,
+      topVendorAgg,
+      recentPOs,
+      // Work Orders
+      woStatusAgg,
+      woCategoryAgg,
+      woMonthlyCostAgg,
+      recentWOs,
+      // Vendors
+      vendorCount,
+      // Transactions
+      recentTransactionAgg
+    ] = await Promise.all([
+      // 1. Total parts count
+      Part.countDocuments({ ...tenantQuery, isActive: { $ne: false } }),
+
+      // 2. Parts by category
+      Part.aggregate([
+        { $match: { ...tenantQuery, isActive: { $ne: false } } },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+
+      // 3. Stock summary per part (total quantity across locations)
+      PartStock.aggregate([
+        { $match: tenantQuery },
+        {
+          $group: {
+            _id: null,
+            totalQuantity: { $sum: '$quantity' },
+            totalStockEntries: { $sum: 1 }
+          }
+        }
+      ]),
+
+      // 4. Low stock parts (quantity > 0 but below threshold)
+      PartStock.aggregate([
+        { $match: tenantQuery },
+        {
+          $group: {
+            _id: '$part',
+            totalQuantity: { $sum: '$quantity' },
+            maxThreshold: { $max: '$threshold' }
+          }
+        },
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $gt: ['$totalQuantity', 0] },
+                { $gt: ['$maxThreshold', 0] },
+                { $lt: ['$totalQuantity', '$maxThreshold'] }
+              ]
+            }
+          }
+        },
+        { $count: 'count' }
+      ]),
+
+      // 5. Out of stock parts
+      PartStock.aggregate([
+        { $match: tenantQuery },
+        {
+          $group: {
+            _id: '$part',
+            totalQuantity: { $sum: '$quantity' }
+          }
+        },
+        { $match: { totalQuantity: { $lte: 0 } } },
+        { $count: 'count' }
+      ]),
+
+      // 6. Total inventory value
+      PartStock.aggregate([
+        { $match: tenantQuery },
+        {
+          $lookup: {
+            from: 'parts',
+            localField: 'part',
+            foreignField: '_id',
+            as: 'partDoc'
+          }
+        },
+        { $unwind: '$partDoc' },
+        {
+          $group: {
+            _id: null,
+            totalValue: { $sum: { $multiply: ['$quantity', { $ifNull: ['$partDoc.unitCost', 0] }] } }
+          }
+        }
+      ]),
+
+      // 7. Location count
+      PartLocation.countDocuments({ ...tenantQuery, isActive: { $ne: false } }),
+
+      // 8. Stock per location
+      PartStock.aggregate([
+        { $match: tenantQuery },
+        {
+          $lookup: {
+            from: 'partlocations',
+            localField: 'inventoryLocation',
+            foreignField: '_id',
+            as: 'location'
+          }
+        },
+        { $unwind: '$location' },
+        {
+          $group: {
+            _id: '$inventoryLocation',
+            locationName: { $first: '$location.name' },
+            totalQuantity: { $sum: '$quantity' },
+            uniqueParts: { $addToSet: '$part' }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            locationId: '$_id',
+            locationName: 1,
+            totalQuantity: 1,
+            uniquePartCount: { $size: '$uniqueParts' }
+          }
+        },
+        { $sort: { totalQuantity: -1 } }
+      ]),
+
+      // 9. PO status distribution
+      PurchaseOrder.aggregate([
+        { $match: tenantQuery },
+        { $group: { _id: '$status', count: { $sum: 1 }, totalAmount: { $sum: '$total' } } }
+      ]),
+
+      // 10. Total PO spend
+      PurchaseOrder.aggregate([
+        {
+          $match: {
+            ...tenantQuery,
+            status: { $in: [PURCHASE_ORDER_STATUS.PURCHASED, PURCHASE_ORDER_STATUS.RECEIVED, PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED] }
+          }
+        },
+        { $group: { _id: null, totalSpend: { $sum: '$total' }, avgOrderValue: { $avg: '$total' } } }
+      ]),
+
+      // 11. Top vendors by PO count
+      PurchaseOrder.aggregate([
+        { $match: tenantQuery },
+        {
+          $lookup: {
+            from: 'vendors',
+            localField: 'vendor',
+            foreignField: '_id',
+            as: 'vendorDoc'
+          }
+        },
+        { $unwind: '$vendorDoc' },
+        {
+          $group: {
+            _id: '$vendor',
+            vendorName: { $first: '$vendorDoc.name' },
+            orderCount: { $sum: 1 },
+            totalSpend: { $sum: '$total' }
+          }
+        },
+        { $sort: { totalSpend: -1 } },
+        { $limit: 5 }
+      ]),
+
+      // 12. Recent POs (last 5)
+      PurchaseOrder.find(tenantQuery)
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('purchaseOrderNo status total createdAt vendor')
+        .populate('vendor', 'name')
+        .lean(),
+
+      // 13. WO status distribution
+      WorkOrder.aggregate([
+        { $match: tenantQuery },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+            totalCost: { $sum: { $ifNull: ['$totalCost', 0] } }
+          }
+        }
+      ]),
+
+      // 14. WO by category
+      WorkOrder.aggregate([
+        { $match: tenantQuery },
+        {
+          $group: {
+            _id: '$category',
+            count: { $sum: 1 },
+            totalCost: { $sum: { $ifNull: ['$totalCost', 0] } }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 8 }
+      ]),
+
+      // 15. WO monthly cost (last 6 months)
+      WorkOrder.aggregate([
+        {
+          $match: {
+            ...tenantQuery,
+            createdAt: { $gte: new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000) }
+          }
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+            count: { $sum: 1 },
+            totalCost: { $sum: { $ifNull: ['$totalCost', 0] } },
+            labourCost: { $sum: { $ifNull: ['$labourCharge', 0] } },
+            partsCost: { $sum: { $ifNull: ['$partsCost', 0] } }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]),
+
+      // 16. Recent WOs (last 5)
+      WorkOrder.find(tenantQuery)
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('workOrderNo status category priority totalCost vehicle createdAt')
+        .populate('vehicle', 'vehicleNo')
+        .lean(),
+
+      // 17. Vendor count
+      Vendor.countDocuments({ ...tenantQuery, isActive: { $ne: false } }),
+
+      // 18. Recent transactions (inventory movement, last 30 days)
+      PartTransaction.aggregate([
+        {
+          $match: {
+            ...tenantQuery,
+            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+          }
+        },
+        {
+          $group: {
+            _id: '$type',
+            count: { $sum: 1 },
+            totalQtyChange: { $sum: { $abs: '$quantityChange' } }
+          }
+        },
+        { $sort: { count: -1 } }
+      ])
+    ]);
+
+    // Format helpers
+    const formatBucket = (aggData) => {
+      const output = {};
+      aggData.forEach(item => { if (item._id) output[item._id] = item.count; });
+      return output;
+    };
+
+    const poStatusMap = {};
+    const poAmountMap = {};
+    poStatusAgg.forEach(s => {
+      poStatusMap[s._id] = s.count;
+      poAmountMap[s._id] = s.totalAmount;
+    });
+
+    const woStatusMap = {};
+    const woCostMap = {};
+    woStatusAgg.forEach(s => {
+      woStatusMap[s._id] = s.count;
+      woCostMap[s._id] = s.totalCost;
+    });
+
+    const totalPOs = Object.values(poStatusMap).reduce((a, b) => a + b, 0);
+    const totalWOs = Object.values(woStatusMap).reduce((a, b) => a + b, 0);
+
+    const spendData = poTotalSpendAgg[0] || { totalSpend: 0, avgOrderValue: 0 };
+    const inventoryValue = totalInventoryValueAgg[0]?.totalValue || 0;
+    const totalStock = partStockAgg[0]?.totalQuantity || 0;
+    const lowStockCount = lowStockAgg[0]?.count || 0;
+    const outOfStockCount = outOfStockAgg[0]?.count || 0;
+
+    res.status(200).json({
+      // --- Parts & Inventory ---
+      parts: {
+        totalParts: partCount,
+        totalStock,
+        totalInventoryValue: inventoryValue,
+        lowStockParts: lowStockCount,
+        outOfStockParts: outOfStockCount,
+        categoryBreakdown: partCategoryAgg.map(c => ({ category: c._id || 'Uncategorized', count: c.count })),
+      },
+
+      // --- Locations ---
+      locations: {
+        totalLocations: locationCount,
+        stockByLocation: locationStockAgg,
+      },
+
+      // --- Purchase Orders ---
+      purchaseOrders: {
+        total: totalPOs,
+        statusBreakdown: {
+          pendingApproval: poStatusMap[PURCHASE_ORDER_STATUS.PENDING_APPROVAL] || 0,
+          approved: poStatusMap[PURCHASE_ORDER_STATUS.APPROVED] || 0,
+          purchased: poStatusMap[PURCHASE_ORDER_STATUS.PURCHASED] || 0,
+          partialReceived: poStatusMap[PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED] || 0,
+          received: poStatusMap[PURCHASE_ORDER_STATUS.RECEIVED] || 0,
+          rejected: poStatusMap[PURCHASE_ORDER_STATUS.REJECTED] || 0,
+        },
+        totalSpend: spendData.totalSpend,
+        avgOrderValue: spendData.avgOrderValue,
+        topVendors: topVendorAgg.map(v => ({ vendor: v.vendorName, orders: v.orderCount, spend: v.totalSpend })),
+        recentOrders: recentPOs.map(po => ({
+          _id: po._id,
+          purchaseOrderNo: po.purchaseOrderNo,
+          status: po.status,
+          total: po.total,
+          vendor: po.vendor?.name || '-',
+          createdAt: po.createdAt,
+        })),
+      },
+
+      // --- Work Orders ---
+      workOrders: {
+        total: totalWOs,
+        statusBreakdown: {
+          open: woStatusMap[WORK_ORDER_STATUS.OPEN] || 0,
+          pending: woStatusMap[WORK_ORDER_STATUS.PENDING] || 0,
+          completed: woStatusMap[WORK_ORDER_STATUS.COMPLETED] || 0,
+        },
+        totalMaintenanceCost: Object.values(woCostMap).reduce((a, b) => a + b, 0),
+        categoryBreakdown: woCategoryAgg.map(c => ({ category: c._id || 'Other', count: c.count, cost: c.totalCost })),
+        monthlyTrend: woMonthlyCostAgg.map(m => ({
+          month: m._id,
+          count: m.count,
+          totalCost: m.totalCost,
+          labourCost: m.labourCost,
+          partsCost: m.partsCost,
+        })),
+        recentOrders: recentWOs.map(wo => ({
+          _id: wo._id,
+          workOrderNo: wo.workOrderNo,
+          status: wo.status,
+          category: wo.category,
+          priority: wo.priority,
+          totalCost: wo.totalCost,
+          vehicle: wo.vehicle?.vehicleNo || '-',
+          createdAt: wo.createdAt,
+        })),
+      },
+
+      // --- Vendors ---
+      vendors: {
+        totalVendors: vendorCount,
+      },
+
+      // --- Inventory Activity (30d) ---
+      recentActivity: recentTransactionAgg.map(t => ({ type: t._id, count: t.count, totalQtyChange: t.totalQtyChange })),
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
 export {
   getTotalCounts,
   getExpiringSubtrips,
@@ -2341,4 +2732,5 @@ export {
   getTyreDetailedDashboard,
   getInventoryDashboardSummary,
   getWorkOrderDashboardSummary,
+  getMaintenanceDashboard,
 };

@@ -23,6 +23,7 @@ import {
   getInventoryDashboardSummary,
   getWorkOrderDashboardSummary,
   getTyreDetailedDashboard,
+  getMaintenanceDashboard,
 } from './dashboard.controller.js';
 
 const router = Router();
@@ -77,5 +78,6 @@ router.get("/tyre-summary", authenticate, getTyreDashboardSummary);
 router.get("/inventory-summary", authenticate, getInventoryDashboardSummary);
 router.get("/work-order-summary", authenticate, getWorkOrderDashboardSummary);
 router.get("/tyre-dashboard", authenticate, getTyreDetailedDashboard);
+router.get("/maintenance-dashboard", authenticate, getMaintenanceDashboard);
 
 export default router;
