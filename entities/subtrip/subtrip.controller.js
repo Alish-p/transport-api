@@ -212,6 +212,8 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       materials,
       subtripType,
       transporterPaymentGenerated,
+      epodSigned,
+      shortage,
     } = req.query;
 
     const { limit, skip } = req.pagination;
@@ -324,6 +326,21 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       } else if (transporterPaymentGenerated === 'no') {
         query.transporterPaymentReceiptId = null;
       }
+    }
+
+    // Epod signed filter
+    if (epodSigned === 'yes') {
+      query.podSignature = { $exists: true, $ne: null };
+    } else if (epodSigned === 'no') {
+      query.podSignature = null;
+    }
+
+    // Shortage filter
+    if (shortage === 'yes') {
+      query.$or = [{ shortageWeight: { $gt: 0 } }, { shortageAmount: { $gt: 0 } }];
+    } else if (shortage === 'no') {
+      query.shortageWeight = { $in: [0, null] };
+      query.shortageAmount = { $in: [0, null] };
     }
 
     // Fetch data and totals in parallel
@@ -1013,6 +1030,8 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     materials,
     subtripType,
     transporterPaymentGenerated,
+    epodSigned,
+    shortage,
     columns,
   } = req.query;
 
@@ -1134,6 +1153,21 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     } else if (transporterPaymentGenerated === 'no') {
       query.transporterPaymentReceiptId = null;
     }
+  }
+
+  // Epod signed filter
+  if (epodSigned === 'yes') {
+    query.podSignature = { $exists: true, $ne: null };
+  } else if (epodSigned === 'no') {
+    query.podSignature = null;
+  }
+
+  // Shortage filter
+  if (shortage === 'yes') {
+    query.$or = [{ shortageWeight: { $gt: 0 } }, { shortageAmount: { $gt: 0 } }];
+  } else if (shortage === 'no') {
+    query.shortageWeight = { $in: [0, null] };
+    query.shortageAmount = { $in: [0, null] };
   }
 
   // Column Mapping

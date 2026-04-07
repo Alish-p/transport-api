@@ -22,7 +22,8 @@ import { REQUIRED_DOC_TYPES } from '../vehicleDocument/vehicleDocument.constants
 import SubtripEvent from '../subtripEvent/subtripEvent.model.js';
 import { DEFAULT_TIMEZONE, getStartOfMonthIST, getNextMonthStartIST, getStartOfYearIST, getNextYearStartIST } from '../../utils/time-utils.js';
 import Tyre from '../tyre/tyre.model.js';
-import { TYRE_STATUS } from '../tyre/tyre.constants.js';
+import { TYRE_STATUS, TYRE_TYPE, TYRE_HISTORY_ACTION } from '../tyre/tyre.constants.js';
+import TyreHistory from '../tyre/tyre-history.model.js';
 import Part from '../maintenanceAndInventory/part/part.model.js';
 import WorkOrder from '../maintenanceAndInventory/workOrder/workOrder.model.js';
 import { WORK_ORDER_STATUS } from '../maintenanceAndInventory/workOrder/workOrder.constants.js';
@@ -1933,6 +1934,245 @@ const getTyreDashboardSummary = asyncHandler(async (req, res) => {
   }
 });
 
+// Detailed tyre dashboard summary for the Tyre page
+const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
+  try {
+    const baseQuery = { tenant: req.tenant, isActive: { $ne: false } };
+
+    const [
+      statusAgg,
+      typeAgg,
+      brandAgg,
+      sizeAgg,
+      ageAgg,
+      threadAgg,
+      attachmentAgg,
+      metricsAgg,
+      historyAgg
+    ] = await Promise.all([
+      // 1. Status distribution
+      Tyre.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      
+      // 2. Type distribution
+      Tyre.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: '$type', count: { $sum: 1 } } }
+      ]),
+
+      // 3. Brand summary
+      Tyre.aggregate([
+        { $match: baseQuery },
+        {
+          $group: {
+            _id: '$brand',
+            count: { $sum: 1 },
+            mounted: { $sum: { $cond: [{ $eq: ['$status', TYRE_STATUS.MOUNTED] }, 1, 0] } },
+            inStock: { $sum: { $cond: [{ $eq: ['$status', TYRE_STATUS.IN_STOCK] }, 1, 0] } },
+            scrapped: { $sum: { $cond: [{ $eq: ['$status', TYRE_STATUS.SCRAPPED] }, 1, 0] } },
+            totalValue: { $sum: { $ifNull: ['$cost', 0] } },
+            avgKm: { $avg: { $ifNull: ['$currentKm', 0] } }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+
+      // 4. Size summary
+      Tyre.aggregate([
+        { $match: baseQuery },
+        {
+          $group: {
+            _id: '$size',
+            count: { $sum: 1 },
+            mounted: { $sum: { $cond: [{ $eq: ['$status', TYRE_STATUS.MOUNTED] }, 1, 0] } },
+            inStock: { $sum: { $cond: [{ $eq: ['$status', TYRE_STATUS.IN_STOCK] }, 1, 0] } },
+            scrapped: { $sum: { $cond: [{ $eq: ['$status', TYRE_STATUS.SCRAPPED] }, 1, 0] } }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+
+      // 5. Age distribution
+      Tyre.aggregate([
+        { $match: baseQuery },
+        {
+          $project: {
+            ageInMonths: {
+              $dateDiff: {
+                startDate: '$purchaseDate',
+                endDate: new Date(),
+                unit: 'month'
+              }
+            }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              $switch: {
+                branches: [
+                  { case: { $lt: ['$ageInMonths', 6] }, then: 'lt6Months' },
+                  { case: { $lt: ['$ageInMonths', 12] }, then: 'lt1Year' },
+                  { case: { $lt: ['$ageInMonths', 24] }, then: 'lt2Years' }
+                ],
+                default: 'gt2Years'
+              }
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+
+      // 6. Thread health
+      Tyre.aggregate([
+        { $match: baseQuery },
+        {
+          $project: {
+            healthRatio: {
+              $cond: [
+                { $gt: ['$threadDepth.original', 0] },
+                { $divide: ['$threadDepth.current', '$threadDepth.original'] },
+                -1 // unknown
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ['$healthRatio', -1] }, then: 'unknown' },
+                  { case: { $lte: ['$healthRatio', 0.25] }, then: 'critical' },
+                  { case: { $lte: ['$healthRatio', 0.5] }, then: 'warning' }
+                ],
+                default: 'healthy'
+              }
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+
+      // 7. Attachment Summary using TyreHistory
+      TyreHistory.aggregate([
+        { $match: { tenant: req.tenant, action: 'MOUNT' } },
+        { $group: { _id: '$tyre', mountCount: { $sum: 1 } } }
+      ]),
+
+      // 8. Key metrics
+      Tyre.aggregate([
+        { $match: baseQuery },
+        {
+          $group: {
+            _id: null,
+            totalValue: { $sum: { $ifNull: ['$cost', 0] } },
+            avgKmPerTyre: { $avg: { $ifNull: ['$currentKm', 0] } },
+            remoldedCount: { $sum: { $cond: [{ $gt: ['$metadata.remoldCount', 0] }, 1, 0] } },
+            totalRemholds: { $sum: { $ifNull: ['$metadata.remoldCount', 0] } }
+          }
+        }
+      ]),
+
+      // 9. Recent Activity (30 days)
+      TyreHistory.aggregate([
+        { 
+          $match: { 
+            tenant: req.tenant,
+            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } 
+          }
+        },
+        { $group: { _id: '$action', count: { $sum: 1 } } }
+      ])
+    ]);
+
+    // Format Attachment Summary
+    const tyres = await Tyre.find(baseQuery).select('_id status').lean();
+    
+    let newlyAttached = 0;
+    let oldAttached = 0;
+    let neverAttached = 0;
+
+    const mountCountMap = {};
+    attachmentAgg.forEach(item => {
+      mountCountMap[item._id.toString()] = item.mountCount;
+    });
+
+    tyres.forEach(tyre => {
+      const mountCount = mountCountMap[tyre._id.toString()] || 0;
+      if (mountCount === 0) {
+        neverAttached++;
+      } else if (tyre.status === TYRE_STATUS.MOUNTED) {
+        if (mountCount === 1) {
+          newlyAttached++;
+        } else {
+          oldAttached++;
+        }
+      }
+    });
+
+    // Format standard maps
+    const formatBucket = (aggData) => {
+      const output = {};
+      aggData.forEach(item => {
+        if(item._id) output[item._id] = item.count;
+      });
+      return output;
+    };
+
+    const threadMap = formatBucket(threadAgg);
+    const ageMap = formatBucket(ageAgg);
+    const metrics = metricsAgg[0] || {
+      totalValue: 0,
+      avgKmPerTyre: 0,
+      remoldedCount: 0,
+      totalRemholds: 0
+    };
+
+    res.status(200).json({
+      statusSummary: formatBucket(statusAgg),
+      typeSummary: typeAgg.map(t => ({ type: t._id, count: t.count })),
+      brandSummary: brandAgg.map(b => ({ brand: b._id, ...b })),
+      sizeSummary: sizeAgg.map(s => ({ size: s._id, ...s })),
+      attachmentSummary: {
+        newlyAttached,
+        oldAttached,
+        neverAttached,
+        total: tyres.length
+      },
+      agingSummary: {
+        lt6Months: ageMap['lt6Months'] || 0,
+        lt1Year: ageMap['lt1Year'] || 0,
+        lt2Years: ageMap['lt2Years'] || 0,
+        gt2Years: ageMap['gt2Years'] || 0
+      },
+      threadHealthSummary: {
+        healthy: threadMap['healthy'] || 0,
+        warning: threadMap['warning'] || 0,
+        critical: threadMap['critical'] || 0,
+        unknown: threadMap['unknown'] || 0
+      },
+      topStats: {
+        totalValue: metrics.totalValue,
+        avgKmPerTyre: metrics.avgKmPerTyre,
+        remoldedCount: metrics.remoldedCount,
+        avgRemoldCount: metrics.remoldedCount > 0 ? (metrics.totalRemholds / metrics.remoldedCount) : 0,
+        lowThreadAlerts: threadMap['critical'] || 0
+      },
+      recentActivity: historyAgg.map(h => ({ action: h._id, count: h.count }))
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: error.message || error });
+  }
+});
+
+
 // Inventory dashboard summary — matches part list view analytics
 const getInventoryDashboardSummary = asyncHandler(async (req, res) => {
   try {
@@ -2098,6 +2338,7 @@ export {
   getExpiringDocuments,
   getMonthlyDestinationSubtrips,
   getTyreDashboardSummary,
+  getTyreDetailedDashboard,
   getInventoryDashboardSummary,
   getWorkOrderDashboardSummary,
 };
