@@ -150,7 +150,11 @@ const fetchPaginatedAdvances = asyncHandler(async (req, res) => {
 
   const [advances, total] = await Promise.all([
     TransporterAdvance.find(finalQuery)
-      .populate({ path: 'vehicleId', select: 'vehicleNo' })
+      .populate({
+        path: 'vehicleId',
+        select: 'vehicleNo transporter',
+        populate: { path: 'transporter', select: 'transportName' },
+      })
       .populate({ path: 'pumpCd', select: 'pumpName' })
       .populate({
         path: 'subtripId',
@@ -185,6 +189,7 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
     subtripId: { header: 'LR No', key: 'subtripNo', width: 20 },
     status: { header: 'Status', key: 'status', width: 15 },
     vehicleNo: { header: 'Vehicle No', key: 'vehicleNo', width: 20 },
+    transporter: { header: 'Transporter', key: 'transporterName', width: 25 },
     advanceType: { header: 'Advance Type', key: 'advanceType', width: 20 },
     date: { header: 'Date', key: 'date', width: 20 },
     remarks: { header: 'Remarks', key: 'remarks', width: 30 },
@@ -209,6 +214,7 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
       COLUMN_MAPPING.subtripId,
       COLUMN_MAPPING.status,
       COLUMN_MAPPING.vehicleNo,
+      COLUMN_MAPPING.transporter,
       COLUMN_MAPPING.advanceType,
       COLUMN_MAPPING.date,
       COLUMN_MAPPING.amount,
@@ -272,6 +278,15 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
     },
     { $unwind: { path: '$subtrip', preserveNullAndEmptyArrays: true } },
     {
+      $lookup: {
+        from: 'transporters',
+        localField: 'vehicle.transporter',
+        foreignField: '_id',
+        as: 'transporter',
+      },
+    },
+    { $unwind: { path: '$transporter', preserveNullAndEmptyArrays: true } },
+    {
       $addFields: {
         transporterPaymentReceiptObjectId: {
           $convert: {
@@ -303,6 +318,7 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
         paidThrough: 1,
         remarks: 1,
         vehicleNo: '$vehicle.vehicleNo',
+        transporterName: '$transporter.transportName',
         pumpName: '$pump.pumpName',
         subtripNo: '$subtrip.subtripNo',
         paymentId: '$paymentReceipt.paymentId',
