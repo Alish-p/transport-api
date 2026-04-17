@@ -1953,7 +1953,8 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
       threadAgg,
       attachmentAgg,
       metricsAgg,
-      historyAgg
+      historyAgg,
+      liveKmAgg
     ] = await Promise.all([
       // 1. Status distribution
       Tyre.aggregate([
@@ -2092,6 +2093,52 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
           }
         },
         { $group: { _id: '$action', count: { $sum: 1 } } }
+      ]),
+
+      // 10. Live KM freshness for MOUNTED tyres
+      Tyre.aggregate([
+        { $match: { ...baseQuery, status: TYRE_STATUS.MOUNTED } },
+        {
+          $lookup: {
+            from: 'vehicles',
+            localField: 'currentVehicleId',
+            foreignField: '_id',
+            as: 'vehicle'
+          }
+        },
+        { $unwind: { path: '$vehicle', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            daysSinceUpdate: {
+              $cond: [
+                { $ifNull: ['$vehicle.currentOdometerUpdatedAt', false] },
+                {
+                  $dateDiff: {
+                    startDate: '$vehicle.currentOdometerUpdatedAt',
+                    endDate: new Date(),
+                    unit: 'day'
+                  }
+                },
+                -1
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ['$daysSinceUpdate', -1] }, then: 'unknown' },
+                  { case: { $lt: ['$daysSinceUpdate', 3] }, then: 'fresh' },
+                  { case: { $lte: ['$daysSinceUpdate', 10] }, then: 'warning' }
+                ],
+                default: 'stale'
+              }
+            },
+            count: { $sum: 1 }
+          }
+        }
       ])
     ]);
 
@@ -2131,6 +2178,7 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
 
     const threadMap = formatBucket(threadAgg);
     const ageMap = formatBucket(ageAgg);
+    const liveKmMap = formatBucket(liveKmAgg);
     const metrics = metricsAgg[0] || {
       totalValue: 0,
       avgKmPerTyre: 0,
@@ -2168,7 +2216,13 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
         avgRemoldCount: metrics.remoldedCount > 0 ? (metrics.totalRemholds / metrics.remoldedCount) : 0,
         lowThreadAlerts: threadMap['critical'] || 0
       },
-      recentActivity: historyAgg.map(h => ({ action: h._id, count: h.count }))
+      recentActivity: historyAgg.map(h => ({ action: h._id, count: h.count })),
+      liveKmSummary: {
+        fresh: liveKmMap['fresh'] || 0,
+        warning: liveKmMap['warning'] || 0,
+        stale: liveKmMap['stale'] || 0,
+        unknown: liveKmMap['unknown'] || 0
+      }
     });
 
   } catch (error) {
