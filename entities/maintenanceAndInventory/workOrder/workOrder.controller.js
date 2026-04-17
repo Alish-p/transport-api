@@ -618,6 +618,7 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     priority: { header: 'Priority', key: 'priority', width: 15 },
     category: { header: 'Category', key: 'category', width: 15 },
     timeTaken: { header: 'Time Taken', key: 'timeTaken', width: 25 },
+    issues: { header: 'Issues', key: 'issues', width: 30 },
     issueAssignees: { header: 'Issue Assignees', key: 'issueAssignees', width: 25 },
     scheduledStartDate: { header: 'Scheduled Start', key: 'scheduledStartDate', width: 15 },
     completedDate: { header: 'Completed On', key: 'completedDate', width: 15 },
@@ -674,6 +675,10 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
         } else {
           row[key] = '-';
         }
+      } else if (key === 'issues') {
+        const issuesList = rowData.issues || [];
+        const vals = issuesList.map((i) => typeof i?.issue === 'object' ? i.issue.value : i?.issue).filter(Boolean);
+        row[key] = vals.join(', ') || '-';
       } else if (key === 'issueAssignees') {
         const issues = rowData.issues || [];
         const names = issues.flatMap((issue) => {
