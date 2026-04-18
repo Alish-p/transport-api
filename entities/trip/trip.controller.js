@@ -424,6 +424,24 @@ const deleteTrip = asyncHandler(async (req, res) => {
     return;
   }
 
+  // Guard: block deletion if any subtrip has billing documents generated
+  const blockingSubtrips = await Subtrip.find({
+    _id: { $in: trip.subtrips },
+    $or: [
+      { invoiceId: { $exists: true, $ne: null, $ne: "" } },
+      { driverSalaryId: { $exists: true, $ne: null, $ne: "" } },
+      { transporterPaymentReceiptId: { $exists: true, $ne: null, $ne: "" } },
+    ],
+  }).select("subtripNo invoiceId driverSalaryId transporterPaymentReceiptId");
+
+  if (blockingSubtrips.length > 0) {
+    res.status(400).json({
+      message: "Cannot delete trip: one or more jobs have billing documents (invoice, driver salary, or transporter payment) already generated.",
+      blockingJobs: blockingSubtrips,
+    });
+    return;
+  }
+
   // Delete all subtrips and their expenses
   for (const subtripId of trip.subtrips) {
     await Expense.deleteMany({ subtripId });
