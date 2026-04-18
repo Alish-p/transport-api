@@ -152,12 +152,49 @@ const createBulkTyres = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre
 // @access  Private
 const getTyres = asyncHandler(async (req, res) => {
-    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, category } = req.query;
+    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, category, attachmentStatus } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
     query.isActive = { $ne: false };
 
+    if (attachmentStatus) {
+        const [attachmentAgg, currentlyMounted, currentlyInStock] = await Promise.all([
+            // All tyres and how many times they've been mounted
+            TyreHistory.aggregate([
+                { $match: { tenant: req.tenant, action: 'MOUNT' } },
+                { $group: { _id: '$tyre', mountCount: { $sum: 1 } } }
+            ]),
+            // IDs of tyres currently mounted
+            Tyre.find({ tenant: req.tenant, status: TYRE_STATUS.MOUNTED, isActive: { $ne: false } }).select('_id').lean(),
+            // IDs of tyres currently in stock
+            Tyre.find({ tenant: req.tenant, status: TYRE_STATUS.IN_STOCK, isActive: { $ne: false } }).select('_id').lean(),
+        ]);
+
+        const mountedIdSet = new Set(currentlyMounted.map(t => t._id.toString()));
+        const inStockIdSet = new Set(currentlyInStock.map(t => t._id.toString()));
+        const everMountedIdSet = new Set(attachmentAgg.map(item => item._id.toString()));
+
+        if (attachmentStatus === 'neverAttached') {
+            // In stock tyres that have NEVER been mounted
+            const matchedIds = currentlyInStock
+                .map(t => t._id)
+                .filter(id => !everMountedIdSet.has(id.toString()));
+            query._id = { $in: matchedIds };
+        } else if (attachmentStatus === 'newlyAttached') {
+            // Currently MOUNTED tyres with exactly 1 mount in history
+            const matchedIds = attachmentAgg
+                .filter(item => item.mountCount === 1 && mountedIdSet.has(item._id.toString()))
+                .map(item => item._id);
+            query._id = { $in: matchedIds };
+        } else if (attachmentStatus === 'oldAttached') {
+            // Currently MOUNTED tyres with more than 1 mount in history
+            const matchedIds = attachmentAgg
+                .filter(item => item.mountCount > 1 && mountedIdSet.has(item._id.toString()))
+                .map(item => item._id);
+            query._id = { $in: matchedIds };
+        }
+    }
 
 
     if (serialNumber) {
@@ -168,7 +205,8 @@ const getTyres = asyncHandler(async (req, res) => {
         query.type = type;
     }
 
-    if (status) {
+    // Only apply the general status filter if attachmentStatus is not active (to avoid overriding)
+    if (status && !attachmentStatus) {
         query.status = status;
     }
 
