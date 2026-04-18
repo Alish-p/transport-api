@@ -13,6 +13,7 @@ import {
     scrapTyre,
     updateTyreHistory,
     remoldTyre,
+    sellTyre,
     deleteTyre,
 } from "./tyre.controller.js";
 import pagination from "../../middlewares/pagination.js";
@@ -71,5 +72,6 @@ router.route("/:id/history/:historyId").put(checkPermission("tyre", "update"), u
 
 router.route("/:id/scrap").post(checkPermission("tyre", "update"), scrapTyre);
 router.route("/:id/remold").post(checkPermission("tyre", "update"), remoldTyre);
+router.route("/:id/sell").post(checkPermission("tyre", "update"), sellTyre);
 
 export default router;

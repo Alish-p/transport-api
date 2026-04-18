@@ -256,6 +256,7 @@ const getTyres = asyncHandler(async (req, res) => {
         [TYRE_STATUS.IN_STOCK]: { count: 0, value: 0 },
         [TYRE_STATUS.SCRAPPED]: { count: 0, value: 0 },
         [TYRE_STATUS.MOUNTED]: { count: 0, value: 0 }, // keeping it for completeness or if needed later
+        [TYRE_STATUS.SOLD]: { count: 0, value: 0 },
     };
 
     // Calculate 'All' from the analyticsData
@@ -1004,4 +1005,46 @@ const deleteTyre = asyncHandler(async (req, res) => {
     res.json({ message: 'Tyre deleted successfully' });
 });
 
-export { createTyre, createBulkTyres, getTyres, exportTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory, remoldTyre, deleteTyre };
+// @desc    Sell tyre (Scrapped only)
+// @route   POST /api/tyre/:id/sell
+// @access  Private
+const sellTyre = asyncHandler(async (req, res) => {
+    const { sellAmount, sellDate } = req.body;
+    const tyreId = req.params.id;
+
+    // 1. Get Tyre
+    const tyre = await Tyre.findOne({ _id: tyreId, tenant: req.tenant });
+    if (!tyre) {
+        res.status(404);
+        throw new Error('Tyre not found');
+    }
+
+    // 2. Validation
+    if (tyre.status !== TYRE_STATUS.SCRAPPED) {
+        res.status(400);
+        throw new Error('Only Scrapped tyres can be sold');
+    }
+
+    // 3. Update Tyre Status
+    tyre.status = TYRE_STATUS.SOLD;
+
+    if (!tyre.metadata) tyre.metadata = {};
+    tyre.metadata.sellPrice = sellAmount || 0;
+
+    await tyre.save();
+
+    // 4. Create History
+    await TyreHistory.create({
+        tenant: req.tenant,
+        tyre: tyre._id,
+        action: TYRE_HISTORY_ACTION.SELL,
+        measuringDate: sellDate || new Date(),
+        metadata: {
+            sellPrice: sellAmount || 0
+        }
+    });
+
+    res.json(tyre);
+});
+
+export { createTyre, createBulkTyres, getTyres, exportTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory, remoldTyre, sellTyre, deleteTyre };

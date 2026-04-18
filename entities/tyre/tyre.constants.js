@@ -2,6 +2,7 @@ export const TYRE_STATUS = {
     IN_STOCK: 'In_Stock',
     MOUNTED: 'Mounted',
     SCRAPPED: 'Scrapped',
+    SOLD: 'Sold',
 };
 
 export const TYRE_TYPE = {
@@ -19,4 +20,5 @@ export const TYRE_HISTORY_ACTION = {
     SCRAP: 'SCRAP',
     REMOLD: 'REMOLD',
     REJECT: 'REJECT',
+    SELL: 'SELL',
 };
