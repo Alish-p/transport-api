@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Tyre from './tyre.model.js';
 import TyreHistory from './tyre-history.model.js';
+import Vehicle from '../vehicle/vehicle.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { TYRE_STATUS, TYRE_TYPE, TYRE_HISTORY_ACTION } from './tyre.constants.js';
 import { TYRE_POSITIONS } from '../../constants/tyreLayouts.js';
@@ -152,7 +153,7 @@ const createBulkTyres = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre
 // @access  Private
 const getTyres = asyncHandler(async (req, res) => {
-    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, category, attachmentStatus } = req.query;
+    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, category, attachmentStatus, liveKmFreshness } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -244,6 +245,44 @@ const getTyres = asyncHandler(async (req, res) => {
 
     if (category) {
         query.category = { $regex: category, $options: 'i' };
+    }
+
+    // Filter by live KM freshness (odometer update recency on mounted tyres' vehicles)
+    if (liveKmFreshness) {
+        const now = Date.now();
+        const DAY_MS = 24 * 60 * 60 * 1000;
+
+        // Fetch all mounted tyres with their vehicle's odometer updated date
+        const mountedTyres = await Tyre.find({
+            tenant: req.tenant,
+            status: TYRE_STATUS.MOUNTED,
+            isActive: { $ne: false },
+            currentVehicleId: { $ne: null },
+        }).select('_id currentVehicleId').lean();
+
+        const vehicleIds = [...new Set(mountedTyres.map(t => t.currentVehicleId?.toString()).filter(Boolean))];
+        const vehicles = await Vehicle.find({ _id: { $in: vehicleIds } })
+            .select('_id currentOdometerUpdatedAt')
+            .lean();
+
+        const vehicleMap = {};
+        vehicles.forEach(v => { vehicleMap[v._id.toString()] = v; });
+
+        const freshIds = mountedTyres
+            .filter(tyre => {
+                const vehicle = vehicleMap[tyre.currentVehicleId?.toString()];
+                if (!vehicle || !vehicle.currentOdometerUpdatedAt) {
+                    return liveKmFreshness === 'unknown';
+                }
+                const daysSince = Math.floor((now - new Date(vehicle.currentOdometerUpdatedAt).getTime()) / DAY_MS);
+                if (liveKmFreshness === 'fresh')   return daysSince < 3;
+                if (liveKmFreshness === 'warning') return daysSince >= 3 && daysSince <= 10;
+                if (liveKmFreshness === 'stale')   return daysSince > 10;
+                return false;
+            })
+            .map(t => t._id);
+
+        query._id = { ...(query._id || {}), $in: freshIds };
     }
 
     // Analytics Aggregation
@@ -872,7 +911,7 @@ const remoldTyre = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre/export
 // @access  Private
 const exportTyres = asyncHandler(async (req, res) => {
-    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, columns, category } = req.query;
+    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, columns, category, attachmentStatus, liveKmFreshness } = req.query;
 
     const query = addTenantToQuery(req);
     query.isActive = { $ne: false };
@@ -923,6 +962,73 @@ const exportTyres = asyncHandler(async (req, res) => {
 
     if (category) {
         query.category = { $regex: category, $options: 'i' };
+    }
+
+    if (attachmentStatus) {
+        const [attachmentAgg, currentlyMounted, currentlyInStock] = await Promise.all([
+            TyreHistory.aggregate([
+                { $match: { tenant: req.tenant, action: 'MOUNT' } },
+                { $group: { _id: '$tyre', mountCount: { $sum: 1 } } }
+            ]),
+            Tyre.find({ tenant: req.tenant, status: TYRE_STATUS.MOUNTED, isActive: { $ne: false } }).select('_id').lean(),
+            Tyre.find({ tenant: req.tenant, status: TYRE_STATUS.IN_STOCK, isActive: { $ne: false } }).select('_id').lean(),
+        ]);
+
+        const mountedIdSet = new Set(currentlyMounted.map(t => t._id.toString()));
+        const everMountedIdSet = new Set(attachmentAgg.map(item => item._id.toString()));
+
+        if (attachmentStatus === 'neverAttached') {
+            const matchedIds = currentlyInStock
+                .map(t => t._id)
+                .filter(id => !everMountedIdSet.has(id.toString()));
+            query._id = { $in: matchedIds };
+        } else if (attachmentStatus === 'newlyAttached') {
+            const matchedIds = attachmentAgg
+                .filter(item => item.mountCount === 1 && mountedIdSet.has(item._id.toString()))
+                .map(item => item._id);
+            query._id = { $in: matchedIds };
+        } else if (attachmentStatus === 'oldAttached') {
+            const matchedIds = attachmentAgg
+                .filter(item => item.mountCount > 1 && mountedIdSet.has(item._id.toString()))
+                .map(item => item._id);
+            query._id = { $in: matchedIds };
+        }
+    }
+
+    if (liveKmFreshness) {
+        const now = Date.now();
+        const DAY_MS = 24 * 60 * 60 * 1000;
+
+        const mountedTyres = await Tyre.find({
+            tenant: req.tenant,
+            status: TYRE_STATUS.MOUNTED,
+            isActive: { $ne: false },
+            currentVehicleId: { $ne: null },
+        }).select('_id currentVehicleId').lean();
+
+        const vehicleIds = [...new Set(mountedTyres.map(t => t.currentVehicleId?.toString()).filter(Boolean))];
+        const vehicles = await Vehicle.find({ _id: { $in: vehicleIds } })
+            .select('_id currentOdometerUpdatedAt')
+            .lean();
+
+        const vehicleMap = {};
+        vehicles.forEach(v => { vehicleMap[v._id.toString()] = v; });
+
+        const freshIds = mountedTyres
+            .filter(tyre => {
+                const vehicle = vehicleMap[tyre.currentVehicleId?.toString()];
+                if (!vehicle || !vehicle.currentOdometerUpdatedAt) {
+                    return liveKmFreshness === 'unknown';
+                }
+                const daysSince = Math.floor((now - new Date(vehicle.currentOdometerUpdatedAt).getTime()) / DAY_MS);
+                if (liveKmFreshness === 'fresh')   return daysSince < 3;
+                if (liveKmFreshness === 'warning') return daysSince >= 3 && daysSince <= 10;
+                if (liveKmFreshness === 'stale')   return daysSince > 10;
+                return false;
+            })
+            .map(t => t._id);
+
+        query._id = { ...(query._id || {}), $in: freshIds };
     }
 
     const COLUMN_MAPPING = {
