@@ -105,7 +105,7 @@ const quickCreateVehicle = asyncHandler(async (req, res) => {
 // Fetch Vehicles with pagination and search
 const fetchVehicles = asyncHandler(async (req, res) => {
   try {
-    const { vehicleNo, vehicleType, isOwn, transporter, noOfTyres } = req.query;
+    const { vehicleNo, vehicleType, isOwn, transporter, noOfTyres, isActive } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -131,6 +131,10 @@ const fetchVehicles = asyncHandler(async (req, res) => {
     if (noOfTyres) {
       const tyres = Array.isArray(noOfTyres) ? noOfTyres : [noOfTyres];
       query.noOfTyres = { $in: tyres.map((t) => Number(t)) };
+    }
+
+    if (typeof isActive !== "undefined") {
+      query.isActive = isActive === "true" || isActive === true || isActive === "1";
     }
 
     const [vehicles, total, totalOwnVehicle, totalMarketVehicle] =
@@ -464,6 +468,7 @@ const exportVehicles = asyncHandler(async (req, res) => {
     isOwn,
     transporter,
     noOfTyres,
+    isActive,
     columns, // Comma separated column IDs
   } = req.query;
 
@@ -500,6 +505,10 @@ const exportVehicles = asyncHandler(async (req, res) => {
     query.noOfTyres = { $in: tyres.map((t) => Number(t)) };
   }
 
+  if (typeof isActive !== "undefined") {
+    query.isActive = isActive === "true" || isActive === true || isActive === "1";
+  }
+
   // Column Mapping
   const COLUMN_MAPPING = {
     vehicleNo: { header: 'Vehicle No', key: 'vehicleNo', width: 20 },
@@ -516,6 +525,7 @@ const exportVehicles = asyncHandler(async (req, res) => {
     chasisNo: { header: 'Chasis No', key: 'chasisNo', width: 20 },
     engineNo: { header: 'Engine No', key: 'engineNo', width: 20 },
     engineType: { header: 'Engine Type', key: 'engineType', width: 20 },
+    isActive: { header: 'Status', key: 'isActive', width: 15 },
   };
 
   // Determine Columns
@@ -599,6 +609,8 @@ const exportVehicles = asyncHandler(async (req, res) => {
 
       if (key === 'isOwn') {
         row[key] = doc.isOwn ? 'Own' : 'Market';
+      } else if (key === 'isActive') {
+        row[key] = doc.isActive ? 'Active' : 'Inactive';
       } else {
         row[key] = doc[key] || '-';
       }
