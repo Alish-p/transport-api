@@ -53,15 +53,13 @@ const createDriver = asyncHandler(async (req, res) => {
 });
 
 const fetchDrivers = asyncHandler(async (req, res) => {
-  /* eslint-disable no-unused-vars */
-  const { search, status, includeInactive, driverType } = req.query;
+  const { search, status, isActive, driverType } = req.query;
   const { limit, skip } = req.pagination;
 
   const query = addTenantToQuery({ tenant: req.tenant });
 
-  // By default, only return active drivers unless includeInactive is true
-  if (includeInactive !== 'true') {
-    query.isActive = { $ne: false };
+  if (typeof isActive !== 'undefined') {
+    query.isActive = isActive === "true" || isActive === true || isActive === "1";
   }
 
   // Filter by driver type (Own / Market)
@@ -285,12 +283,12 @@ const getPhotoUploadUrl = asyncHandler(async (req, res) => {
 });
 
 export const exportDrivers = asyncHandler(async (req, res) => {
-  const { search, status, includeInactive, driverType, columns } = req.query;
+  const { search, status, isActive, driverType, columns } = req.query;
 
   const query = addTenantToQuery({ tenant: req.tenant });
 
-  if (includeInactive !== 'true') {
-    query.isActive = { $ne: false };
+  if (typeof isActive !== 'undefined') {
+    query.isActive = isActive === "true" || isActive === true || isActive === "1";
   }
 
   if (driverType) {
@@ -332,6 +330,7 @@ export const exportDrivers = asyncHandler(async (req, res) => {
     licenseTo: { header: 'License Valid Till', key: 'licenseTo', width: 20 },
     aadharNo: { header: 'Aadhar No', key: 'aadharNo', width: 20 },
     status: { header: 'Status', key: 'status', width: 15 },
+    isActive: { header: 'Active', key: 'isActive', width: 15 },
     iitrition: { header: 'Duration', key: 'iitrition', width: 30 },
   };
 
@@ -366,7 +365,7 @@ export const exportDrivers = asyncHandler(async (req, res) => {
   worksheet.columns = exportColumns;
   
   const drivers = await Driver.find(filterQuery)
-    .select('_id driverName type driverCellNo permanentAddress experience licenseTo aadharNo')
+    .select('_id driverName type driverCellNo permanentAddress experience licenseTo aadharNo isActive')
     .sort({ driverName: 1 })
     .lean();
     
@@ -405,6 +404,8 @@ export const exportDrivers = asyncHandler(async (req, res) => {
       if (key === 'status') {
          const licDate = doc.licenseTo ? new Date(doc.licenseTo) : null;
          row[key] = licDate && licDate > now ? 'valid' : 'expired';
+      } else if (key === 'isActive') {
+         row[key] = doc.isActive === false ? 'Inactive' : 'Active';
       } else if (key === 'licenseTo') {
          row[key] = doc.licenseTo ? new Date(doc.licenseTo).toISOString().split('T')[0] : '-';
       } else if (key === 'iitrition') {
