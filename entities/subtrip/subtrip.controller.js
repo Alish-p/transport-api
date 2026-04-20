@@ -14,6 +14,8 @@ import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import { recalculateTripFinancials } from '../trip/trip.service.js';
 import { buildPublicFileUrl, createPresignedPutUrl } from '../../services/s3.service.js';
+import { buildChangedFields } from '../../utils/serialize-field-value.js';
+import { resolveChangedFieldLabels } from '../../helpers/resolve-changed-fields.js';
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>
@@ -679,15 +681,10 @@ const updateSubtrip = asyncHandler(async (req, res) => {
   );
 
   // Record the update event with changed fields
-  const changedFields = {};
-  Object.keys(req.body).forEach((key) => {
-    if (existingSubtrip[key] !== req.body[key]) {
-      changedFields[key] = {
-        from: existingSubtrip[key],
-        to: req.body[key],
-      };
-    }
-  });
+  const rawChangedFields = buildChangedFields(existingSubtrip, req.body);
+  // Resolve ref IDs → human-readable labels (driver name, customer name, etc.)
+  const changedFields = await resolveChangedFieldLabels(rawChangedFields, req.tenant);
+
 
   // Record status change event if status was changed
   if (
