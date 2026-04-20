@@ -142,6 +142,8 @@ const tenantSchema = new Schema(
       updatedAt: Date,
     },
     config: {
+      marketVehicles: { type: Boolean, default: true },
+      pumps: { type: Boolean, default: true },
       materialOptions: {
         type: [optionSchema],
         default: defaults.materialOptions,
