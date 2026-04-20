@@ -419,7 +419,7 @@ const createJob = asyncHandler(async (req, res) => {
           amount: driverAdvance,
           expenseType: 'Trip Advance',
           expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
-          remarks: 'Driver advance from UI',
+          remarks: 'Initial advance given to the driver at the time of job loading.',
           paidThrough: isGivenByPump ? 'Pump' : 'Cash',
           pumpCd: isGivenByPump ? pumpCd || null : null,
         });
@@ -430,7 +430,7 @@ const createJob = asyncHandler(async (req, res) => {
           vehicleId,
           amount: driverAdvance,
           advanceType: 'Trip Advance',
-          remarks: 'Driver advance from UI',
+          remarks: 'Initial advance given to the driver at the time of job loading.',
           paidThrough: isGivenByPump ? 'Pump' : 'Cash',
           pumpCd: isGivenByPump ? pumpCd || null : null,
         });
