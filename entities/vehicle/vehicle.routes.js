@@ -14,6 +14,7 @@ import {
   getVehicleKmTemplate,
   bulkUpdateVehicleKm,
   exportVehicles,
+  getVehicleMonthlyAnalytics,
 } from './vehicle.controller.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
@@ -71,6 +72,7 @@ router.post(
 
 // ─── READ (SINGLE) ────────────────────────────────────────
 router.get("/:id", authenticate, fetchVehicleById);
+router.get("/:id/analytics", authenticate, getVehicleMonthlyAnalytics);
 
 // ─── UPDATE ─────────────────────────────────────────────────────────
 router.put(

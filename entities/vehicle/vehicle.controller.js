@@ -281,6 +281,7 @@ export {
   getVehicleKmTemplate,
   bulkUpdateVehicleKm,
   exportVehicles,
+  getVehicleMonthlyAnalytics,
 };
 
 /**
@@ -416,6 +417,90 @@ const bulkUpdateVehicleKm = asyncHandler(async (req, res) => {
   }
 
   res.status(200).json({ updated, skipped });
+});
+
+/**
+ * Get Vehicle Monthly Analytics
+ */
+const getVehicleMonthlyAnalytics = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { year } = req.query;
+  const tenant = req.tenant;
+
+  if (!year) {
+    return res.status(400).json({ message: 'year is required' });
+  }
+
+  const startOfYear = new Date(`${year}-01-01`);
+  const endOfYear = new Date(`${year}-12-31T23:59:59.999Z`);
+
+  const subtripsRaw = await Subtrip.find({
+    vehicleId: id,
+    tenant,
+    subtripStatus: 'billed',
+    startDate: { $gte: startOfYear, $lte: endOfYear },
+  })
+    .select('startDate createdAt freightAmount rate loadingWeight expenses')
+    .populate('expenses', 'amount');
+
+  const jobs = Array(12).fill(0);
+  const income = Array(12).fill(0);
+  const jobExp = Array(12).fill(0);
+  const vehExp = Array(12).fill(0);
+  const profit = Array(12).fill(0);
+
+  subtripsRaw.forEach((st) => {
+    if (!st.startDate) return;
+    const stDate = new Date(st.startDate);
+    if (stDate.getFullYear() !== parseInt(year, 10)) return;
+
+    const monthIdx = stDate.getMonth();
+    jobs[monthIdx] += 1;
+
+    let amount = 0;
+    if (typeof st.freightAmount === 'number') {
+      amount = st.freightAmount;
+    } else {
+      amount = (st.rate || 0) * (st.loadingWeight || 0);
+    }
+    income[monthIdx] += amount;
+
+    const subtripExpense = (st.expenses || []).reduce((sum, e) => sum + (e.amount || 0), 0);
+    jobExp[monthIdx] += subtripExpense;
+  });
+
+  const expensesRaw = await Expense.find({
+    vehicleId: id,
+    tenant,
+    expenseCategory: 'vehicle',
+    date: { $gte: startOfYear, $lte: endOfYear },
+  }).select('date createdAt amount');
+
+  expensesRaw.forEach((e) => {
+    if (!e.date) return;
+    const eDate = new Date(e.date);
+    if (eDate.getFullYear() !== parseInt(year, 10)) return;
+    const monthIdx = eDate.getMonth();
+    vehExp[monthIdx] += e.amount || 0;
+  });
+
+  for (let i = 0; i < 12; i += 1) {
+    profit[i] = income[i] - jobExp[i] - vehExp[i];
+  }
+
+  res.status(200).json({
+    jobsData: jobs,
+    incomeData: income,
+    jobExpenseData: jobExp,
+    vehicleExpenseData: vehExp,
+    profitData: profit,
+    totals: {
+      jobs: jobs.reduce((a, b) => a + b, 0),
+      income: income.reduce((a, b) => a + b, 0),
+      expense: jobExp.reduce((a, b) => a + b, 0) + vehExp.reduce((a, b) => a + b, 0),
+      profit: profit.reduce((a, b) => a + b, 0),
+    },
+  });
 });
 
 // Lookup vehicle details via external provider and persist normalized snapshot
