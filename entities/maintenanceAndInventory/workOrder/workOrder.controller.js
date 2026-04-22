@@ -1,4 +1,7 @@
 import asyncHandler from 'express-async-handler';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc.js';
+import timezone from 'dayjs/plugin/timezone.js';
 import mongoose from 'mongoose';
 import WorkOrder from './workOrder.model.js';
 import Part from '../part/part.model.js';
@@ -10,6 +13,10 @@ import {
   INVENTORY_ACTIVITY_TYPES,
   SOURCE_DOCUMENT_TYPES,
 } from '../partTransaction/partTransaction.constants.js';
+import { DEFAULT_TIMEZONE } from '../../../utils/time-utils.js';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { ObjectId } = mongoose.Types;
 
@@ -125,7 +132,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
 
 const fetchWorkOrders = asyncHandler(async (req, res) => {
   try {
-    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, expenseAdded } = req.query;
+    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, expenseAdded, startDate, endDate } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -157,6 +164,18 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
       query.createdAt = {};
       if (fromDate) query.createdAt.$gte = new Date(fromDate);
       if (toDate) query.createdAt.$lte = new Date(toDate);
+    }
+
+    if (startDate) {
+      const start = dayjs.tz(`${startDate}`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      const end = dayjs.tz(`${startDate}`, DEFAULT_TIMEZONE).add(1, 'day').startOf('day').toDate();
+      query.actualStartDate = { $gte: start, $lt: end };
+    }
+
+    if (endDate) {
+      const start = dayjs.tz(`${endDate}`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      const end = dayjs.tz(`${endDate}`, DEFAULT_TIMEZONE).add(1, 'day').startOf('day').toDate();
+      query.completedDate = { $gte: start, $lt: end };
     }
 
     if (part) {
@@ -543,7 +562,7 @@ const deleteWorkOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/work-orders/export
 // @access  Private
 const exportWorkOrders = asyncHandler(async (req, res) => {
-  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, columns, expenseAdded } = req.query;
+  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, columns, expenseAdded, startDate, endDate } = req.query;
 
   const query = addTenantToQuery(req);
 
@@ -574,6 +593,18 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     query.createdAt = {};
     if (fromDate) query.createdAt.$gte = new Date(fromDate);
     if (toDate) query.createdAt.$lte = new Date(toDate);
+  }
+
+  if (startDate) {
+    const start = dayjs.tz(`${startDate}`, DEFAULT_TIMEZONE).startOf('day').toDate();
+    const end = dayjs.tz(`${startDate}`, DEFAULT_TIMEZONE).add(1, 'day').startOf('day').toDate();
+    query.actualStartDate = { $gte: start, $lt: end };
+  }
+
+  if (endDate) {
+    const start = dayjs.tz(`${endDate}`, DEFAULT_TIMEZONE).startOf('day').toDate();
+    const end = dayjs.tz(`${endDate}`, DEFAULT_TIMEZONE).add(1, 'day').startOf('day').toDate();
+    query.completedDate = { $gte: start, $lt: end };
   }
 
   if (part) {
