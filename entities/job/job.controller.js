@@ -108,6 +108,11 @@ const createJob = asyncHandler(async (req, res) => {
       err.status = 404;
       throw err;
     }
+    if (!vehicle.isActive) {
+      const err = new Error('Cannot create a job for an inactive vehicle');
+      err.status = 400;
+      throw err;
+    }
 
     // Determine scenario: market vs own
     const isOwnVehicle = !!vehicle.isOwn;

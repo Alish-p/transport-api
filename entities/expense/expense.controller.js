@@ -60,6 +60,13 @@ const createExpense = asyncHandler(async (req, res) => {
 
     res.status(201).json(newExpense);
   } else {
+    // Validate vehicle is active for direct vehicle expenses
+    if (req.body.vehicleId) {
+      const vehicle = await Vehicle.findOne({ _id: req.body.vehicleId, tenant: req.tenant });
+      if (vehicle && !vehicle.isActive) {
+        return res.status(400).json({ message: 'Cannot create expense for an inactive vehicle' });
+      }
+    }
     // If expenseCategory is not "subtrip", create an expense without associating it with a subtrip
     const expense = new Expense({
       ...req.body,

@@ -5,6 +5,7 @@ import timezone from 'dayjs/plugin/timezone.js';
 import mongoose from 'mongoose';
 import WorkOrder from './workOrder.model.js';
 import Part from '../part/part.model.js';
+import Vehicle from '../../vehicle/vehicle.model.js';
 import Expense from '../../expense/expense.model.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 import { WORK_ORDER_STATUS } from './workOrder.constants.js';
@@ -49,6 +50,14 @@ const createWorkOrder = asyncHandler(async (req, res) => {
     description,
     category,
   } = req.body;
+
+  // Validate vehicle is active
+  if (vehicle) {
+    const vehicleDoc = await Vehicle.findOne({ _id: vehicle, tenant: req.tenant });
+    if (vehicleDoc && !vehicleDoc.isActive) {
+      return res.status(400).json({ message: 'Cannot create work order for an inactive vehicle' });
+    }
+  }
 
   const partIds = (Array.isArray(parts) ? parts : [])
     .filter(p => p.part)

@@ -476,6 +476,17 @@ const mountTyre = asyncHandler(async (req, res) => {
         throw new Error(`Tyre is already mounted on a vehicle`);
     }
 
+    // Validate vehicle exists and is active
+    const vehicleDoc = await Vehicle.findOne({ _id: vehicleId, tenant: req.tenant });
+    if (!vehicleDoc) {
+        res.status(404);
+        throw new Error('Vehicle not found');
+    }
+    if (!vehicleDoc.isActive) {
+        res.status(400);
+        throw new Error('Cannot mount tyre on an inactive vehicle');
+    }
+
     // 2. Check if position is occupied
     const occupiedTyre = await Tyre.findOne({
         tenant: req.tenant,
