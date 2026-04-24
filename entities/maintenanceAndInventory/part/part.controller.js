@@ -446,7 +446,83 @@ const fetchPartById = asyncHandler(async (req, res) => {
     .populate('inventoryLocation', 'name address')
     .lean();
 
-  res.status(200).json({ ...part, inventory });
+  const partObjectId = new mongoose.Types.ObjectId(id);
+
+  const pendingPoAggregation = await PurchaseOrder.aggregate([
+    {
+      $match: {
+        tenant: req.tenant,
+        status: {
+          $in: [
+            PURCHASE_ORDER_STATUS.PENDING_APPROVAL,
+            PURCHASE_ORDER_STATUS.APPROVED,
+            PURCHASE_ORDER_STATUS.PURCHASED,
+            PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED,
+          ],
+        },
+      },
+    },
+    { $unwind: '$lines' },
+    {
+      $match: {
+        'lines.part': partObjectId,
+      },
+    },
+    {
+      $group: {
+        _id: '$partLocation',
+        pendingPoQty: {
+          $sum: {
+            $subtract: ['$lines.quantityOrdered', { $ifNull: ['$lines.quantityReceived', 0] }]
+          }
+        },
+      },
+    },
+  ]);
+
+  const openWoAggregation = await WorkOrder.aggregate([
+    {
+      $match: {
+        tenant: req.tenant,
+        status: {
+          $in: [WORK_ORDER_STATUS.OPEN, WORK_ORDER_STATUS.PENDING],
+        },
+      },
+    },
+    { $unwind: '$parts' },
+    {
+      $match: {
+        'parts.part': partObjectId,
+      },
+    },
+    {
+      $group: {
+        _id: '$parts.partLocation',
+        workOrderQty: { $sum: '$parts.quantity' },
+      },
+    },
+  ]);
+
+  const pendingPoMap = pendingPoAggregation.reduce((acc, curr) => {
+    if (curr._id) acc[curr._id.toString()] = curr.pendingPoQty;
+    return acc;
+  }, {});
+
+  const openWoMap = openWoAggregation.reduce((acc, curr) => {
+    if (curr._id) acc[curr._id.toString()] = curr.workOrderQty;
+    return acc;
+  }, {});
+
+  const enrichedInventory = inventory.map(item => {
+    const locId = item.inventoryLocation?._id?.toString();
+    return {
+      ...item,
+      pendingPoQty: locId ? (pendingPoMap[locId] || 0) : 0,
+      workOrderQty: locId ? (openWoMap[locId] || 0) : 0,
+    };
+  });
+
+  res.status(200).json({ ...part, inventory: enrichedInventory });
 });
 
 const updatePart = asyncHandler(async (req, res) => {
