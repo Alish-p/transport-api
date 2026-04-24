@@ -336,136 +336,77 @@ const fetchParts = asyncHandler(async (req, res) => {
       query.manufacturer = { $regex: manufacturer, $options: 'i' };
     }
 
-    const aggQuery = { ...query };
+    // 1. Fetch matching parts directly (without pagination yet)
+    const matchingParts = await Part.find(query).select('_id unitCost').lean();
+    const matchingPartIds = matchingParts.map((p) => p._id);
 
-    // Build aggregation pipeline for inventory totals
-    const pipeline = [
-      { $match: aggQuery },
-      {
-        $lookup: {
-          from: 'partstocks',
-          localField: '_id',
-          foreignField: 'part',
-          as: 'inventories',
-        },
-      },
-      {
-        $unwind: {
-          path: '$inventories',
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-    ];
-
+    // 2. Fetch PartStocks for these parts
+    const stockQuery = {
+      tenant: req.tenant,
+      part: { $in: matchingPartIds },
+    };
     if (inventoryLocation && mongoose.Types.ObjectId.isValid(inventoryLocation)) {
-      pipeline.push({
-        $match: {
-          'inventories.inventoryLocation': new mongoose.Types.ObjectId(inventoryLocation),
-        },
-      });
+      stockQuery.inventoryLocation = inventoryLocation;
     }
 
-    pipeline.push({
-      $group: {
-        _id: '$_id',
-        unitCost: { $first: '$unitCost' },
-        totalQuantity: {
-          $sum: {
-            $ifNull: ['$inventories.quantity', 0],
-          },
-        },
-        threshold: { $max: { $ifNull: ['$inventories.threshold', 0] } },
-      },
-    });
+    const stocks = await PartStock.find(stockQuery).lean();
 
-    // Compute stats BEFORE filtering by status
-    const statsPipeline = [
-      ...pipeline,
-      {
-        $group: {
-          _id: null,
-          totalQuantityItems: { $sum: '$totalQuantity' },
-          outOfStockItems: {
-            $sum: {
-              $cond: [{ $lte: ['$totalQuantity', 0] }, 1, 0],
-            },
-          },
-          lowStockItems: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $lt: ['$totalQuantity', '$threshold'] },
-                    { $gt: ['$totalQuantity', 0] }
-                  ]
-                },
-                1,
-                0
-              ],
-            },
-          },
-          totalInventoryValue: {
-            $sum: { $multiply: ['$totalQuantity', '$unitCost'] },
-          },
-          count: { $sum: 1 }
-        },
-      },
-    ];
+    // 3. Map stocks for quick lookup and aggregation
+    const stockMap = {};
+    for (const stock of stocks) {
+      const partId = stock.part.toString();
+      if (!stockMap[partId]) {
+        stockMap[partId] = { quantity: 0, threshold: 0 };
+      }
+      stockMap[partId].quantity += stock.quantity || 0;
+      stockMap[partId].threshold = Math.max(stockMap[partId].threshold, stock.threshold || 0);
+    }
 
-    // Pipeline for ids matching status filter
-    const idsPipeline = [...pipeline];
+    // 4. Compute stats and filter by stock status
+    const filteredPartIds = [];
+    let totalQuantityItems = 0;
+    let outOfStockItems = 0;
+    let lowStockItems = 0;
+    let totalInventoryValue = 0;
 
-    if (status && status !== 'all') {
-      if (status === 'outOfStock') {
-        idsPipeline.push({ $match: { totalQuantity: { $lte: 0 } } });
-      } else if (status === 'lowStock') {
-        idsPipeline.push({
-          $match: {
-            totalQuantity: { $gt: 0 },
-            $expr: { $lt: ['$totalQuantity', '$threshold'] },
-          },
-        });
-      } else if (status === 'inStock') {
-        idsPipeline.push({
-          $match: {
-            totalQuantity: { $gt: 0 },
-            $expr: { $gte: ['$totalQuantity', '$threshold'] },
-          },
-        });
+    for (const part of matchingParts) {
+      const partId = part._id.toString();
+      const stock = stockMap[partId] || { quantity: 0, threshold: 0 };
+      const q = stock.quantity;
+      const t = stock.threshold;
+
+      let keep = true;
+      if (status && status !== 'all') {
+        if (status === 'outOfStock' && q > 0) keep = false;
+        else if (status === 'lowStock' && (q <= 0 || q >= t)) keep = false;
+        else if (status === 'inStock' && q < t) keep = false;
+      }
+
+      if (keep) {
+        filteredPartIds.push(part._id);
+        totalQuantityItems += q;
+        if (q <= 0) outOfStockItems++;
+        else if (q > 0 && q < t) lowStockItems++;
+
+        totalInventoryValue += q * (part.unitCost || 0);
       }
     }
 
-    const [statsResult, matchingDocs] = await Promise.all([
-      Part.aggregate(statsPipeline),
-      Part.aggregate(idsPipeline),
-    ]);
+    // 5. Paginate and fetch full part details
+    const total = filteredPartIds.length;
+    const paginatedIds = filteredPartIds.slice(skip, skip + limit);
 
-    const inventoryTotals = statsResult[0] || {
-      totalQuantityItems: 0,
-      outOfStockItems: 0,
-      lowStockItems: 0,
-      totalInventoryValue: 0,
-      count: 0,
-    };
-
-    const matchingPartIds = matchingDocs.map((doc) => doc._id);
-    const total = matchingPartIds.length;
-
-    // Fetch the paginated parts directly using matching IDs
-    const parts = await Part.find({ ...query, _id: { $in: matchingPartIds } })
+    const parts = await Part.find({ _id: { $in: paginatedIds } })
       .sort({ name: 1 })
-      .skip(skip)
-      .limit(limit)
       .lean();
 
     const partsWithStats = parts.map((part) => {
-      const stats = matchingDocs.find(
-        (d) => d._id.toString() === part._id.toString()
-      );
+      const partId = part._id.toString();
+      const stock = stockMap[partId] || { quantity: 0, threshold: 0 };
       return {
         ...part,
-        totalQuantity: stats ? stats.totalQuantity : 0,
-        threshold: stats ? stats.threshold : 0,
+        totalQuantity: stock.quantity,
+        threshold: stock.threshold,
       };
     });
 
@@ -474,11 +415,11 @@ const fetchParts = asyncHandler(async (req, res) => {
       total,
       startRange: skip + 1,
       endRange: skip + parts.length,
-      totalQuantityItems: inventoryTotals.totalQuantityItems || 0,
-      outOfStockItems: inventoryTotals.outOfStockItems || 0,
-      lowStockItems: inventoryTotals.lowStockItems || 0,
-      count: inventoryTotals.count || 0,
-      totalInventoryValue: inventoryTotals.totalInventoryValue || 0,
+      totalQuantityItems,
+      outOfStockItems,
+      lowStockItems,
+      count: total,
+      totalInventoryValue,
     });
   } catch (error) {
     res.status(500).json({
@@ -714,7 +655,7 @@ const getPhotoUploadUrl = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/parts/export
 // @access  Private
 const exportParts = asyncHandler(async (req, res) => {
-  const { search, category, manufacturer, inventoryLocation, columns } = req.query;
+  const { search, category, manufacturer, inventoryLocation, columns, status } = req.query;
 
   const query = addTenantToQuery(req);
   query.isActive = { $ne: false };
@@ -733,60 +674,51 @@ const exportParts = asyncHandler(async (req, res) => {
     query.manufacturer = { $regex: manufacturer, $options: 'i' };
   }
 
-  const aggQuery = { ...query };
+  const parts = await Part.find(query).sort({ name: 1 }).lean();
+  const partIds = parts.map((p) => p._id);
 
-  const inventoryTotalsPipeline = [
-    { $match: aggQuery },
-    {
-      $lookup: {
-        from: 'partstocks',
-        localField: '_id',
-        foreignField: 'part',
-        as: 'inventories',
-      },
-    },
-    {
-      $unwind: {
-        path: '$inventories',
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-  ];
+  const stockQuery = {
+    tenant: req.tenant,
+    part: { $in: partIds },
+  };
 
   if (inventoryLocation && mongoose.Types.ObjectId.isValid(inventoryLocation)) {
-    inventoryTotalsPipeline.push({
-      $match: {
-        'inventories.inventoryLocation': new mongoose.Types.ObjectId(inventoryLocation),
-      },
-    });
+    stockQuery.inventoryLocation = inventoryLocation;
   }
 
-  inventoryTotalsPipeline.push({
-    $group: {
-      _id: '$_id',
-      unitCost: { $first: '$unitCost' },
-      totalQuantity: {
-        $sum: {
-          $ifNull: ['$inventories.quantity', 0],
-        },
-      },
-      threshold: { $max: '$inventories.threshold' },
-    },
-  });
+  const stocks = await PartStock.find(stockQuery).lean();
 
-  const [parts, inventoryTotalsAgg] = await Promise.all([
-    Part.find(query).sort({ name: 1 }).lean(),
-    Part.aggregate(inventoryTotalsPipeline),
-  ]);
+  const stockMap = {};
+  for (const stock of stocks) {
+    const partId = stock.part.toString();
+    if (!stockMap[partId]) {
+      stockMap[partId] = { quantity: 0, threshold: 0 };
+    }
+    stockMap[partId].quantity += stock.quantity || 0;
+    stockMap[partId].threshold = Math.max(stockMap[partId].threshold, stock.threshold || 0);
+  }
 
-  const partsWithStats = parts.map(part => {
-    const stats = inventoryTotalsAgg.find(s => s._id.toString() === part._id.toString());
+  const partsWithStats = parts.map((part) => {
+    const partId = part._id.toString();
+    const stock = stockMap[partId] || { quantity: 0, threshold: 0 };
     return {
       ...part,
-      totalQuantity: stats ? stats.totalQuantity : 0,
-      threshold: stats ? stats.threshold : 0,
+      totalQuantity: stock.quantity,
+      threshold: stock.threshold,
     };
   });
+
+  let finalPartsToExport = partsWithStats;
+  if (status && status !== 'all') {
+    finalPartsToExport = partsWithStats.filter((part) => {
+      const q = part.totalQuantity || 0;
+      const t = part.threshold || 0;
+      if (status === 'outOfStock' && q > 0) return false;
+      if (status === 'lowStock' && (q <= 0 || q >= t)) return false;
+      if (status === 'inStock' && q < t) return false;
+      return true;
+    });
+  }
 
   const COLUMN_MAPPING = {
     name: { header: 'Part Name', key: 'name', width: 25 },
@@ -832,7 +764,7 @@ const exportParts = asyncHandler(async (req, res) => {
 
   let grandTotalCost = 0;
 
-  for (const part of partsWithStats) {
+  for (const part of finalPartsToExport) {
     const row = {};
     const cost = part.averageUnitCost || part.unitCost || 0;
     const qty = part.totalQuantity || 0;
