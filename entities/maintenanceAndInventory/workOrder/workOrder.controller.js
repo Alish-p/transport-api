@@ -49,6 +49,8 @@ const createWorkOrder = asyncHandler(async (req, res) => {
     parts,
     description,
     category,
+    workshopName,
+    billNo,
   } = req.body;
 
   // Validate vehicle is active
@@ -129,6 +131,8 @@ const createWorkOrder = asyncHandler(async (req, res) => {
 
     description,
     category,
+    workshopName,
+    billNo,
     createdBy: req.user?._id,
     tenant: req.tenant,
   });
@@ -309,6 +313,8 @@ const updateWorkOrder = asyncHandler(async (req, res) => {
     parts,
     description,
     category,
+    workshopName,
+    billNo,
   } = req.body;
 
   const workOrder = await WorkOrder.findOne({
@@ -394,6 +400,12 @@ const updateWorkOrder = asyncHandler(async (req, res) => {
   }
   if (typeof category !== 'undefined') {
     workOrder.category = category;
+  }
+  if (typeof workshopName !== 'undefined') {
+    workOrder.workshopName = workshopName;
+  }
+  if (typeof billNo !== 'undefined') {
+    workOrder.billNo = billNo;
   }
 
   const { partsCost, totalCost } = calculateCosts({

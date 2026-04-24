@@ -52,6 +52,9 @@ const workOrderSchema = new Schema(
     actualStartDate: { type: Date },
     completedDate: { type: Date },
 
+    workshopName: { type: String },
+    billNo: { type: String },
+
 
 
     odometerReading: { type: Number },
