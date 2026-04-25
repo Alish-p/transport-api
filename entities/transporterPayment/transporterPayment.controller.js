@@ -9,6 +9,7 @@ import Loan from '../loan/loan.model.js';
 import TransporterPayment from './transporterPayment.model.js';
 import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { buildSortObject } from '../../utils/query-utils.js';
 import {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,
@@ -434,6 +435,8 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       hasTds,
       paymentId,
       vehicleId,
+      order,
+      orderBy,
     } = req.query;
     const { limit, skip } = req.pagination;
 
@@ -497,12 +500,115 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       );
     }
 
-    const [receipts, total, statusAgg] = await Promise.all([
-      TransporterPayment.find(query)
+    const sortMapping = {
+      issueDate: 'issueDate',
+      cgst: 'taxBreakup.cgst.amount',
+      sgst: 'taxBreakup.sgst.amount',
+      igst: 'taxBreakup.igst.amount',
+      tds: 'taxBreakup.tds.amount',
+      taxableAmount: 'summary.totalFreightAmount',
+      amount: 'summary.netIncome',
+    };
+
+    let receipts;
+    if (['dieselTotal', 'tripAdvanceTotal', 'podAmount'].includes(orderBy)) {
+      const sortDirection = order === 'asc' ? 1 : -1;
+      
+      const pipeline = [
+        { $match: aggMatch },
+        {
+          $addFields: {
+            dieselTotal: {
+              $reduce: {
+                input: {
+                  $reduce: {
+                    input: { $ifNull: ["$subtripSnapshot", []] },
+                    initialValue: [],
+                    in: { $concatArrays: ["$$value", { $ifNull: ["$$this.expenses", []] }] }
+                  }
+                },
+                initialValue: 0,
+                in: {
+                  $cond: [
+                    { $eq: ["$$this.expenseType", "Diesel"] },
+                    { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] },
+                    "$$value"
+                  ]
+                }
+              }
+            },
+            tripAdvanceTotal: {
+              $reduce: {
+                input: {
+                  $reduce: {
+                    input: { $ifNull: ["$subtripSnapshot", []] },
+                    initialValue: [],
+                    in: { $concatArrays: ["$$value", { $ifNull: ["$$this.expenses", []] }] }
+                  }
+                },
+                initialValue: 0,
+                in: {
+                  $cond: [
+                    { $eq: ["$$this.expenseType", "Trip Advance"] },
+                    { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] },
+                    "$$value"
+                  ]
+                }
+              }
+            },
+            podAmount: {
+              $reduce: {
+                input: { $ifNull: ["$additionalCharges", []] },
+                initialValue: 0,
+                in: {
+                  $cond: [
+                    { $regexMatch: { input: { $toLower: { $ifNull: ["$$this.label", ""] } }, regex: "pod" } },
+                    { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] },
+                    "$$value"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        { $sort: { [orderBy]: sortDirection } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: "transporters",
+            localField: "transporterId",
+            foreignField: "_id",
+            as: "transporterId"
+          }
+        },
+        { $unwind: { path: "$transporterId", preserveNullAndEmptyArrays: true } }
+      ];
+
+      receipts = await TransporterPayment.aggregate(pipeline);
+      
+      receipts = receipts.map(r => {
+        if (r.transporterId) {
+          r.transporterId = {
+            _id: r.transporterId._id,
+            transportName: r.transporterId.transportName,
+            cellNo: r.transporterId.cellNo,
+            gstNo: r.transporterId.gstNo,
+            panNo: r.transporterId.panNo
+          };
+        }
+        return r;
+      });
+    } else {
+      const sortObj = buildSortObject(sortMapping[orderBy] || orderBy, order, { issueDate: -1 });
+      receipts = await TransporterPayment.find(query)
         .populate("transporterId", "transportName cellNo gstNo panNo")
-        .sort({ issueDate: -1 })
+        .sort(sortObj)
         .skip(skip)
-        .limit(limit),
+        .limit(limit);
+    }
+
+    const [total, statusAgg] = await Promise.all([
       TransporterPayment.countDocuments(query),
       TransporterPayment.aggregate([
         { $match: aggMatch },
@@ -728,6 +834,8 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
     paymentId,
     vehicleId,
     columns,
+    order,
+    orderBy,
   } = req.query;
 
   const query = addTenantToQuery(req);
@@ -846,10 +954,79 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
   const worksheet = workbook.addWorksheet('TransporterPayments');
   worksheet.columns = exportColumns;
 
+  const sortMapping = {
+    issueDate: 'issueDate',
+    cgst: 'taxBreakup.cgst.amount',
+    sgst: 'taxBreakup.sgst.amount',
+    igst: 'taxBreakup.igst.amount',
+    tds: 'taxBreakup.tds.amount',
+    taxableAmount: 'summary.totalFreightAmount',
+    amount: 'summary.netIncome',
+  };
+
+  const sortObj = buildSortObject(sortMapping[orderBy] || orderBy, order, { issueDate: -1 });
+  const isComputedSort = ['dieselTotal', 'tripAdvanceTotal', 'podAmount'].includes(orderBy);
+  const finalSortObj = isComputedSort ? { [orderBy]: order === 'asc' ? 1 : -1 } : sortObj;
+
   // Aggregate Pipeline
   const pipeline = [
     { $match: aggMatch },
-    { $sort: { issueDate: -1 } },
+    ...(isComputedSort ? [{
+      $addFields: {
+        dieselTotal: {
+          $reduce: {
+            input: {
+              $reduce: {
+                input: { $ifNull: ["$subtripSnapshot", []] },
+                initialValue: [],
+                in: { $concatArrays: ["$$value", { $ifNull: ["$$this.expenses", []] }] }
+              }
+            },
+            initialValue: 0,
+            in: {
+              $cond: [
+                { $eq: ["$$this.expenseType", "Diesel"] },
+                { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] },
+                "$$value"
+              ]
+            }
+          }
+        },
+        tripAdvanceTotal: {
+          $reduce: {
+            input: {
+              $reduce: {
+                input: { $ifNull: ["$subtripSnapshot", []] },
+                initialValue: [],
+                in: { $concatArrays: ["$$value", { $ifNull: ["$$this.expenses", []] }] }
+              }
+            },
+            initialValue: 0,
+            in: {
+              $cond: [
+                { $eq: ["$$this.expenseType", "Trip Advance"] },
+                { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] },
+                "$$value"
+              ]
+            }
+          }
+        },
+        podAmount: {
+          $reduce: {
+            input: { $ifNull: ["$additionalCharges", []] },
+            initialValue: 0,
+            in: {
+              $cond: [
+                { $regexMatch: { input: { $toLower: { $ifNull: ["$$this.label", ""] } }, regex: "pod" } },
+                { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] },
+                "$$value"
+              ]
+            }
+          }
+        }
+      }
+    }] : []),
+    { $sort: finalSortObj },
     {
       $lookup: {
         from: 'transporters',
