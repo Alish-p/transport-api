@@ -207,8 +207,133 @@ const fetchInventoryActivities = asyncHandler(async (req, res) => {
     }
 });
 
+const exportInventoryActivities = asyncHandler(async (req, res) => {
+    const {
+        fromDate,
+        toDate,
+        part,
+        inventoryLocation,
+        type,
+        performedBy,
+        columns, // Comma separated column IDs
+    } = req.query;
+
+    const query = addTenantToQuery(req);
+
+    if (fromDate || toDate) {
+        query.createdAt = {};
+        if (fromDate) query.createdAt.$gte = new Date(fromDate);
+        if (toDate) query.createdAt.$lte = new Date(toDate);
+    }
+
+    if (part) {
+        query.part = part;
+    }
+
+    if (inventoryLocation) {
+        query.inventoryLocation = inventoryLocation;
+    }
+
+    if (type) {
+        query.type = type;
+    }
+
+    if (performedBy) {
+        query.performedBy = performedBy;
+    }
+
+    // Column Mapping
+    const COLUMN_MAPPING = {
+        activityDate: { header: 'Date', key: 'activityDate', width: 20 },
+        part: { header: 'Part', key: 'part', width: 25 },
+        type: { header: 'Adjustment Type', key: 'type', width: 25 },
+        reason: { header: 'Adjustment Reason', key: 'reason', width: 30 },
+        qtyChange: { header: 'Qty', key: 'qtyChange', width: 15 },
+        averageUnitCost: { header: 'Avg Unit Cost', key: 'averageUnitCost', width: 20 },
+        totalCost: { header: 'Amount', key: 'totalCost', width: 20 },
+        performedBy: { header: 'Performed By', key: 'performedBy', width: 25 },
+    };
+
+    let exportColumns = [];
+    if (columns) {
+        const columnIds = columns.split(',');
+        exportColumns = columnIds
+            .map((id) => COLUMN_MAPPING[id])
+            .filter((col) => col);
+    }
+
+    if (exportColumns.length === 0) {
+        exportColumns = [
+            COLUMN_MAPPING.activityDate,
+            COLUMN_MAPPING.part,
+            COLUMN_MAPPING.type,
+            COLUMN_MAPPING.qtyChange,
+            COLUMN_MAPPING.totalCost,
+        ];
+    }
+
+    res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=InventoryActivities.xlsx"
+    );
+
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+        stream: res,
+        useStyles: true,
+    });
+
+    const worksheet = workbook.addWorksheet('Inventory Activities');
+    worksheet.columns = exportColumns;
+
+    const cursor = PartTransaction.find(query)
+        .populate('part', 'partNumber name averageUnitCost unitCost')
+        .populate('inventoryLocation', 'name')
+        .populate('performedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .cursor();
+
+    for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+        const row = {};
+
+        const avgUnitCost = doc.averageUnitCost || doc.meta?.unitCost || doc.part?.averageUnitCost || doc.part?.unitCost || 0;
+        const totalCost = doc.totalCost || Math.abs(doc.quantityChange) * avgUnitCost;
+
+        exportColumns.forEach((col) => {
+            const key = col.key;
+            if (key === 'activityDate') {
+                row[key] = doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : '-';
+            } else if (key === 'part') {
+                row[key] = doc.part ? `${doc.part.name} (${doc.part.partNumber || ''})` : '-';
+            } else if (key === 'type') {
+                row[key] = doc.type || '-';
+            } else if (key === 'reason') {
+                row[key] = doc.reason || '-';
+            } else if (key === 'qtyChange') {
+                row[key] = doc.quantityChange || 0;
+            } else if (key === 'averageUnitCost') {
+                row[key] = avgUnitCost;
+            } else if (key === 'totalCost') {
+                row[key] = totalCost;
+            } else if (key === 'performedBy') {
+                row[key] = doc.performedBy ? doc.performedBy.name : '-';
+            }
+        });
+
+        worksheet.addRow(row).commit();
+    }
+
+    worksheet.commit();
+    await workbook.commit();
+});
+
 export {
     adjustStock,
     transferStock,
     fetchInventoryActivities,
+    exportInventoryActivities,
 };
