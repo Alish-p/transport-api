@@ -341,7 +341,18 @@ const exportInventoryActivities = asyncHandler(async (req, res) => {
             } else if (key === 'part') {
                 row[key] = doc.part ? `${doc.part.name} (${doc.part.partNumber || ''})` : '-';
             } else if (key === 'type') {
-                row[key] = doc.type || '-';
+                const activityTypes = {
+                    INITIAL: 'Initial',
+                    MANUAL_ADJUSTMENT: 'Adjustment',
+                    TRANSFER_IN: 'Transfer IN',
+                    TRANSFER_OUT: 'Transfer Out',
+                    WORK_ORDER_ISSUE: 'Work Order Issue',
+                    PURCHASE_RECEIPT: 'Purchase Receipt',
+                };
+                const rawType = doc.type || '';
+                const typeLabel = activityTypes[rawType] || rawType || '-';
+                const docNum = doc.sourceDocumentNumber || doc.meta?.sourceDocumentNumber;
+                row[key] = docNum ? `${typeLabel} (${docNum})` : typeLabel;
             } else if (key === 'reason') {
                 row[key] = doc.reason || '-';
             } else if (key === 'qtyChange') {
