@@ -2382,6 +2382,11 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
   try {
     const tenantQuery = { tenant: req.tenant };
 
+    // Analytics filters
+    const months = parseInt(req.query.months, 10) || 6;
+    const slowMovingDays = parseInt(req.query.slowMovingDays, 10) || 90;
+    const analyticsDateFrom = new Date(Date.now() - months * 30 * 24 * 60 * 60 * 1000);
+
     const [
       // Parts
       partCount,
@@ -2406,7 +2411,18 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
       // Vendors
       vendorCount,
       // Transactions
-      recentTransactionAgg
+      recentTransactionAgg,
+      // Analytics
+      topPartsUsedAgg,
+      vehiclesWithMostWOsAgg,
+      vehiclesConsumingMostPartsAgg,
+      topPartsByCostAgg,
+      repeatFailuresAgg,
+      partsConsumptionTrendAgg,
+      priorityDistributionAgg,
+      resolutionTimeAgg,
+      slowMovingPartsAgg,
+      completionRateAgg
     ] = await Promise.all([
       // 1. Total parts count
       Part.countDocuments({ ...tenantQuery, isActive: { $ne: false } }),
@@ -2645,7 +2661,256 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
           }
         },
         { $sort: { count: -1 } }
-      ])
+      ]),
+
+      // ─── ANALYTICS AGGREGATIONS ──────────────────────────────────────────
+
+      // 19. Top parts used across completed WOs
+      WorkOrder.aggregate([
+        { $match: { ...tenantQuery, status: WORK_ORDER_STATUS.COMPLETED, createdAt: { $gte: analyticsDateFrom } } },
+        { $unwind: '$parts' },
+        { $match: { 'parts.part': { $exists: true, $ne: null } } },
+        {
+          $group: {
+            _id: '$parts.part',
+            totalQuantity: { $sum: '$parts.quantity' },
+            workOrderIds: { $addToSet: '$_id' },
+            partName: { $first: '$parts.partSnapshot.name' },
+            partNumber: { $first: '$parts.partSnapshot.partNumber' },
+          },
+        },
+        {
+          $project: {
+            partName: 1, partNumber: 1, totalQuantity: 1,
+            workOrderCount: { $size: '$workOrderIds' },
+          },
+        },
+        { $sort: { totalQuantity: -1 } },
+        { $limit: 10 },
+      ]),
+
+      // 20. Vehicles with highest work order count
+      WorkOrder.aggregate([
+        { $match: { ...tenantQuery, createdAt: { $gte: analyticsDateFrom } } },
+        {
+          $lookup: {
+            from: 'vehicles', localField: 'vehicle', foreignField: '_id', as: 'vehicleDoc',
+          },
+        },
+        { $unwind: '$vehicleDoc' },
+        {
+          $group: {
+            _id: '$vehicle',
+            vehicleNo: { $first: '$vehicleDoc.vehicleNo' },
+            workOrderCount: { $sum: 1 },
+            totalCost: { $sum: { $ifNull: ['$totalCost', 0] } },
+          },
+        },
+        { $sort: { workOrderCount: -1 } },
+        { $limit: 10 },
+      ]),
+
+      // 21. Vehicles consuming most parts (usage intensity)
+      WorkOrder.aggregate([
+        { $match: { ...tenantQuery, status: WORK_ORDER_STATUS.COMPLETED, createdAt: { $gte: analyticsDateFrom } } },
+        { $unwind: '$parts' },
+        { $match: { 'parts.part': { $exists: true, $ne: null } } },
+        {
+          $lookup: {
+            from: 'vehicles', localField: 'vehicle', foreignField: '_id', as: 'vehicleDoc',
+          },
+        },
+        { $unwind: '$vehicleDoc' },
+        {
+          $group: {
+            _id: '$vehicle',
+            vehicleNo: { $first: '$vehicleDoc.vehicleNo' },
+            totalPartsQty: { $sum: '$parts.quantity' },
+            uniqueParts: { $addToSet: '$parts.part' },
+            totalPartsCost: { $sum: '$parts.amount' },
+          },
+        },
+        {
+          $project: {
+            vehicleNo: 1, totalPartsQty: 1, totalPartsCost: 1,
+            uniqueParts: { $size: '$uniqueParts' },
+          },
+        },
+        { $sort: { totalPartsQty: -1 } },
+        { $limit: 10 },
+      ]),
+
+      // 22. Top parts by maintenance cost
+      WorkOrder.aggregate([
+        { $match: { ...tenantQuery, status: WORK_ORDER_STATUS.COMPLETED, createdAt: { $gte: analyticsDateFrom } } },
+        { $unwind: '$parts' },
+        { $match: { 'parts.part': { $exists: true, $ne: null } } },
+        {
+          $group: {
+            _id: '$parts.part',
+            partName: { $first: '$parts.partSnapshot.name' },
+            partNumber: { $first: '$parts.partSnapshot.partNumber' },
+            totalCost: { $sum: '$parts.amount' },
+            totalQuantity: { $sum: '$parts.quantity' },
+          },
+        },
+        { $sort: { totalCost: -1 } },
+        { $limit: 10 },
+      ]),
+
+      // 23. Repeat failures — same part on same vehicle 2+ times
+      WorkOrder.aggregate([
+        { $match: { ...tenantQuery, status: WORK_ORDER_STATUS.COMPLETED, createdAt: { $gte: analyticsDateFrom } } },
+        { $unwind: '$parts' },
+        { $match: { 'parts.part': { $exists: true, $ne: null } } },
+        {
+          $lookup: {
+            from: 'vehicles', localField: 'vehicle', foreignField: '_id', as: 'vehicleDoc',
+          },
+        },
+        { $unwind: '$vehicleDoc' },
+        {
+          $group: {
+            _id: { vehicle: '$vehicle', part: '$parts.part' },
+            vehicleId: { $first: '$vehicle' },
+            vehicleNo: { $first: '$vehicleDoc.vehicleNo' },
+            partName: { $first: '$parts.partSnapshot.name' },
+            partNumber: { $first: '$parts.partSnapshot.partNumber' },
+            occurrences: { $sum: 1 },
+            totalQty: { $sum: '$parts.quantity' },
+          },
+        },
+        { $match: { occurrences: { $gte: 2 } } },
+        { $sort: { occurrences: -1 } },
+        { $limit: 10 },
+      ]),
+
+      // 24. Parts consumption trend (monthly, from PartTransaction)
+      PartTransaction.aggregate([
+        {
+          $match: {
+            ...tenantQuery,
+            type: INVENTORY_ACTIVITY_TYPES.WORK_ORDER_ISSUE,
+            createdAt: { $gte: analyticsDateFrom },
+          },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+            totalQty: { $sum: { $abs: '$quantityChange' } },
+            transactionCount: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+
+      // 25. WO priority distribution
+      WorkOrder.aggregate([
+        { $match: { ...tenantQuery, createdAt: { $gte: analyticsDateFrom } } },
+        { $group: { _id: '$priority', count: { $sum: 1 } } },
+      ]),
+
+      // 26. Average resolution time for completed WOs
+      WorkOrder.aggregate([
+        {
+          $match: {
+            ...tenantQuery,
+            status: WORK_ORDER_STATUS.COMPLETED,
+            actualStartDate: { $exists: true, $ne: null },
+            completedDate: { $exists: true, $ne: null },
+            createdAt: { $gte: analyticsDateFrom },
+          },
+        },
+        {
+          $project: {
+            resolutionMs: { $subtract: ['$completedDate', '$actualStartDate'] },
+          },
+        },
+        { $match: { resolutionMs: { $gt: 0 } } },
+        {
+          $group: {
+            _id: null,
+            avgMs: { $avg: '$resolutionMs' },
+            minMs: { $min: '$resolutionMs' },
+            maxMs: { $max: '$resolutionMs' },
+            completedCount: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // 27. Slow-moving / dead inventory — parts in stock with no WO issue in N days
+      PartStock.aggregate([
+        { $match: { ...tenantQuery, quantity: { $gt: 0 } } },
+        { $group: { _id: '$part', totalQuantity: { $sum: '$quantity' } } },
+        { $match: { totalQuantity: { $gt: 0 } } },
+        {
+          $lookup: {
+            from: 'parttransactions',
+            let: { partId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$part', '$$partId'] },
+                  tenant: req.tenant,
+                  type: INVENTORY_ACTIVITY_TYPES.WORK_ORDER_ISSUE,
+                },
+              },
+              { $sort: { createdAt: -1 } },
+              { $limit: 1 },
+            ],
+            as: 'lastIssue',
+          },
+        },
+        {
+          $lookup: {
+            from: 'parts', localField: '_id', foreignField: '_id', as: 'partDoc',
+          },
+        },
+        { $unwind: '$partDoc' },
+        { $unwind: { path: '$lastIssue', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            daysSinceLastIssue: {
+              $cond: {
+                if: { $ifNull: ['$lastIssue.createdAt', false] },
+                then: {
+                  $dateDiff: { startDate: '$lastIssue.createdAt', endDate: new Date(), unit: 'day' },
+                },
+                else: 9999,
+              },
+            },
+          },
+        },
+        { $match: { daysSinceLastIssue: { $gte: slowMovingDays } } },
+        {
+          $project: {
+            partName: '$partDoc.name',
+            partNumber: '$partDoc.partNumber',
+            totalQuantity: 1,
+            unitCost: '$partDoc.unitCost',
+            capitalTiedUp: { $multiply: ['$totalQuantity', '$partDoc.unitCost'] },
+            lastIssueDate: { $ifNull: ['$lastIssue.createdAt', null] },
+            daysSinceLastIssue: 1,
+          },
+        },
+        { $sort: { capitalTiedUp: -1 } },
+        { $limit: 15 },
+      ]),
+
+      // 28. WO completion rate — monthly opened vs completed
+      WorkOrder.aggregate([
+        { $match: { ...tenantQuery, createdAt: { $gte: analyticsDateFrom } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+            opened: { $sum: 1 },
+            completed: {
+              $sum: { $cond: [{ $eq: ['$status', WORK_ORDER_STATUS.COMPLETED] }, 1, 0] },
+            },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
     ]);
 
     // Format helpers
@@ -2755,6 +3020,61 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
 
       // --- Inventory Activity (30d) ---
       recentActivity: recentTransactionAgg.map(t => ({ type: t._id, count: t.count, totalQtyChange: t.totalQtyChange })),
+
+      // --- Analytics & Insights ---
+      analytics: {
+        months,
+        slowMovingDays,
+        topPartsUsed: topPartsUsedAgg.map(p => ({
+          partId: p._id, partName: p.partName || 'Unknown', partNumber: p.partNumber || '-',
+          totalQuantity: p.totalQuantity, workOrderCount: p.workOrderCount,
+        })),
+        vehiclesWithMostWOs: vehiclesWithMostWOsAgg.map(v => ({
+          vehicleId: v._id, vehicleNo: v.vehicleNo || '-',
+          workOrderCount: v.workOrderCount, totalCost: v.totalCost,
+        })),
+        vehiclesConsumingMostParts: vehiclesConsumingMostPartsAgg.map(v => ({
+          vehicleId: v._id, vehicleNo: v.vehicleNo || '-',
+          totalPartsQty: v.totalPartsQty, uniqueParts: v.uniqueParts, totalPartsCost: v.totalPartsCost,
+        })),
+        topPartsByCost: topPartsByCostAgg.map(p => ({
+          partId: p._id, partName: p.partName || 'Unknown', partNumber: p.partNumber || '-',
+          totalCost: p.totalCost, totalQuantity: p.totalQuantity,
+        })),
+        repeatFailures: repeatFailuresAgg.map(r => ({
+          vehicleId: r.vehicleId, vehicleNo: r.vehicleNo || '-',
+          partName: r.partName || 'Unknown', partNumber: r.partNumber || '-',
+          occurrences: r.occurrences, totalQty: r.totalQty,
+        })),
+        partsConsumptionTrend: partsConsumptionTrendAgg.map(t => ({
+          month: t._id, totalQty: t.totalQty, transactionCount: t.transactionCount,
+        })),
+        priorityDistribution: (() => {
+          const map = {};
+          priorityDistributionAgg.forEach(p => { if (p._id) map[p._id] = p.count; });
+          return map;
+        })(),
+        resolutionTime: (() => {
+          const msToHrs = (ms) => Math.round((ms / (1000 * 60 * 60)) * 10) / 10;
+          const raw = resolutionTimeAgg[0];
+          if (!raw) return { avgHours: 0, minHours: 0, maxHours: 0, completedCount: 0 };
+          return {
+            avgHours: msToHrs(raw.avgMs),
+            minHours: msToHrs(raw.minMs),
+            maxHours: msToHrs(raw.maxMs),
+            completedCount: raw.completedCount,
+          };
+        })(),
+        slowMovingParts: slowMovingPartsAgg.map(p => ({
+          partId: p._id, partName: p.partName || 'Unknown', partNumber: p.partNumber || '-',
+          totalQuantity: p.totalQuantity, unitCost: p.unitCost || 0,
+          capitalTiedUp: p.capitalTiedUp || 0,
+          lastIssueDate: p.lastIssueDate, daysSinceLastIssue: p.daysSinceLastIssue,
+        })),
+        completionRate: completionRateAgg.map(m => ({
+          month: m._id, opened: m.opened, completed: m.completed,
+        })),
+      },
     });
 
   } catch (error) {
