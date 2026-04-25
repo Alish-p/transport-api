@@ -227,11 +227,11 @@ const exportInventoryActivities = asyncHandler(async (req, res) => {
     }
 
     if (part) {
-        query.part = part;
+        query.part = new mongoose.Types.ObjectId(part);
     }
 
     if (inventoryLocation) {
-        query.inventoryLocation = inventoryLocation;
+        query.inventoryLocation = new mongoose.Types.ObjectId(inventoryLocation);
     }
 
     if (type) {
@@ -239,7 +239,7 @@ const exportInventoryActivities = asyncHandler(async (req, res) => {
     }
 
     if (performedBy) {
-        query.performedBy = performedBy;
+        query.performedBy = new mongoose.Types.ObjectId(performedBy);
     }
 
     // Column Mapping
@@ -290,12 +290,43 @@ const exportInventoryActivities = asyncHandler(async (req, res) => {
     const worksheet = workbook.addWorksheet('Inventory Activities');
     worksheet.columns = exportColumns;
 
-    const cursor = PartTransaction.find(query)
-        .populate('part', 'partNumber name averageUnitCost unitCost')
-        .populate('inventoryLocation', 'name')
-        .populate('performedBy', 'name email')
-        .sort({ createdAt: -1 })
-        .cursor();
+    const pipeline = [
+        { $match: query },
+        { $sort: { createdAt: -1 } },
+        {
+            $lookup: {
+                from: 'parts',
+                localField: 'part',
+                foreignField: '_id',
+                as: 'partDoc'
+            }
+        },
+        { $unwind: { path: '$partDoc', preserveNullAndEmptyArrays: true } },
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'performedBy',
+                foreignField: '_id',
+                as: 'userDoc'
+            }
+        },
+        { $unwind: { path: '$userDoc', preserveNullAndEmptyArrays: true } },
+        {
+            $project: {
+                createdAt: 1,
+                type: 1,
+                reason: 1,
+                quantityChange: 1,
+                averageUnitCost: 1,
+                totalCost: 1,
+                meta: 1,
+                part: '$partDoc',
+                performedBy: '$userDoc'
+            }
+        }
+    ];
+
+    const cursor = PartTransaction.aggregate(pipeline).cursor();
 
     for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
         const row = {};
