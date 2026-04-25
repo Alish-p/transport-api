@@ -316,7 +316,7 @@ const createBulkParts = asyncHandler(async (req, res) => {
 
 const fetchParts = asyncHandler(async (req, res) => {
   try {
-    const { search, category, manufacturer, inventoryLocation, status } = req.query;
+    const { search, category, manufacturer, inventoryLocation, status, order, orderBy } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -337,7 +337,7 @@ const fetchParts = asyncHandler(async (req, res) => {
     }
 
     // 1. Fetch matching parts directly (without pagination yet)
-    const matchingParts = await Part.find(query).select('_id unitCost').lean();
+    const matchingParts = await Part.find(query).select('_id name unitCost').lean();
     const matchingPartIds = matchingParts.map((p) => p._id);
 
     // 2. Fetch PartStocks for these parts
@@ -363,7 +363,7 @@ const fetchParts = asyncHandler(async (req, res) => {
     }
 
     // 4. Compute stats and filter by stock status
-    const filteredPartIds = [];
+    const filteredParts = [];
     let totalQuantityItems = 0;
     let outOfStockItems = 0;
     let lowStockItems = 0;
@@ -383,7 +383,13 @@ const fetchParts = asyncHandler(async (req, res) => {
       }
 
       if (keep) {
-        filteredPartIds.push(part._id);
+        filteredParts.push({
+          _id: part._id,
+          name: part.name || '',
+          unitCost: part.unitCost || 0,
+          totalQuantity: q,
+          totalCost: q * (part.unitCost || 0),
+        });
         totalQuantityItems += q;
         if (q <= 0) outOfStockItems++;
         else if (q > 0 && q < t) lowStockItems++;
@@ -392,19 +398,46 @@ const fetchParts = asyncHandler(async (req, res) => {
       }
     }
 
-    // 5. Paginate and fetch full part details
-    const total = filteredPartIds.length;
-    const paginatedIds = filteredPartIds.slice(skip, skip + limit);
+    // 5. Sort in memory
+    const effectiveOrderBy = orderBy || 'name';
+    const sortDirection = order === 'desc' ? -1 : 1;
 
-    const parts = await Part.find({ _id: { $in: paginatedIds } })
-      .sort({ name: 1 })
-      .lean();
+    filteredParts.sort((a, b) => {
+      let valA = a[effectiveOrderBy];
+      let valB = b[effectiveOrderBy];
 
-    const partsWithStats = parts.map((part) => {
-      const partId = part._id.toString();
+      if (effectiveOrderBy === 'quantity') {
+        valA = a.totalQuantity;
+        valB = b.totalQuantity;
+      }
+
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+
+      if (valA < valB) return -1 * sortDirection;
+      if (valA > valB) return 1 * sortDirection;
+      return 0;
+    });
+
+    // 6. Paginate and fetch full part details
+    const total = filteredParts.length;
+    const paginatedSlice = filteredParts.slice(skip, skip + limit);
+    const paginatedIds = paginatedSlice.map(p => p._id);
+
+    const parts = await Part.find({ _id: { $in: paginatedIds } }).lean();
+    
+    // Create a map to restore sorted order
+    const partsMap = {};
+    for (const p of parts) {
+      partsMap[p._id.toString()] = p;
+    }
+
+    const partsWithStats = paginatedSlice.map((item) => {
+      const partId = item._id.toString();
+      const partObj = partsMap[partId];
       const stock = stockMap[partId] || { quantity: 0, threshold: 0 };
       return {
-        ...part,
+        ...partObj,
         totalQuantity: stock.quantity,
         threshold: stock.threshold,
       };
@@ -731,7 +764,7 @@ const getPhotoUploadUrl = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/parts/export
 // @access  Private
 const exportParts = asyncHandler(async (req, res) => {
-  const { search, category, manufacturer, inventoryLocation, columns, status } = req.query;
+  const { search, category, manufacturer, inventoryLocation, columns, status, order, orderBy } = req.query;
 
   const query = addTenantToQuery(req);
   query.isActive = { $ne: false };
@@ -750,7 +783,7 @@ const exportParts = asyncHandler(async (req, res) => {
     query.manufacturer = { $regex: manufacturer, $options: 'i' };
   }
 
-  const parts = await Part.find(query).sort({ name: 1 }).lean();
+  const parts = await Part.find(query).lean();
   const partIds = parts.map((p) => p._id);
 
   const stockQuery = {
@@ -795,6 +828,29 @@ const exportParts = asyncHandler(async (req, res) => {
       return true;
     });
   }
+
+  const effectiveOrderBy = orderBy || 'name';
+  const sortDirection = order === 'desc' ? -1 : 1;
+
+  finalPartsToExport.sort((a, b) => {
+    let valA = a[effectiveOrderBy];
+    let valB = b[effectiveOrderBy];
+
+    if (effectiveOrderBy === 'quantity') {
+      valA = a.totalQuantity;
+      valB = b.totalQuantity;
+    } else if (effectiveOrderBy === 'totalCost') {
+      valA = (a.totalQuantity || 0) * (a.unitCost || 0);
+      valB = (b.totalQuantity || 0) * (b.unitCost || 0);
+    }
+
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+
+    if (valA < valB) return -1 * sortDirection;
+    if (valA > valB) return 1 * sortDirection;
+    return 0;
+  });
 
   const COLUMN_MAPPING = {
     name: { header: 'Part Name', key: 'name', width: 25 },

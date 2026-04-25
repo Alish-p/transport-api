@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Loan from './loan.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { buildSortObject } from '../../utils/query-utils.js';
 
 /**
  * @route   GET /api/loans
@@ -10,7 +11,7 @@ import { addTenantToQuery } from '../../utils/tenant-utils.js';
  */
 const fetchPaginatedLoans = asyncHandler(async (req, res) => {
   try {
-    const { driverId, transporterId, loanStatus, loanNo, loanReason, fromDate, endDate } = req.query;
+    const { driverId, transporterId, loanStatus, loanNo, loanReason, fromDate, endDate, order, orderBy } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -47,10 +48,12 @@ const fetchPaginatedLoans = asyncHandler(async (req, res) => {
       aggMatch.tenant = new mongoose.Types.ObjectId(aggMatch.tenant);
     }
 
+    const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
+
     const [loans, total, statusAgg] = await Promise.all([
       Loan.find(query)
         .populate('borrowerId')
-        .sort({ createdAt: -1 })
+        .sort(sortObj)
         .skip(skip)
         .limit(limit),
       Loan.countDocuments(query),
@@ -247,7 +250,7 @@ const fetchPendingLoans = asyncHandler(async (req, res) => {
  * @desc    Export loans to excel
  */
 const exportLoans = asyncHandler(async (req, res) => {
-  const { driverId, transporterId, loanStatus, loanNo, loanReason, fromDate, endDate, columns } = req.query;
+  const { driverId, transporterId, loanStatus, loanNo, loanReason, fromDate, endDate, columns, order, orderBy } = req.query;
 
   const query = addTenantToQuery(req);
 
@@ -311,9 +314,11 @@ const exportLoans = asyncHandler(async (req, res) => {
   const worksheet = workbook.addWorksheet('Loans');
   worksheet.columns = exportColumns;
 
+  const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
+
   const pipeline = [
     { $match: aggMatch },
-    { $sort: { createdAt: -1 } },
+    { $sort: sortObj },
     {
       $lookup: {
         from: 'drivers',

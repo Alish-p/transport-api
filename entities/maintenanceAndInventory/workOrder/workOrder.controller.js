@@ -15,6 +15,7 @@ import {
   SOURCE_DOCUMENT_TYPES,
 } from '../partTransaction/partTransaction.constants.js';
 import { DEFAULT_TIMEZONE } from '../../../utils/time-utils.js';
+import { buildSortObject } from '../../../utils/query-utils.js';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -251,10 +252,7 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
         { path: 'issues.assignedTo', select: 'name customerName' }
       ]));
     } else {
-      let sortObj = { createdAt: -1 };
-      if (orderBy) {
-        sortObj = { [orderBy]: order === 'asc' ? 1 : -1 };
-      }
+      const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
       ordersQuery = WorkOrder.find(query)
         .populate('vehicle', 'vehicleNo vehicleType')
         .populate('createdBy closedBy', 'name')
@@ -617,7 +615,7 @@ const deleteWorkOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/work-orders/export
 // @access  Private
 const exportWorkOrders = asyncHandler(async (req, res) => {
-  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, columns, expenseAdded, startDate, endDate } = req.query;
+  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, columns, expenseAdded, startDate, endDate, order, orderBy } = req.query;
 
   const query = addTenantToQuery(req);
 
@@ -690,12 +688,44 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     query.expenseAdded = expenseAdded === 'true';
   }
 
-  const orders = await WorkOrder.find(query)
-    .populate('vehicle', 'vehicleNo')
-    .populate('issues.assignedTo', 'name customerName')
-    .populate('createdBy closedBy', 'name')
-    .sort({ createdAt: -1 })
-    .lean();
+  const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
+
+  let orders;
+
+  if (orderBy === 'timeTaken') {
+    const sortDirection = order === 'asc' ? 1 : -1;
+    const aggMatch = { ...query };
+    if (aggMatch.tenant && typeof aggMatch.tenant === 'string') {
+      aggMatch.tenant = new ObjectId(aggMatch.tenant);
+    }
+    const docs = await WorkOrder.aggregate([
+      { $match: aggMatch },
+      {
+        $addFields: {
+          timeTakenMs: {
+            $cond: {
+              if: { $and: ["$completedDate", "$actualStartDate"] },
+              then: { $subtract: ["$completedDate", "$actualStartDate"] },
+              else: sortDirection === 1 ? 9999999999999 : -1
+            }
+          }
+        }
+      },
+      { $sort: { timeTakenMs: sortDirection, createdAt: -1 } }
+    ]);
+    orders = await WorkOrder.populate(docs, [
+      { path: 'vehicle', select: 'vehicleNo' },
+      { path: 'issues.assignedTo', select: 'name customerName' },
+      { path: 'createdBy closedBy', select: 'name' }
+    ]);
+  } else {
+    orders = await WorkOrder.find(query)
+      .populate('vehicle', 'vehicleNo')
+      .populate('issues.assignedTo', 'name customerName')
+      .populate('createdBy closedBy', 'name')
+      .sort(sortObj)
+      .lean();
+  }
 
   const COLUMN_MAPPING = {
     workOrderNo: { header: 'WO No.', key: 'workOrderNo', width: 15 },

@@ -18,6 +18,7 @@ import {
   INVENTORY_ACTIVITY_TYPES,
   SOURCE_DOCUMENT_TYPES,
 } from '../partTransaction/partTransaction.constants.js';
+import { buildSortObject } from '../../../utils/query-utils.js';
 
 const { ObjectId } = mongoose.Types;
 
@@ -185,7 +186,7 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
 
 const fetchPurchaseOrders = asyncHandler(async (req, res) => {
   try {
-    const { vendor, status, fromDate, toDate, part, partLocation } = req.query;
+    const { vendor, status, fromDate, toDate, part, partLocation, order, orderBy } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -226,12 +227,14 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
 
     const aggQuery = { ...query };
 
+    const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
+
     const [orders, totalsAgg] = await Promise.all([
       PurchaseOrder.find(query)
         .populate('vendor', 'name phone address')
         .populate('partLocation', 'name address')
         .populate('createdBy approvedBy purchasedBy', 'name')
-        .sort({ createdAt: -1 })
+        .sort(sortObj)
         .skip(skip)
         .limit(limit),
       PurchaseOrder.aggregate([
@@ -839,7 +842,7 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    
+
     // Handle MongoDB Duplicate Key Error for Tyre Serial Numbers
     if (error.code === 11000 && error.message.includes('tyres index: serialNumber')) {
       const match = error.message.match(/serialNumber:\s*"([^"]+)"/);
@@ -886,7 +889,7 @@ const deletePurchaseOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/purchase-orders/export
 // @access  Private
 const exportPurchaseOrders = asyncHandler(async (req, res) => {
-  const { vendor, status, fromDate, toDate, part, partLocation, columns } = req.query;
+  const { vendor, status, fromDate, toDate, part, partLocation, columns, order, orderBy } = req.query;
 
   const query = addTenantToQuery(req);
 
@@ -924,11 +927,13 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
     query.purchasedBy = new ObjectId(req.query.purchasedBy);
   }
 
+  const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
+
   const orders = await PurchaseOrder.find(query)
     .populate('vendor', 'name')
     .populate('partLocation', 'name')
     .populate('createdBy approvedBy purchasedBy', 'name')
-    .sort({ createdAt: -1 })
+    .sort(sortObj)
     .lean();
 
   const COLUMN_MAPPING = {
