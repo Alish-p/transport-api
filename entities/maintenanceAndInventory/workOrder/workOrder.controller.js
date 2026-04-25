@@ -145,7 +145,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
 
 const fetchWorkOrders = asyncHandler(async (req, res) => {
   try {
-    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, expenseAdded, startDate, endDate } = req.query;
+    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, expenseAdded, startDate, endDate, order, orderBy } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -224,14 +224,48 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
       aggMatch.tenant = new ObjectId(aggMatch.tenant);
     }
 
-    const [orders, total, statusAgg] = await Promise.all([
-      WorkOrder.find(query)
+    let ordersQuery;
+
+    if (orderBy === 'timeTaken') {
+      const sortDirection = order === 'asc' ? 1 : -1;
+      ordersQuery = WorkOrder.aggregate([
+        { $match: aggMatch },
+        {
+          $addFields: {
+            timeTakenMs: {
+              $cond: {
+                if: { $and: ["$completedDate", "$actualStartDate"] },
+                then: { $subtract: ["$completedDate", "$actualStartDate"] },
+                else: sortDirection === 1 ? 9999999999999 : -1 // Push invalid/nulls to the end
+              }
+            }
+          }
+        },
+        { $sort: { timeTakenMs: sortDirection, createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit }
+      ]).then(docs => WorkOrder.populate(docs, [
+        { path: 'vehicle', select: 'vehicleNo vehicleType' },
+        { path: 'createdBy', select: 'name' },
+        { path: 'closedBy', select: 'name' },
+        { path: 'issues.assignedTo', select: 'name customerName' }
+      ]));
+    } else {
+      let sortObj = { createdAt: -1 };
+      if (orderBy) {
+        sortObj = { [orderBy]: order === 'asc' ? 1 : -1 };
+      }
+      ordersQuery = WorkOrder.find(query)
         .populate('vehicle', 'vehicleNo vehicleType')
         .populate('createdBy closedBy', 'name')
         .populate('issues.assignedTo', 'name customerName')
-        .sort({ createdAt: -1 })
+        .sort(sortObj)
         .skip(skip)
-        .limit(limit),
+        .limit(limit);
+    }
+
+    const [orders, total, statusAgg] = await Promise.all([
+      ordersQuery,
       WorkOrder.countDocuments(query),
       WorkOrder.aggregate([
         { $match: aggMatch },
