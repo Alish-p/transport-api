@@ -8,6 +8,7 @@ import { EXPENSE_CATEGORIES } from "./expense.constants.js";
 import { addTenantToQuery } from "../../utils/tenant-utils.js";
 import { recordSubtripEvent, SUBTRIP_EVENT_TYPES } from "../../helpers/subtrip-event-helper.js";
 import { recalculateTripFinancials } from "../trip/trip.service.js";
+import { buildSortObject } from '../../utils/query-utils.js';
 
 // Create Expense
 const createExpense = asyncHandler(async (req, res) => {
@@ -97,6 +98,8 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       expenseType,
       expenseCategory,
       vehicleType,
+      order,
+      orderBy,
     } = req.query;
 
     const { limit, skip } = req.pagination;
@@ -160,7 +163,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
         })
         .populate({ path: "pumpCd", select: "name" })
         .populate({ path: "subtripId", select: "subtripNo" })
-        .sort({ date: -1 })
+        .sort(buildSortObject(orderBy === 'dieselRate' ? 'dieselPrice' : orderBy, order, { date: -1 }))
         .skip(skip)
         .limit(limit),
       Expense.aggregate([
@@ -297,6 +300,8 @@ const exportExpenses = asyncHandler(async (req, res) => {
     expenseCategory,
     vehicleType,
     columns, // Comma separated column IDs
+    order,
+    orderBy,
   } = req.query;
 
   const query = addTenantToQuery(req);
@@ -416,7 +421,7 @@ const exportExpenses = asyncHandler(async (req, res) => {
   // AGGREGATION PIPELINE
   const pipeline = [
     { $match: query },
-    { $sort: { date: -1 } },
+    { $sort: buildSortObject(orderBy === 'dieselRate' ? 'dieselPrice' : orderBy, order, { date: -1 }) },
     // Lookup Vehicle
     {
       $lookup: {

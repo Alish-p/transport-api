@@ -13,6 +13,7 @@ import {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,
 } from '../../helpers/subtrip-event-helper.js';
+import { buildSortObject } from '../../utils/query-utils.js';
 
 const createInvoice = asyncHandler(async (req, res) => {
   const {
@@ -173,6 +174,8 @@ const fetchInvoices = asyncHandler(async (req, res) => {
       issueFromDate,
       issueToDate,
       invoiceNo,
+      order,
+      orderBy,
     } = req.query;
     const { limit, skip } = req.pagination;
 
@@ -214,10 +217,17 @@ const fetchInvoices = asyncHandler(async (req, res) => {
       );
     }
 
+    let dbOrderBy = orderBy;
+    if (orderBy === 'cgst') dbOrderBy = 'taxBreakup.cgst.amount';
+    else if (orderBy === 'sgst') dbOrderBy = 'taxBreakup.sgst.amount';
+    else if (orderBy === 'igst') dbOrderBy = 'taxBreakup.igst.amount';
+
+    const sortObj = buildSortObject(dbOrderBy, order, { issueDate: -1 });
+
     const [invoices, total, statusAgg] = await Promise.all([
       Invoice.find(query)
         .populate("customerId", "customerName cellNo address gstEnabled GSTNo PANNo state")
-        .sort({ issueDate: -1 })
+        .sort(sortObj)
         .skip(skip)
         .limit(limit),
       Invoice.countDocuments(query),
@@ -440,6 +450,8 @@ const exportInvoices = asyncHandler(async (req, res) => {
     issueToDate,
     invoiceNo,
     columns,
+    order,
+    orderBy,
   } = req.query;
 
   const query = addTenantToQuery(req);
@@ -542,10 +554,17 @@ const exportInvoices = asyncHandler(async (req, res) => {
   const worksheet = workbook.addWorksheet('Invoices');
   worksheet.columns = exportColumns;
 
+  let dbOrderBy = orderBy;
+  if (orderBy === 'cgst') dbOrderBy = 'taxBreakup.cgst.amount';
+  else if (orderBy === 'sgst') dbOrderBy = 'taxBreakup.sgst.amount';
+  else if (orderBy === 'igst') dbOrderBy = 'taxBreakup.igst.amount';
+
+  const sortObj = buildSortObject(dbOrderBy, order, { issueDate: -1 });
+
   // Aggregate Pipeline
   const pipeline = [
     { $match: aggMatch },
-    { $sort: { issueDate: -1 } },
+    { $sort: sortObj },
     // Lookup Customer
     {
       $lookup: {

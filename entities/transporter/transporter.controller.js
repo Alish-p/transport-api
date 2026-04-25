@@ -4,6 +4,7 @@ import Vehicle from '../vehicle/vehicle.model.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 import Loan from '../loan/loan.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { buildSortObject } from '../../utils/query-utils.js';
 
 // Create Transporter
 const createTransporter = asyncHandler(async (req, res) => {
@@ -16,7 +17,7 @@ const createTransporter = asyncHandler(async (req, res) => {
 // Fetch Transporters with pagination and search
 const fetchTransporters = asyncHandler(async (req, res) => {
   try {
-    const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId } = req.query;
+    const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, order, orderBy } = req.query;
     const { limit, skip } = req.pagination;
 
     // Base match stage
@@ -110,8 +111,10 @@ const fetchTransporters = asyncHandler(async (req, res) => {
       }
     }
 
+    const sortObj = buildSortObject(orderBy, order, { transportName: 1 });
+
     // Sort stage
-    pipeline.push({ $sort: { transportName: 1 } });
+    pipeline.push({ $sort: sortObj });
 
 
     // Facet for pagination and total count
@@ -267,7 +270,7 @@ const cleanupTransporters = asyncHandler(async (req, res) => {
 // @route   GET /api/transporter/export
 // @access  Private
 const exportTransporters = asyncHandler(async (req, res) => {
-  const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, columns } = req.query;
+  const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, columns, order, orderBy } = req.query;
 
   const matchStage = { tenant: req.tenant };
 
@@ -402,8 +405,10 @@ const exportTransporters = asyncHandler(async (req, res) => {
   const worksheet = workbook.addWorksheet('Transporters');
   worksheet.columns = exportColumns;
 
+  const sortObj = buildSortObject(orderBy, order, { transportName: 1 });
+
   // We sort them and pass through memory to insert
-  pipeline.push({ $sort: { transportName: 1 } });
+  pipeline.push({ $sort: sortObj });
 
   const transporters = await Transporter.aggregate(pipeline);
 
