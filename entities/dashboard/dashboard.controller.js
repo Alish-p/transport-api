@@ -242,88 +242,88 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
   try {
     const [results, vehicleExpenses] = await Promise.all([
       Subtrip.aggregate([
-      {
-        $match: {
-          tenant: req.tenant,
-          startDate: { $gte: startOfYear, $lt: endOfYear },
-          isEmpty: false,
+        {
+          $match: {
+            tenant: req.tenant,
+            startDate: { $gte: startOfYear, $lt: endOfYear },
+            isEmpty: false,
+          },
         },
-      },
-      {
-        $lookup: {
-          from: "vehicles",
-          localField: "vehicleId",
-          foreignField: "_id",
-          as: "vehicle",
+        {
+          $lookup: {
+            from: "vehicles",
+            localField: "vehicleId",
+            foreignField: "_id",
+            as: "vehicle",
+          },
         },
-      },
-      { $unwind: "$vehicle" },
-      {
-        $lookup: {
-          from: "expenses",
-          let: { subtripId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$subtripId", "$$subtripId"] },
-                    { $eq: ["$tenant", req.tenant] },
-                  ],
+        { $unwind: "$vehicle" },
+        {
+          $lookup: {
+            from: "expenses",
+            let: { subtripId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$subtripId", "$$subtripId"] },
+                      { $eq: ["$tenant", req.tenant] },
+                    ],
+                  },
                 },
               },
+              {
+                $group: {
+                  _id: null,
+                  totalExpenses: { $sum: { $ifNull: ["$amount", 0] } },
+                },
+              },
+            ],
+            as: "expenseSummary",
+          },
+        },
+        {
+          $addFields: {
+            month: { $month: { date: "$startDate", timezone: DEFAULT_TIMEZONE } },
+            expenseAmount: {
+              $ifNull: [{ $arrayElemAt: ["$expenseSummary.totalExpenses", 0] }, 0],
             },
-            {
-              $group: {
-                _id: null,
-                totalExpenses: { $sum: { $ifNull: ["$amount", 0] } },
+            freightAmount: {
+              $multiply: [
+                { $ifNull: ["$loadingWeight", 0] },
+                { $ifNull: ["$rate", 0] },
+              ],
+            },
+            commissionAmount: {
+              $multiply: [
+                { $ifNull: ["$loadingWeight", 0] },
+                { $ifNull: ["$commissionRate", 0] },
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: { month: "$month", isOwn: "$vehicle.isOwn" },
+            count: { $sum: 1 },
+            totalIncome: {
+              $sum: {
+                $cond: ["$vehicle.isOwn", "$freightAmount", 0],
               },
             },
-          ],
-          as: "expenseSummary",
-        },
-      },
-      {
-        $addFields: {
-          month: { $month: { date: "$startDate", timezone: DEFAULT_TIMEZONE } },
-          expenseAmount: {
-            $ifNull: [{ $arrayElemAt: ["$expenseSummary.totalExpenses", 0] }, 0],
-          },
-          freightAmount: {
-            $multiply: [
-              { $ifNull: ["$loadingWeight", 0] },
-              { $ifNull: ["$rate", 0] },
-            ],
-          },
-          commissionAmount: {
-            $multiply: [
-              { $ifNull: ["$loadingWeight", 0] },
-              { $ifNull: ["$commissionRate", 0] },
-            ],
-          },
-        },
-      },
-      {
-        $group: {
-          _id: { month: "$month", isOwn: "$vehicle.isOwn" },
-          count: { $sum: 1 },
-          totalIncome: {
-            $sum: {
-              $cond: ["$vehicle.isOwn", "$freightAmount", 0],
+            totalExpenses: {
+              $sum: {
+                $cond: ["$vehicle.isOwn", "$expenseAmount", 0],
+              },
             },
-          },
-          totalExpenses: {
-            $sum: {
-              $cond: ["$vehicle.isOwn", "$expenseAmount", 0],
-            },
-          },
-          totalCommission: {
-            $sum: {
-              $cond: ["$vehicle.isOwn", 0, "$commissionAmount"],
+            totalCommission: {
+              $sum: {
+                $cond: ["$vehicle.isOwn", 0, "$commissionAmount"],
+              },
             },
           },
         },
-      },
       ]), // End Subtrip.aggregate
       Expense.aggregate([
         {
@@ -1961,7 +1961,7 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
         { $match: baseQuery },
         { $group: { _id: '$status', count: { $sum: 1 } } }
       ]),
-      
+
       // 2. Type distribution
       Tyre.aggregate([
         { $match: baseQuery },
@@ -2086,10 +2086,10 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
 
       // 9. Recent Activity (30 days)
       TyreHistory.aggregate([
-        { 
-          $match: { 
+        {
+          $match: {
             tenant: req.tenant,
-            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } 
+            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
           }
         },
         { $group: { _id: '$action', count: { $sum: 1 } } }
@@ -2144,7 +2144,7 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
 
     // Format Attachment Summary
     const tyres = await Tyre.find(baseQuery).select('_id status').lean();
-    
+
     let newlyAttached = 0;
     let oldAttached = 0;
     let neverAttached = 0;
@@ -2171,7 +2171,7 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
     const formatBucket = (aggData) => {
       const output = {};
       aggData.forEach(item => {
-        if(item._id) output[item._id] = item.count;
+        if (item._id) output[item._id] = item.count;
       });
       return output;
     };
@@ -2324,7 +2324,7 @@ const getInventoryDashboardSummary = asyncHandler(async (req, res) => {
       totalParts: totals.totalParts,
       outOfStockItems: totals.outOfStockItems,
       lowStockItems: totals.lowStockItems,
-      inStockItems: inStockItems > 0 ? inStockItems : 0, 
+      inStockItems: inStockItems > 0 ? inStockItems : 0,
       openPurchaseOrders,
     });
   } catch (error) {
@@ -2669,14 +2669,32 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
       WorkOrder.aggregate([
         { $match: { ...tenantQuery, status: WORK_ORDER_STATUS.COMPLETED, createdAt: { $gte: analyticsDateFrom } } },
         { $unwind: '$parts' },
-        { $match: { 'parts.part': { $exists: true, $ne: null } } },
+        {
+          $match: {
+            'parts.part': { $exists: true, $ne: null }
+          }
+        },
+        {
+          $lookup: {
+            from: 'parts',
+            localField: 'parts.part',
+            foreignField: '_id',
+            as: 'partDoc'
+          }
+        },
+        { $unwind: '$partDoc' },
+        {
+          $match: {
+            'partDoc.category': { $not: { $regex: /^(Fluids|general)$/i } }
+          }
+        },
         {
           $group: {
             _id: '$parts.part',
             totalQuantity: { $sum: '$parts.quantity' },
             workOrderIds: { $addToSet: '$_id' },
-            partName: { $first: '$parts.partSnapshot.name' },
-            partNumber: { $first: '$parts.partSnapshot.partNumber' },
+            partName: { $first: '$partDoc.name' },
+            partNumber: { $first: '$partDoc.partNumber' },
           },
         },
         {
@@ -2762,7 +2780,25 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
       WorkOrder.aggregate([
         { $match: { ...tenantQuery, status: WORK_ORDER_STATUS.COMPLETED, createdAt: { $gte: analyticsDateFrom } } },
         { $unwind: '$parts' },
-        { $match: { 'parts.part': { $exists: true, $ne: null } } },
+        {
+          $match: {
+            'parts.part': { $exists: true, $ne: null }
+          }
+        },
+        {
+          $lookup: {
+            from: 'parts',
+            localField: 'parts.part',
+            foreignField: '_id',
+            as: 'partDoc'
+          }
+        },
+        { $unwind: '$partDoc' },
+        {
+          $match: {
+            'partDoc.category': { $not: { $regex: /^(Fluids|general)$/i } }
+          }
+        },
         {
           $lookup: {
             from: 'vehicles', localField: 'vehicle', foreignField: '_id', as: 'vehicleDoc',
@@ -2774,8 +2810,8 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
             _id: { vehicle: '$vehicle', part: '$parts.part' },
             vehicleId: { $first: '$vehicle' },
             vehicleNo: { $first: '$vehicleDoc.vehicleNo' },
-            partName: { $first: '$parts.partSnapshot.name' },
-            partNumber: { $first: '$parts.partSnapshot.partNumber' },
+            partName: { $first: '$partDoc.name' },
+            partNumber: { $first: '$partDoc.partNumber' },
             occurrences: { $sum: 1 },
             totalQty: { $sum: '$parts.quantity' },
           },
