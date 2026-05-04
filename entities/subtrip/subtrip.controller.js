@@ -63,6 +63,8 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
       hasDriverSalary,
       hasTransporterPayment,
       materials,
+      commissionRateMin,
+      commissionRateMax,
     } = req.query;
 
     // Initialize base query with tenant filter
@@ -120,6 +122,16 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
           return new RegExp(`^${escaped}$`, "i");
         }),
       };
+    }
+
+    if (commissionRateMin !== undefined || commissionRateMax !== undefined) {
+      query.commissionRate = {};
+      if (commissionRateMin !== undefined && commissionRateMin !== '') {
+        query.commissionRate.$gte = Number(commissionRateMin);
+      }
+      if (commissionRateMax !== undefined && commissionRateMax !== '') {
+        query.commissionRate.$lte = Number(commissionRateMax);
+      }
     }
 
     // Date range filters
@@ -216,6 +228,8 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
       transporterPaymentGenerated,
       epodSigned,
       shortage,
+      commissionRateMin,
+      commissionRateMax,
     } = req.query;
 
     const { limit, skip } = req.pagination;
@@ -266,6 +280,16 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
           return new RegExp(`^${escaped}$`, "i");
         }),
       };
+    }
+
+    if (commissionRateMin !== undefined || commissionRateMax !== undefined) {
+      query.commissionRate = {};
+      if (commissionRateMin !== undefined && commissionRateMin !== '') {
+        query.commissionRate.$gte = Number(commissionRateMin);
+      }
+      if (commissionRateMax !== undefined && commissionRateMax !== '') {
+        query.commissionRate.$lte = Number(commissionRateMax);
+      }
     }
 
     // Start date range
@@ -1030,6 +1054,8 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     epodSigned,
     shortage,
     columns,
+    commissionRateMin,
+    commissionRateMax,
   } = req.query;
 
   const query = addTenantToQuery(req);
@@ -1085,6 +1111,16 @@ const exportSubtrips = asyncHandler(async (req, res) => {
         return new RegExp(`^${escaped}$`, "i");
       }),
     };
+  }
+
+  if (commissionRateMin !== undefined || commissionRateMax !== undefined) {
+    query.commissionRate = {};
+    if (commissionRateMin !== undefined && commissionRateMin !== '') {
+      query.commissionRate.$gte = Number(commissionRateMin);
+    }
+    if (commissionRateMax !== undefined && commissionRateMax !== '') {
+      query.commissionRate.$lte = Number(commissionRateMax);
+    }
   }
 
   // Start date range
