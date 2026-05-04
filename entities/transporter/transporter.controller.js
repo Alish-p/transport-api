@@ -25,16 +25,6 @@ const fetchTransporters = asyncHandler(async (req, res) => {
       tenant: req.tenant,
     };
 
-    if (status === 'active') {
-      matchStage.isActive = { $ne: false };
-    } else if (status === 'inactive') {
-      matchStage.isActive = false;
-    } else if (status === 'all') {
-      // no filter on isActive
-    } else if (includeInactive !== 'true') {
-      matchStage.isActive = { $ne: false };
-    }
-
     if (search) {
       matchStage.$or = [
         { transportName: { $regex: search, $options: "i" } },
@@ -113,17 +103,35 @@ const fetchTransporters = asyncHandler(async (req, res) => {
 
     const sortObj = buildSortObject(orderBy, order, { transportName: 1 });
 
-    // Sort stage
-    pipeline.push({ $sort: sortObj });
-
+    const statusMatch = {};
+    if (status === 'active') {
+      statusMatch.isActive = { $ne: false };
+    } else if (status === 'inactive') {
+      statusMatch.isActive = false;
+    } else if (status === 'all') {
+      // no filter on isActive
+    } else if (includeInactive !== 'true') {
+      statusMatch.isActive = { $ne: false };
+    }
 
     // Facet for pagination and total count
     const finalPipeline = [
       ...pipeline,
       {
         $facet: {
-          metadata: [{ $count: "total" }],
-          data: [{ $skip: skip }, { $limit: limit }],
+          allCount: [{ $count: "total" }],
+          activeCount: [{ $match: { isActive: { $ne: false } } }, { $count: "total" }],
+          inactiveCount: [{ $match: { isActive: false } }, { $count: "total" }],
+          metadata: [
+            ...(Object.keys(statusMatch).length > 0 ? [{ $match: statusMatch }] : []),
+            { $count: "total" }
+          ],
+          data: [
+            ...(Object.keys(statusMatch).length > 0 ? [{ $match: statusMatch }] : []),
+            { $sort: sortObj },
+            { $skip: skip },
+            { $limit: limit }
+          ],
         },
       },
     ];
@@ -132,10 +140,18 @@ const fetchTransporters = asyncHandler(async (req, res) => {
 
     const transporters = result[0].data;
     const total = result[0].metadata[0]?.total || 0;
+    const allCount = result[0].allCount[0]?.total || 0;
+    const activeCount = result[0].activeCount[0]?.total || 0;
+    const inactiveCount = result[0].inactiveCount[0]?.total || 0;
 
     res.status(200).json({
       transporters,
       total,
+      totals: {
+        all: { count: allCount },
+        active: { count: activeCount },
+        inactive: { count: inactiveCount },
+      },
       startRange: skip + 1,
       endRange: skip + transporters.length,
     });
