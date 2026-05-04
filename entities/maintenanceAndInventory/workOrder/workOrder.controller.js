@@ -734,6 +734,7 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     priority: { header: 'Priority', key: 'priority', width: 15 },
     category: { header: 'Category', key: 'category', width: 15 },
     timeTaken: { header: 'Time Taken', key: 'timeTaken', width: 25 },
+    parts: { header: 'Parts', key: 'parts', width: 40 },
     issues: { header: 'Issues', key: 'issues', width: 30 },
     issueAssignees: { header: 'Issue Assignees', key: 'issueAssignees', width: 25 },
     scheduledStartDate: { header: 'Scheduled Start', key: 'scheduledStartDate', width: 15 },
@@ -811,6 +812,19 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
         row[key] = dateStr;
       } else if (key === 'expenseAdded') {
         row[key] = rowData[key] ? 'Yes' : 'No';
+      } else if (key === 'parts') {
+        const partsList = rowData.parts || [];
+        if (partsList.length === 0) {
+          row[key] = '-';
+        } else {
+          const vals = partsList.map((p) => {
+            const name = p.partSnapshot?.name ?? p.name ?? 'Unknown Part';
+            const qty = p.quantity || 0;
+            const unit = p.partSnapshot?.measurementUnit ?? '';
+            return `${name}(${qty}${unit ? ` ${unit}` : ''})`;
+          });
+          row[key] = vals.join(', ');
+        }
       } else {
         row[key] = (rowData[key] !== undefined && rowData[key] !== null) ? rowData[key] : '-';
       }
