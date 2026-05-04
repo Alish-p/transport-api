@@ -3009,7 +3009,7 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
         },
         totalSpend: spendData.totalSpend,
         avgOrderValue: spendData.avgOrderValue,
-        topVendors: topVendorAgg.map(v => ({ vendor: v.vendorName, orders: v.orderCount, spend: v.totalSpend })),
+        topVendors: topVendorAgg.map(v => ({ vendorId: v._id, vendor: v.vendorName, orders: v.orderCount, spend: v.totalSpend })),
         recentOrders: recentPOs.map(po => ({
           _id: po._id,
           purchaseOrderNo: po.purchaseOrderNo,
