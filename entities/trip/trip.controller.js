@@ -457,16 +457,32 @@ const fetchRouteAnalytics = asyncHandler(async (req, res) => {
   try {
     const { limit, skip } = req.pagination || {};
     const tenantId = req.tenant;
+    const { vehicleType } = req.query;
+
+    const baseMatch = {
+      tenant: tenantId,
+      tripStatus: TRIP_STATUS.CLOSED,
+      "subtrips.0": { $exists: true },
+    };
+
+    if (vehicleType) {
+      const vehicles = await Vehicle.find({ tenant: tenantId, vehicleType }).select("_id");
+      if (!vehicles.length) {
+        return res.status(200).json({
+          routes: [],
+          total: 0,
+          page: req.pagination?.page || 1,
+          rowsPerPage: limit || 10,
+        });
+      }
+      baseMatch.vehicleId = { $in: vehicles.map((v) => v._id) };
+    }
 
     // Pipeline: join subtrips, build route signature, group, compute averages
     const basePipeline = [
       // 1. Only closed trips for this tenant that have subtrips
       {
-        $match: {
-          tenant: tenantId,
-          tripStatus: TRIP_STATUS.CLOSED,
-          "subtrips.0": { $exists: true },
-        },
+        $match: baseMatch,
       },
       // 2. Lookup subtrips
       {
