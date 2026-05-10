@@ -973,6 +973,17 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
 // Get transporter payment totals for dashboard
 const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
   try {
+    const yearParam = parseInt(req.query.year, 10);
+    let dateFilterPayment = {};
+    let dateFilterSubtrip = {};
+
+    if (!Number.isNaN(yearParam)) {
+      const startDate = dayjs.tz(`${yearParam}-04-01`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      const endDate = dayjs.tz(`${yearParam + 1}-04-01`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      dateFilterPayment = { issueDate: { $gte: startDate, $lt: endDate } };
+      dateFilterSubtrip = { startDate: { $gte: startDate, $lt: endDate } };
+    }
+
     const [
       payableAgg,
       paidAgg,
@@ -981,7 +992,7 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
       paidPayments,
     ] = await Promise.all([
       TransporterPayment.aggregate([
-        { $match: { tenant: req.tenant, status: 'generated' } },
+        { $match: { tenant: req.tenant, status: 'generated', ...dateFilterPayment } },
         {
           $group: {
             _id: null,
@@ -990,7 +1001,7 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
         },
       ]),
       TransporterPayment.aggregate([
-        { $match: { tenant: req.tenant, status: 'paid' } },
+        { $match: { tenant: req.tenant, status: 'paid', ...dateFilterPayment } },
         {
           $group: {
             _id: null,
@@ -1002,6 +1013,7 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
         addTenantToQuery(req, {
           subtripStatus: SUBTRIP_STATUS.RECEIVED,
           transporterPaymentReceiptId: { $exists: false },
+          ...dateFilterSubtrip,
         }),
       )
         .select(
@@ -1016,11 +1028,11 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
         .populate({ path: 'driverId', select: 'driverName' })
         .populate('expenses')
         .lean(),
-      TransporterPayment.find({ tenant: req.tenant, status: 'generated' })
+      TransporterPayment.find({ tenant: req.tenant, status: 'generated', ...dateFilterPayment })
         .select('_id paymentId issueDate status summary transporterId')
         .populate('transporterId', 'transportName')
         .lean(),
-      TransporterPayment.find({ tenant: req.tenant, status: 'paid' })
+      TransporterPayment.find({ tenant: req.tenant, status: 'paid', ...dateFilterPayment })
         .select('_id paymentId issueDate status summary transporterId')
         .populate('transporterId', 'transportName')
         .lean(),
@@ -1091,6 +1103,17 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
 // Get invoice amounts summary for dashboard
 const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
   try {
+    const yearParam = parseInt(req.query.year, 10);
+    let dateFilterInvoice = {};
+    let dateFilterSubtrip = {};
+
+    if (!Number.isNaN(yearParam)) {
+      const startDate = dayjs.tz(`${yearParam}-04-01`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      const endDate = dayjs.tz(`${yearParam + 1}-04-01`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      dateFilterInvoice = { issueDate: { $gte: startDate, $lt: endDate } };
+      dateFilterSubtrip = { startDate: { $gte: startDate, $lt: endDate } };
+    }
+
     const [
       pendingAgg,
       receivedAgg,
@@ -1103,6 +1126,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         {
           $match: {
             tenant: req.tenant,
+            ...dateFilterInvoice,
             invoiceStatus: {
               $in: [
                 INVOICE_STATUS.PENDING,
@@ -1136,6 +1160,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         {
           $match: {
             tenant: req.tenant,
+            ...dateFilterInvoice,
             invoiceStatus: {
               $in: [INVOICE_STATUS.RECEIVED, INVOICE_STATUS.PARTIAL_RECEIVED],
             },
@@ -1152,6 +1177,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         {
           $match: {
             tenant: req.tenant,
+            ...dateFilterSubtrip,
             $and: [
               {
                 $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }],
@@ -1180,6 +1206,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
       ]),
       Invoice.find({
         tenant: req.tenant,
+        ...dateFilterInvoice,
         invoiceStatus: {
           $in: [
             INVOICE_STATUS.PENDING,
@@ -1194,6 +1221,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         .populate("customerId", "customerName"),
       Invoice.find({
         tenant: req.tenant,
+        ...dateFilterInvoice,
         invoiceStatus: {
           $in: [INVOICE_STATUS.RECEIVED, INVOICE_STATUS.PARTIAL_RECEIVED],
         },
@@ -1204,6 +1232,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         .populate("customerId", "customerName"),
       Subtrip.find({
         tenant: req.tenant,
+        ...dateFilterSubtrip,
         $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }],
         subtripStatus: SUBTRIP_STATUS.RECEIVED,
       })
