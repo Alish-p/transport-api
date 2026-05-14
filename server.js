@@ -24,7 +24,7 @@ const port = process.env.PORT || 5001;
 app.use(helmet());
 
 const corsOptions = {
-  origin: ["https://transport-rewrite.onrender.com", "http://localhost:3031"],
+  origin: ["https://transport-rewrite.onrender.com", "http://localhost:3031", "https://tranzitsolutions.com"],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
