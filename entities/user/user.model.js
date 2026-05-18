@@ -18,6 +18,9 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
     lastSeen: { type: Date },
+    otp: { type: String },
+    otpExpiresAt: { type: Date },
+    lastOtpSentAt: { type: Date },
 
     permissions: {
       customer: {

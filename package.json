@@ -28,6 +28,7 @@
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "mongoose": "^8.15.1",
+    "resend": "^6.12.3",
     "zod": "^3.24.3"
   },
   "devDependencies": {

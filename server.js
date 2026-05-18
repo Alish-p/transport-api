@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import dotenv from "dotenv";
+import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -9,8 +9,6 @@ import connectDB from "./config/db.js";
 import routes from "./routes/index.js";
 import { errorHandler } from "./middlewares/ErrorHandler.js";
 import { startDailyDriverExpiryJob, startDailyTaskArchiveJob } from "./services/scheduler.js";
-
-dotenv.config();
 
 // -----------------------------------------------------------------------------
 // Constants
