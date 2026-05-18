@@ -9,8 +9,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Auth
 const loginUser = asyncHandler(async (req, res) => {
-  const user = await UserModel.findOne({ email: req.body.email });
-  const matched = user ? await user.matchPassword(req.body.password) : false;
+  const { email, password } = req.body;
+  const user = await UserModel.findOne({
+    $or: [{ email: email }, { mobile: email }],
+  });
+  const matched = user ? await user.matchPassword(password) : false;
 
   if (user && matched) {
     res.status(200).json({
