@@ -2185,7 +2185,7 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
 
     tyres.forEach(tyre => {
       const mountCount = mountCountMap[tyre._id.toString()] || 0;
-      if (mountCount === 0) {
+      if (mountCount === 0 && tyre.status === TYRE_STATUS.IN_STOCK) {
         neverAttached++;
       } else if (tyre.status === TYRE_STATUS.MOUNTED) {
         if (mountCount === 1) {
