@@ -192,7 +192,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
             tenant: req.tenant,
             customerId,
             invoiceStatus: {
-              $in: [INVOICE_STATUS.PENDING, INVOICE_STATUS.OVERDUE],
+              $in: [INVOICE_STATUS.PENDING],
             },
           },
         },
@@ -253,7 +253,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
         tenant: req.tenant,
         customerId,
         invoiceStatus: {
-          $in: [INVOICE_STATUS.PENDING, INVOICE_STATUS.OVERDUE],
+          $in: [INVOICE_STATUS.PENDING],
         },
       }).select("_id invoiceNo issueDate dueDate netTotal"),
       Invoice.find({

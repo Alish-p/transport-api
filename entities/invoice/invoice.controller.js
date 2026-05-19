@@ -247,7 +247,6 @@ const fetchInvoices = asyncHandler(async (req, res) => {
       all: { count: total, amount: 0 },
       pending: { count: 0, amount: 0 },
       paid: { count: 0, amount: 0 },
-      overdue: { count: 0, amount: 0 },
     };
 
     statusAgg.forEach((ag) => {

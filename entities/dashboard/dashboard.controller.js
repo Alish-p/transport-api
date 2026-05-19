@@ -859,7 +859,6 @@ const getInvoiceStatusSummary = asyncHandler(async (req, res) => {
         label: "Partial Received",
         value: statusMap[INVOICE_STATUS.PARTIAL_RECEIVED],
       },
-      { label: "OverDue", value: statusMap[INVOICE_STATUS.OVERDUE] },
     ];
 
     res.status(200).json({ series });
@@ -1131,7 +1130,6 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
               $in: [
                 INVOICE_STATUS.PENDING,
                 INVOICE_STATUS.PARTIAL_RECEIVED,
-                INVOICE_STATUS.OVERDUE,
               ],
             },
           },
@@ -1211,7 +1209,6 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
           $in: [
             INVOICE_STATUS.PENDING,
             INVOICE_STATUS.PARTIAL_RECEIVED,
-            INVOICE_STATUS.OVERDUE,
           ],
         },
       })

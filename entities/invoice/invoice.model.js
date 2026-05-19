@@ -128,10 +128,7 @@ invoiceSchema.pre("save", function (next) {
   if (totalPaid === 0) {
     this.invoiceStatus = INVOICE_STATUS.PENDING;
   } else if (totalPaid < this.netTotal) {
-    this.invoiceStatus =
-      this.dueDate && this.dueDate < new Date()
-        ? INVOICE_STATUS.OVERDUE
-        : INVOICE_STATUS.PARTIAL_RECEIVED;
+    this.invoiceStatus = INVOICE_STATUS.PARTIAL_RECEIVED;
   } else {
     this.invoiceStatus = INVOICE_STATUS.RECEIVED;
   }
