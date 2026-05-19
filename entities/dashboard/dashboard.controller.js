@@ -885,6 +885,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
           $match: {
             tenant: req.tenant,
             issueDate: { $gte: startOfYear, $lt: endOfYear },
+            invoiceStatus: { $ne: INVOICE_STATUS.CANCELLED },
           },
         },
         {
@@ -899,6 +900,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
           $match: {
             tenant: req.tenant,
             issueDate: { $gte: startOfYear, $lt: endOfYear },
+            status: { $ne: 'cancelled' },
           },
         },
         {
@@ -913,6 +915,7 @@ const getFinancialMonthlyData = asyncHandler(async (req, res) => {
           $match: {
             tenant: req.tenant,
             issueDate: { $gte: startOfYear, $lt: endOfYear },
+            status: { $ne: 'cancelled' },
           },
         },
         {
