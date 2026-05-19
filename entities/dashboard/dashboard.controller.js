@@ -3102,7 +3102,7 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
         })),
         vehiclesConsumingMostParts: vehiclesConsumingMostPartsAgg.map(v => ({
           vehicleId: v._id, vehicleNo: v.vehicleNo || '-',
-          totalPartsQty: v.totalPartsQty, uniqueParts: v.uniqueParts, totalPartsCost: v.totalPartsCost,
+          uniqueParts: v.uniqueParts, totalPartsCost: v.totalPartsCost,
         })),
         topPartsByCost: topPartsByCostAgg.map(p => ({
           partId: p._id, partName: p.partName || 'Unknown', partNumber: p.partNumber || '-',

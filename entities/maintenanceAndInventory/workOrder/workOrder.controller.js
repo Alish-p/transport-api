@@ -146,7 +146,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
 
 const fetchWorkOrders = asyncHandler(async (req, res) => {
   try {
-    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, expenseAdded, startDate, endDate, order, orderBy } = req.query;
+    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, expenseAdded, startDate, endDate, order, orderBy, workOrderNo } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -218,6 +218,10 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
 
     if (expenseAdded !== undefined && expenseAdded !== '') {
       query.expenseAdded = expenseAdded === 'true';
+    }
+
+    if (workOrderNo) {
+      query.workOrderNo = { $regex: new RegExp(workOrderNo, 'i') };
     }
 
     const aggMatch = { ...query };
@@ -615,7 +619,7 @@ const deleteWorkOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/work-orders/export
 // @access  Private
 const exportWorkOrders = asyncHandler(async (req, res) => {
-  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, columns, expenseAdded, startDate, endDate, order, orderBy } = req.query;
+  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, columns, expenseAdded, startDate, endDate, order, orderBy, workOrderNo } = req.query;
 
   const query = addTenantToQuery(req);
 
@@ -686,6 +690,10 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
 
   if (expenseAdded !== undefined && expenseAdded !== '') {
     query.expenseAdded = expenseAdded === 'true';
+  }
+
+  if (workOrderNo) {
+    query.workOrderNo = { $regex: new RegExp(workOrderNo, 'i') };
   }
 
   const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
