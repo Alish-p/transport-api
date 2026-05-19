@@ -2724,11 +2724,12 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
             workOrderIds: { $addToSet: '$_id' },
             partName: { $first: '$partDoc.name' },
             partNumber: { $first: '$partDoc.partNumber' },
+            measurementUnit: { $first: '$partDoc.measurementUnit' },
           },
         },
         {
           $project: {
-            partName: 1, partNumber: 1, totalQuantity: 1,
+            partName: 1, partNumber: 1, totalQuantity: 1, measurementUnit: 1,
             workOrderCount: { $size: '$workOrderIds' },
           },
         },
@@ -3093,6 +3094,7 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
         topPartsUsed: topPartsUsedAgg.map(p => ({
           partId: p._id, partName: p.partName || 'Unknown', partNumber: p.partNumber || '-',
           totalQuantity: p.totalQuantity, workOrderCount: p.workOrderCount,
+          measurementUnit: p.measurementUnit || '',
         })),
         vehiclesWithMostWOs: vehiclesWithMostWOsAgg.map(v => ({
           vehicleId: v._id, vehicleNo: v.vehicleNo || '-',
