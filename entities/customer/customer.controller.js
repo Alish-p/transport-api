@@ -14,6 +14,7 @@ import {
   getNextMonthStartIST,
   getStartOfYearIST,
   getNextYearStartIST,
+  DEFAULT_TIMEZONE,
 } from '../../utils/time-utils.js';
 
 // Utility to escape RegExp special chars
@@ -320,7 +321,7 @@ const getCustomerSubtripMonthlyData = asyncHandler(async (req, res) => {
       { $unwind: "$vehicle" },
       {
         $group: {
-          _id: { month: { $month: "$startDate" }, isOwn: "$vehicle.isOwn" },
+          _id: { month: { $month: { date: "$startDate", timezone: DEFAULT_TIMEZONE } }, isOwn: "$vehicle.isOwn" },
           count: { $sum: 1 },
         },
       },
