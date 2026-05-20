@@ -337,7 +337,7 @@ const fetchParts = asyncHandler(async (req, res) => {
     }
 
     // 1. Fetch matching parts directly (without pagination yet)
-    const matchingParts = await Part.find(query).select('_id name unitCost').lean();
+    const matchingParts = await Part.find(query).select('_id name unitCost averageUnitCost').lean();
     const matchingPartIds = matchingParts.map((p) => p._id);
 
     // 2. Fetch PartStocks for these parts
@@ -387,14 +387,15 @@ const fetchParts = asyncHandler(async (req, res) => {
           _id: part._id,
           name: part.name || '',
           unitCost: part.unitCost || 0,
+          averageUnitCost: part.averageUnitCost || 0,
           totalQuantity: q,
-          totalCost: q * (part.unitCost || 0),
+          totalCost: q * (part.averageUnitCost || part.unitCost || 0),
         });
         totalQuantityItems += q;
         if (q <= 0) outOfStockItems++;
         else if (q > 0 && q < t) lowStockItems++;
 
-        totalInventoryValue += q * (part.unitCost || 0);
+        totalInventoryValue += q * (part.averageUnitCost || part.unitCost || 0);
       }
     }
 
