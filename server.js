@@ -8,7 +8,6 @@ import rateLimit from "express-rate-limit";
 import connectDB from "./config/db.js";
 import routes from "./routes/index.js";
 import { errorHandler } from "./middlewares/ErrorHandler.js";
-import { startDailyDriverExpiryJob, startDailyTaskArchiveJob } from "./services/scheduler.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -38,9 +37,6 @@ app.use(express.urlencoded({ limit: "1mb", extended: true }));
 // Database
 // -----------------------------------------------------------------------------
 connectDB();
-// Schedule background jobs
-startDailyDriverExpiryJob();
-startDailyTaskArchiveJob();
 
 // -----------------------------------------------------------------------------
 // Rate Limiting

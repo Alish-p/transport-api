@@ -8,7 +8,10 @@
     "start": "node server.js",
     "server": "nodemon server.js",
     "lint": "eslint .",
-    "backup:db": "node scripts/backup-db.js"
+    "backup:db": "node scripts/backup-db.js",
+    "cron:driver-expiry": "node scripts/cron/driver-expiry.js",
+    "cron:task-archive": "node scripts/cron/task-archive.js",
+    "cron:gps-snapshot": "node scripts/cron/gps-snapshot.js"
   },
   "author": "",
   "license": "ISC",
