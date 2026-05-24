@@ -101,6 +101,16 @@ const tyreSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+
+        soldToTransporter: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Transporter',
+            default: null,
+        },
+        soldPrice: {
+            type: Number,
+            default: null,
+        },
     },
     {
         timestamps: true,

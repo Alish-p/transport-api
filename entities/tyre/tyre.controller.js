@@ -153,7 +153,7 @@ const createBulkTyres = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre
 // @access  Private
 const getTyres = asyncHandler(async (req, res) => {
-    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, category, attachmentStatus, liveKmFreshness } = req.query;
+    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, category, attachmentStatus, liveKmFreshness, soldTo } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -247,6 +247,10 @@ const getTyres = asyncHandler(async (req, res) => {
         query.category = { $regex: category, $options: 'i' };
     }
 
+    if (soldTo) {
+        query.soldToTransporter = soldTo;
+    }
+
     // Filter by live KM freshness (odometer update recency on mounted tyres' vehicles)
     if (liveKmFreshness) {
         const now = Date.now();
@@ -311,6 +315,7 @@ const getTyres = asyncHandler(async (req, res) => {
     const [tyres, total, analyticsData] = await Promise.all([
         Tyre.find(query)
             .populate('currentVehicleId', 'vehicleNo tyreLayoutId currentOdometer currentOdometerUpdatedAt')
+            .populate('soldToTransporter', 'transportName')
             .sort(sort)
             .skip(skip)
             .limit(limit)
@@ -922,7 +927,7 @@ const remoldTyre = asyncHandler(async (req, res) => {
 // @route   GET /api/tyre/export
 // @access  Private
 const exportTyres = asyncHandler(async (req, res) => {
-    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, columns, category, attachmentStatus, liveKmFreshness } = req.query;
+    const { type, status, brand, vehicleId, position, minKm, maxKm, serialNumber, model, size, minThread, maxThread, columns, category, attachmentStatus, liveKmFreshness, soldTo } = req.query;
 
     const query = addTenantToQuery(req);
     query.isActive = { $ne: false };
@@ -973,6 +978,10 @@ const exportTyres = asyncHandler(async (req, res) => {
 
     if (category) {
         query.category = { $regex: category, $options: 'i' };
+    }
+
+    if (soldTo) {
+        query.soldToTransporter = soldTo;
     }
 
     if (attachmentStatus) {
@@ -1055,6 +1064,8 @@ const exportTyres = asyncHandler(async (req, res) => {
         category: { header: 'Category', key: 'category', width: 20 },
         cost: { header: 'Cost', key: 'cost', width: 15 },
         threadDepth: { header: 'Thread Depth', key: 'threadDepth', width: 20 },
+        soldTo: { header: 'Sold To', key: 'soldTo', width: 25 },
+        soldPrice: { header: 'Sold Price', key: 'soldPrice', width: 15 },
         createdAt: { header: 'Added on', key: 'createdAt', width: 20 },
     };
 
@@ -1090,7 +1101,11 @@ const exportTyres = asyncHandler(async (req, res) => {
 
     let totalCost = 0;
 
-    const cursor = Tyre.find(query).populate('currentVehicleId', 'vehicleNo').sort({ createdAt: -1 }).cursor();
+    const cursor = Tyre.find(query)
+        .populate('currentVehicleId', 'vehicleNo')
+        .populate('soldToTransporter', 'transportName')
+        .sort({ createdAt: -1 })
+        .cursor();
 
     for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
         const row = {};
@@ -1111,8 +1126,10 @@ const exportTyres = asyncHandler(async (req, res) => {
                 row[key] = `${doc.threadDepth?.current || 0} / ${doc.threadDepth?.original || 0} mm`;
             } else if (key === 'createdAt') {
                 row[key] = doc.createdAt ? new Date(doc.createdAt).toISOString().split('T')[0] : '-';
-            } else if (key === 'cost' || key === 'currentKm') {
+            } else if (key === 'cost' || key === 'currentKm' || key === 'soldPrice') {
                 row[key] = doc[key] || 0;
+            } else if (key === 'soldTo') {
+                row[key] = doc.soldToTransporter?.transportName || '-';
             } else {
                 row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
             }
@@ -1160,11 +1177,11 @@ const deleteTyre = asyncHandler(async (req, res) => {
     res.json({ message: 'Tyre deleted successfully' });
 });
 
-// @desc    Sell tyre (Scrapped only)
+// @desc    Sell tyre (Scrapped or In_Stock)
 // @route   POST /api/tyre/:id/sell
 // @access  Private
 const sellTyre = asyncHandler(async (req, res) => {
-    const { sellAmount, sellDate } = req.body;
+    const { sellAmount, sellDate, transporterId, soldToTransporterName } = req.body;
     const tyreId = req.params.id;
 
     // 1. Get Tyre
@@ -1175,9 +1192,14 @@ const sellTyre = asyncHandler(async (req, res) => {
     }
 
     // 2. Validation
-    if (tyre.status !== TYRE_STATUS.SCRAPPED) {
+    if (tyre.status !== TYRE_STATUS.SCRAPPED && tyre.status !== TYRE_STATUS.IN_STOCK) {
         res.status(400);
-        throw new Error('Only Scrapped tyres can be sold');
+        throw new Error('Only Scrapped or In Stock tyres can be sold');
+    }
+
+    if (tyre.status === TYRE_STATUS.IN_STOCK && !transporterId) {
+        res.status(400);
+        throw new Error('Transporter must be selected to sell tyre');
     }
 
     // 3. Update Tyre Status
@@ -1186,18 +1208,31 @@ const sellTyre = asyncHandler(async (req, res) => {
     if (!tyre.metadata) tyre.metadata = {};
     tyre.metadata.sellPrice = sellAmount || 0;
 
+    tyre.soldPrice = sellAmount || 0;
+    if (transporterId) {
+        tyre.soldToTransporter = transporterId;
+    }
+
     await tyre.save();
 
     // 4. Create History
-    await TyreHistory.create({
+    const historyData = {
         tenant: req.tenant,
         tyre: tyre._id,
         action: TYRE_HISTORY_ACTION.SELL,
         measuringDate: sellDate || new Date(),
         metadata: {
-            sellPrice: sellAmount || 0
+            sellPrice: sellAmount || 0,
         }
-    });
+    };
+
+    if (transporterId) {
+        historyData.metadata.transporterId = transporterId;
+        historyData.metadata.soldToTransporter = transporterId;
+        historyData.metadata.soldToTransporterName = soldToTransporterName;
+    }
+
+    await TyreHistory.create(historyData);
 
     res.json(tyre);
 });
