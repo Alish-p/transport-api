@@ -11,6 +11,7 @@ import {
   fetchOrphanTransporters,
   cleanupTransporters,
   exportTransporters,
+  getDocumentUploadUrl,
 } from './transporter.controller.js';
 
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
@@ -18,6 +19,7 @@ import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 
+router.get("/upload-url", authenticate, getDocumentUploadUrl);
 router.get("/", authenticate, pagination, fetchTransporters);
 router.get("/export", authenticate, exportTransporters);
 router.get("/orphans", authenticate, checkPermission("transporter", "delete"), fetchOrphanTransporters);

@@ -15,6 +15,7 @@ const transporterSchema = z.object({
     panNo: z.string().optional(),
     gstNo: z.string().optional(),
     emailId: z.string().optional(),
+    docs: z.array(z.string()).optional(),
     bankDetails: z.object({
       name: z.string(),
       branch: z.string(),

@@ -5,6 +5,7 @@ import TransporterPayment from '../transporterPayment/transporterPayment.model.j
 import Loan from '../loan/loan.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { buildSortObject } from '../../utils/query-utils.js';
+import { createPresignedPutUrl, buildPublicFileUrl } from '../../services/s3.service.js';
 
 // Create Transporter
 const createTransporter = asyncHandler(async (req, res) => {
@@ -447,6 +448,38 @@ const exportTransporters = asyncHandler(async (req, res) => {
   await workbook.commit();
 });
 
+// GET presigned URL for transporter document upload
+const getDocumentUploadUrl = asyncHandler(async (req, res) => {
+  const { contentType, fileExtension } = req.query;
+
+  if (!contentType || !fileExtension) {
+    res.status(400);
+    throw new Error('contentType and fileExtension are required');
+  }
+
+  const tenantStr = String(req.tenant);
+  const timestamp = Date.now();
+  const rand = Math.floor(Math.random() * 10000);
+
+  const s3Key = `logos/transporters/${tenantStr}/documents/transporter_${timestamp}_${rand}.${fileExtension}`;
+
+  try {
+    const uploadUrl = await createPresignedPutUrl({ key: s3Key, contentType, expiresIn: 900 });
+
+    const base = process.env.AWS_PUBLIC_BASE_URL;
+    const publicKey = s3Key.replace(/^logos\//, '');
+    const publicUrl = base
+      ? `${base.replace(/\/$/, '')}/${publicKey}`
+      : (buildPublicFileUrl(s3Key) || null);
+
+    return res.status(200).json({ key: s3Key, uploadUrl, publicUrl });
+  } catch (err) {
+    console.error('Failed to create transporter document upload url:', err);
+    res.status(500);
+    throw new Error('Failed to create document upload url');
+  }
+});
+
 export {
   createTransporter,
   fetchTransporters,
@@ -458,5 +491,6 @@ export {
   fetchOrphanTransporters,
   cleanupTransporters,
   exportTransporters,
+  getDocumentUploadUrl,
 };
 
