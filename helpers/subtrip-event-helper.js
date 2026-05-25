@@ -33,7 +33,7 @@ const recordSubtripEvent = async (
   };
 
   if (session) {
-    await SubtripEvent.create(eventData, { session });
+    await SubtripEvent.create([eventData], { session });
   } else {
     await SubtripEvent.create(eventData);
   }
@@ -78,8 +78,17 @@ const generateEventMessage = (event) => {
     case SUBTRIP_EVENT_TYPES.DRIVER_SALARY_GENERATED:
       return `Driver salary processed ${userInfo}`;
 
+    case SUBTRIP_EVENT_TYPES.DRIVER_SALARY_CANCELLED:
+      return `Driver salary cancelled ${userInfo}`;
+
     case SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_GENERATED:
       return `Transporter payment processed ${userInfo}`;
+
+    case SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_PAID:
+      return `Transporter payment marked as paid ${userInfo}`;
+
+    case SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_CANCELLED:
+      return `Transporter payment cancelled ${userInfo}`;
 
     case SUBTRIP_EVENT_TYPES.STATUS_CHANGED:
       return `Status changed to ${details.newStatus} ${userInfo}`;

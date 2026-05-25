@@ -417,6 +417,21 @@ const deleteDriverSalary = asyncHandler(async (req, res) => {
   doc.status = "cancelled";
   await doc.save();
 
+  // Record events for each unlinked subtrip
+  if (doc.associatedSubtrips && doc.associatedSubtrips.length > 0) {
+    await Promise.all(
+      doc.associatedSubtrips.map((stId) =>
+        recordSubtripEvent(
+          stId,
+          SUBTRIP_EVENT_TYPES.DRIVER_SALARY_CANCELLED,
+          { driverId: doc.driverId, paymentId: doc.paymentId, salaryId: doc._id },
+          req.user,
+          req.tenant
+        )
+      )
+    );
+  }
+
   res.status(200).json({ message: "Driver Salary marked as cancelled successfully." });
 });
 

@@ -626,6 +626,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       all: { count: total, amount: 0 },
       generated: { count: 0, amount: 0 },
       paid: { count: 0, amount: 0 },
+      cancelled: { count: 0, amount: 0 },
     };
 
     statusAgg.forEach((ag) => {
@@ -751,6 +752,26 @@ const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
         paymentId: updatedReceipt?.paymentId,
       });
     }
+
+    // Record TRANSPORTER_PAYMENT_PAID events for each associated subtrip
+    if (updatedReceipt.associatedSubtrips && updatedReceipt.associatedSubtrips.length > 0) {
+      try {
+        await Promise.all(
+          updatedReceipt.associatedSubtrips.map((st) => {
+            const stId = st._id || st;
+            return recordSubtripEvent(
+              stId,
+              SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_PAID,
+              { transporterId: transporter?._id || transporter, paymentReceiptId: updatedReceipt._id, paymentId: updatedReceipt.paymentId },
+              req.user,
+              req.tenant
+            );
+          })
+        );
+      } catch (eventErr) {
+        console.error('Failed to record Transporter Payment Paid events:', eventErr);
+      }
+    }
   }
 
   res.status(200).json(updatedReceipt);
@@ -788,17 +809,31 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       { session }
     );
 
-    // Delete the receipt within the same transaction
-    await TransporterPayment.findOneAndDelete(
-      { _id: req.params.id, tenant: req.tenant },
-      { session }
-    );
+    // Mark the receipt as cancelled within the same transaction
+    receipt.status = 'cancelled';
+    await receipt.save({ session });
+
+    // Record TRANSPORTER_PAYMENT_CANCELLED events for each unlinked subtrip within transaction
+    if (receipt.associatedSubtrips && receipt.associatedSubtrips.length > 0) {
+      await Promise.all(
+        receipt.associatedSubtrips.map((stId) =>
+          recordSubtripEvent(
+            stId,
+            SUBTRIP_EVENT_TYPES.TRANSPORTER_PAYMENT_CANCELLED,
+            { transporterId: receipt.transporterId, paymentReceiptId: receipt._id, paymentId: receipt.paymentId },
+            req.user,
+            req.tenant,
+            session
+          )
+        )
+      );
+    }
 
     await session.commitTransaction();
     session.endSession();
 
     return res.status(200).json({
-      message: "Transporter Payment Receipt deleted successfully",
+      message: "Transporter Payment Receipt cancelled successfully",
     });
   } catch (err) {
     await session.abortTransaction();
