@@ -6,10 +6,12 @@ const calculateTransporterPayment = (subtrip) => {
   const rate = subtrip.rate || 0;
   const commissionRate = subtrip.commissionRate || 0;
   const effectiveFreightRate = rate - commissionRate;
-  const loadingWeight = subtrip.loadingWeight || 0;
+  
+  const freightAmount = subtrip.freightDetails?.calculatedFreightAmount ?? (rate * (subtrip.loadingWeight || 0));
+  const commissionAmount = subtrip.commissionDetails?.calculatedCommissionAmount ?? (commissionRate * (subtrip.loadingWeight || 0));
 
   // 🚛 Total Freight
-  const totalFreightAmount = effectiveFreightRate * loadingWeight;
+  const totalFreightAmount = freightAmount - commissionAmount;
 
   // ⛽ Total Deductions (advances for market vehicles, expenses for own)
   const deductionSource = Array.isArray(subtrip.advances) && subtrip.advances.length > 0

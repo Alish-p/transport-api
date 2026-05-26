@@ -50,6 +50,7 @@ const createJob = asyncHandler(async (req, res) => {
       // Material
       loadingWeight,
       rate,
+      freightDetails,
       invoiceNo,
       ewayExpiryDate: ewayExpiryDateRaw,
       materialType,
@@ -156,13 +157,19 @@ const createJob = asyncHandler(async (req, res) => {
         err.status = 400;
         throw err;
       }
+      const isWeightMissing = loadingWeight === undefined || loadingWeight === null || loadingWeight === '';
+      const isRateMissing = (rate === undefined || rate === null || rate === '') && !freightDetails;
+      const isTonModel = !freightDetails || freightDetails.modelType === 'per_ton';
+
       if (
-        [loadingWeight, rate, invoiceNo, ewayExpiryDate, materialType].some(
+        (isWeightMissing && isTonModel) ||
+        isRateMissing ||
+        [invoiceNo, ewayExpiryDate, materialType].some(
           (v) => v === undefined || v === null || v === ''
         )
       ) {
         const err = new Error(
-          'loadingWeight, rate, invoiceNo, ewayExpiryDate and materialType are required for loaded/market job'
+          'Missing required fields for loaded/market job'
         );
         err.status = 400;
         throw err;
@@ -338,6 +345,7 @@ const createJob = asyncHandler(async (req, res) => {
         consignee,
         loadingWeight,
         rate,
+        freightDetails,
         invoiceNo,
         ewayExpiryDate,
         materialType,
@@ -360,6 +368,7 @@ const createJob = asyncHandler(async (req, res) => {
         consignee ||
         loadingWeight ||
         rate ||
+        freightDetails ||
         invoiceNo ||
         ewayExpiryDate ||
         materialType

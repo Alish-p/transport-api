@@ -30,6 +30,13 @@ const jobCreateSchema = z.object({
       consignee: z.string().optional(),
       loadingWeight: z.number().optional(),
       rate: z.number().optional(),
+      freightDetails: z.object({
+        modelType: z.enum(['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid']),
+        baseRate: z.number().optional(),
+        fixedAmount: z.number().optional(),
+        baseValue: z.number().optional(),
+        extraRate: z.number().optional(),
+      }).optional(),
       invoiceNo: z.string().optional(),
       ewayExpiryDate: z.string().optional(),
       materialType: z.string().optional(),
@@ -55,8 +62,8 @@ const jobCreateSchema = z.object({
         const missing = [];
         if (!body.customerId) missing.push('customerId');
         if (!body.consignee || !body.consignee.trim()) missing.push('consignee');
-        if (body.loadingWeight === undefined) missing.push('loadingWeight');
-        if (body.rate === undefined) missing.push('rate');
+        if (body.loadingWeight === undefined && (!body.freightDetails || body.freightDetails.modelType === 'per_ton')) missing.push('loadingWeight');
+        if (body.rate === undefined && !body.freightDetails) missing.push('rate or freightDetails');
         if (!body.invoiceNo) missing.push('invoiceNo');
         if (!body.ewayExpiryDate) missing.push('ewayExpiryDate');
         if (!body.materialType) missing.push('materialType');
@@ -81,6 +88,7 @@ const jobCreateSchema = z.object({
           'consignee',
           'loadingWeight',
           'rate',
+          'freightDetails',
           'invoiceNo',
           'ewayExpiryDate',
           'materialType',

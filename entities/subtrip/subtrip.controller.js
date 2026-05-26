@@ -578,6 +578,8 @@ const receiveLR = asyncHandler(async (req, res) => {
     shortageAmount,
     endDate,
     docs,
+    freightDetails,
+    commissionDetails,
   } = req.body;
 
   const subtrip = await populateSubtrip(
@@ -598,6 +600,20 @@ const receiveLR = asyncHandler(async (req, res) => {
     commissionRate,
     docs,
   });
+
+  if (freightDetails) {
+    subtrip.freightDetails = {
+      ...(subtrip.freightDetails || {}),
+      ...freightDetails
+    };
+  }
+
+  if (commissionDetails) {
+    subtrip.commissionDetails = {
+      ...(subtrip.commissionDetails || {}),
+      ...commissionDetails
+    };
+  }
 
   // Record appropriate event
   if (hasError) {

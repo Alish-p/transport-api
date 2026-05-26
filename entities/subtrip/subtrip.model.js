@@ -49,9 +49,21 @@ const subtripSchema = new Schema({
   shortageAmount: { type: Number },
 
   // Financial details
-  rate: { type: Number },
+  rate: { type: Number }, // Legacy, recommend using freightDetails going forward
   commissionRate: { type: Number },
   tds: { type: Number },
+
+  // Freight Calculation Details
+  freightDetails: {
+    modelType: { type: String, enum: ['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid'], default: 'per_ton' },
+    baseRate: { type: Number }, // rate per ton, km, or day
+    fixedAmount: { type: Number }, // fixed amount or hybrid base amount
+    baseValue: { type: Number }, // hybrid base distance
+    extraRate: { type: Number }, // hybrid extra rate per km
+    actualDistance: { type: Number }, // recorded at receive
+    actualTime: { type: Number }, // recorded at receive (days)
+    calculatedFreightAmount: { type: Number }, // finalized freight amount
+  },
 
   // Fuel management (Fuel Intent)
   initialAdvanceDiesel: { type: Schema.Types.Mixed },
@@ -73,6 +85,19 @@ const subtripSchema = new Schema({
   podGeoLocation: {
     latitude: { type: Number },
     longitude: { type: Number },
+  },
+  commissionDetails: {
+    modelType: { 
+      type: String, 
+      enum: ['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid'] 
+    },
+    baseRate: { type: Number }, // Rate per Ton, per KM, per Day depending on model
+    fixedAmount: { type: Number }, // Fixed Freight Amount, or Base Freight Amount for Hybrid
+    baseValue: { type: Number }, // For Hybrid: Base KM limit
+    extraRate: { type: Number }, // For Hybrid: Extra Rate per KM over base
+    actualDistance: { type: Number }, // For KM/Hybrid models
+    actualTime: { type: Number }, // For Time-based model
+    calculatedCommissionAmount: { type: Number },
   },
 
   // Incase of any error
