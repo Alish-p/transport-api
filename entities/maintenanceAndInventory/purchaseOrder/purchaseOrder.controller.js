@@ -186,10 +186,14 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
 
 const fetchPurchaseOrders = asyncHandler(async (req, res) => {
   try {
-    const { vendor, status, fromDate, toDate, part, partLocation, order, orderBy } = req.query;
+    const { vendor, status, fromDate, toDate, part, partLocation, order, orderBy, purchaseOrderNo } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
+
+    if (purchaseOrderNo) {
+      query.purchaseOrderNo = { $regex: purchaseOrderNo, $options: 'i' };
+    }
 
     if (vendor) {
       const ids = Array.isArray(vendor) ? vendor : [vendor];
@@ -889,9 +893,13 @@ const deletePurchaseOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/purchase-orders/export
 // @access  Private
 const exportPurchaseOrders = asyncHandler(async (req, res) => {
-  const { vendor, status, fromDate, toDate, part, partLocation, columns, order, orderBy } = req.query;
+  const { vendor, status, fromDate, toDate, part, partLocation, columns, order, orderBy, purchaseOrderNo } = req.query;
 
   const query = addTenantToQuery(req);
+
+  if (purchaseOrderNo) {
+    query.purchaseOrderNo = { $regex: purchaseOrderNo, $options: 'i' };
+  }
 
   if (vendor) {
     const ids = Array.isArray(vendor) ? vendor : [vendor];
