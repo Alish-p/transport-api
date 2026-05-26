@@ -15,6 +15,9 @@ import {
   SUBTRIP_EVENT_TYPES,
 } from '../../helpers/subtrip-event-helper.js';
 
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { buildSortObject } from '../../utils/query-utils.js';
+
 // 💰 Create Driver Salary Receipt
 const createDriverSalary = asyncHandler(async (req, res) => {
   const {
@@ -371,6 +374,109 @@ const fetchDriverSalaries = asyncHandler(async (req, res) => {
   res.status(200).json(docs);
 });
 
+// Fetch Driver Salaries with pagination and optional search
+const fetchPaginatedDriverSalaries = asyncHandler(async (req, res) => {
+  try {
+    const {
+      driverId,
+      subtripId,
+      paymentId,
+      status,
+      issueFromDate,
+      issueToDate,
+      order,
+      orderBy,
+    } = req.query;
+    const { limit, skip } = req.pagination;
+
+    const query = addTenantToQuery(req);
+
+    if (driverId) {
+      const ids = Array.isArray(driverId) ? driverId : [driverId];
+      query.driverId = { $in: ids };
+    }
+
+    if (subtripId) {
+      const ids = Array.isArray(subtripId) ? subtripId : [subtripId];
+      query.associatedSubtrips = { $in: ids };
+    }
+
+    if (status) {
+      const statuses = Array.isArray(status) ? status : [status];
+      query.status = { $in: statuses };
+    }
+
+    if (paymentId) {
+      query.paymentId = { $regex: paymentId, $options: "i" };
+    }
+
+    if (issueFromDate || issueToDate) {
+      query.issueDate = {};
+      if (issueFromDate) query.issueDate.$gte = new Date(issueFromDate);
+      if (issueToDate) query.issueDate.$lte = new Date(issueToDate);
+    }
+
+    // Aggregation match
+    const aggMatch = { ...query };
+    if (aggMatch.driverId && aggMatch.driverId.$in) {
+      aggMatch.driverId.$in = aggMatch.driverId.$in.map(
+        (id) => new mongoose.Types.ObjectId(id)
+      );
+    }
+
+    const sortObj = buildSortObject(orderBy, order, { issueDate: -1 });
+
+    const [driverSalaries, total, statusAgg] = await Promise.all([
+      DriverSalary.find(query)
+        .populate("driverId")
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      DriverSalary.countDocuments(query),
+      DriverSalary.aggregate([
+        { $match: aggMatch },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+            amount: { $sum: { $ifNull: ["$summary.netIncome", 0] } },
+          },
+        },
+      ]),
+    ]);
+
+    const totals = {
+      all: { count: total, amount: 0 },
+      generated: { count: 0, amount: 0 },
+      paid: { count: 0, amount: 0 },
+      cancelled: { count: 0, amount: 0 },
+    };
+
+    statusAgg.forEach((ag) => {
+      totals.all.amount += ag.amount;
+      if (totals[ag._id]) {
+        totals[ag._id] = { count: ag.count, amount: ag.amount };
+      } else {
+        totals[ag._id] = { count: ag.count, amount: ag.amount };
+      }
+    });
+
+    res.status(200).json({
+      driverPayrolls: driverSalaries,
+      totals,
+      total,
+      startRange: skip + 1,
+      endRange: skip + driverSalaries.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while fetching paginated driver salaries",
+      error: error.message,
+    });
+  }
+});
+
 // 📋 Fetch One
 const fetchDriverSalary = asyncHandler(async (req, res) => {
   const doc = await DriverSalary.findOne({
@@ -439,6 +545,7 @@ export {
   createDriverSalary,
   createBulkDriverSalaries,
   fetchDriverSalaries,
+  fetchPaginatedDriverSalaries,
   fetchDriverSalary,
   updateDriverSalary,
   deleteDriverSalary,

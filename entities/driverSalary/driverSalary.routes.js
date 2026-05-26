@@ -2,12 +2,14 @@ import { Router } from 'express';
 import {
   createDriverSalary,
   fetchDriverSalaries,
+  fetchPaginatedDriverSalaries,
   fetchDriverSalary,
   updateDriverSalary,
   deleteDriverSalary,
 } from './driverSalary.controller.js';
 
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
+import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 
@@ -18,6 +20,7 @@ router.post(
   createDriverSalary
 );
 router.get("/", authenticate, fetchDriverSalaries);
+router.get("/paginated", authenticate, pagination, fetchPaginatedDriverSalaries);
 router.get("/:id", authenticate, fetchDriverSalary);
 router.put(
   "/:id",
