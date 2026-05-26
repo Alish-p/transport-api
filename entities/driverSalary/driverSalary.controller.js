@@ -1,4 +1,3 @@
-// controllers/driverSalaryController.js
 
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
@@ -541,6 +540,180 @@ const deleteDriverSalary = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Driver Salary marked as cancelled successfully." });
 });
 
+// Export Driver Salaries to Excel
+const exportDriverSalaries = asyncHandler(async (req, res) => {
+  const {
+    driverId,
+    subtripId,
+    paymentId,
+    status,
+    issueFromDate,
+    issueToDate,
+    columns,
+    order,
+    orderBy,
+  } = req.query;
+
+  const query = addTenantToQuery(req);
+
+  if (driverId) {
+    const ids = Array.isArray(driverId) ? driverId : [driverId];
+    query.driverId = { $in: ids };
+  }
+
+  if (subtripId) {
+    const ids = Array.isArray(subtripId) ? subtripId : [subtripId];
+    query.associatedSubtrips = { $in: ids };
+  }
+
+  if (status) {
+    const statuses = Array.isArray(status) ? status : [status];
+    query.status = { $in: statuses };
+  }
+
+  if (paymentId) {
+    query.paymentId = { $regex: paymentId, $options: "i" };
+  }
+
+  if (issueFromDate || issueToDate) {
+    query.issueDate = {};
+    if (issueFromDate) query.issueDate.$gte = new Date(issueFromDate);
+    if (issueToDate) query.issueDate.$lte = new Date(issueToDate);
+  }
+
+  // Aggregation match
+  const aggMatch = { ...query };
+  if (aggMatch.driverId && aggMatch.driverId.$in) {
+    aggMatch.driverId.$in = aggMatch.driverId.$in.map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
+  }
+
+  // Column Mapping
+  const COLUMN_MAPPING = {
+    paymentId: { header: '#', key: 'paymentId', width: 15 },
+    driver: { header: 'Driver', key: 'driverName', width: 25 },
+    issueDate: { header: 'Issue Date', key: 'issueDate', width: 20 },
+    amount: { header: 'Amount', key: 'netIncome', width: 15 },
+    billingPeriod: { header: 'Billing Period', key: 'billingPeriod', width: 30 },
+    status: { header: 'Status', key: 'status', width: 15 },
+    bankName: { header: 'Bank Name', key: 'bankName', width: 25 },
+    bankAccNo: { header: 'Account Number', key: 'bankAccNo', width: 25 },
+    bankIfsc: { header: 'IFSC Code', key: 'bankIfsc', width: 20 },
+  };
+
+  // Determine Columns
+  let exportColumns = [];
+  if (columns) {
+    const columnIds = columns.split(',');
+    exportColumns = columnIds
+      .map((id) => COLUMN_MAPPING[id])
+      .filter((col) => col);
+  }
+
+  if (exportColumns.length === 0) {
+    exportColumns = Object.values(COLUMN_MAPPING);
+  }
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=Driver-Payrolls.xlsx"
+  );
+
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+    stream: res,
+    useStyles: true,
+  });
+
+  const worksheet = workbook.addWorksheet('Driver Payrolls');
+  worksheet.columns = exportColumns;
+
+  const sortObj = buildSortObject(orderBy, order, { issueDate: -1 });
+
+  // Aggregate Pipeline
+  const pipeline = [
+    { $match: aggMatch },
+    { $sort: sortObj },
+    // Lookup Driver
+    {
+      $lookup: {
+        from: 'drivers',
+        localField: 'driverId',
+        foreignField: '_id',
+        as: 'driver',
+      },
+    },
+    { $unwind: { path: '$driver', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        paymentId: 1,
+        driverName: '$driver.driverName',
+        issueDate: 1,
+        netIncome: '$summary.netIncome',
+        billingPeriodStart: '$billingPeriod.start',
+        billingPeriodEnd: '$billingPeriod.end',
+        status: 1,
+        bankName: '$driver.bankDetails.name',
+        bankAccNo: '$driver.bankDetails.accNo',
+        bankIfsc: '$driver.bankDetails.ifsc',
+      },
+    },
+  ];
+
+  const cursor = DriverSalary.aggregate(pipeline).cursor();
+
+  let totalAmount = 0;
+
+  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+    const row = {};
+
+    const amountVal = doc.netIncome || 0;
+    totalAmount += amountVal;
+
+    exportColumns.forEach((col) => {
+      const { key } = col;
+      if (key === 'issueDate') {
+        row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
+      } else if (key === 'billingPeriod') {
+        if (doc.billingPeriodStart && doc.billingPeriodEnd) {
+          const start = new Date(doc.billingPeriodStart).toISOString().split('T')[0];
+          const end = new Date(doc.billingPeriodEnd).toISOString().split('T')[0];
+          row[key] = `${start} to ${end}`;
+        } else {
+          row[key] = '-';
+        }
+      } else if (key === 'netIncome') {
+        row[key] = Math.round(amountVal * 100) / 100;
+      } else {
+        row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
+      }
+    });
+
+    worksheet.addRow(row).commit();
+  }
+
+  // Footer Row
+  const totalRow = {};
+  exportColumns.forEach((col) => {
+    const { key } = col;
+    if (key === 'paymentId') totalRow[key] = 'TOTAL';
+    else if (key === 'netIncome') totalRow[key] = Math.round(totalAmount * 100) / 100;
+    else totalRow[key] = '';
+  });
+
+  const footerRow = worksheet.addRow(totalRow);
+  footerRow.font = { bold: true };
+  footerRow.commit();
+
+  worksheet.commit();
+  await workbook.commit();
+});
+
 export {
   createDriverSalary,
   createBulkDriverSalaries,
@@ -549,4 +722,5 @@ export {
   fetchDriverSalary,
   updateDriverSalary,
   deleteDriverSalary,
+  exportDriverSalaries,
 };

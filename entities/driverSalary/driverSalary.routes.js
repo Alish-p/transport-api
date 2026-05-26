@@ -6,6 +6,7 @@ import {
   fetchDriverSalary,
   updateDriverSalary,
   deleteDriverSalary,
+  exportDriverSalaries,
 } from './driverSalary.controller.js';
 
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
@@ -19,6 +20,7 @@ router.post(
   checkPermission("driverSalary", "create"),
   createDriverSalary
 );
+router.get("/export", authenticate, exportDriverSalaries);
 router.get("/", authenticate, fetchDriverSalaries);
 router.get("/paginated", authenticate, pagination, fetchPaginatedDriverSalaries);
 router.get("/:id", authenticate, fetchDriverSalary);
