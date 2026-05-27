@@ -146,7 +146,7 @@ const createWorkOrder = asyncHandler(async (req, res) => {
 
 const fetchWorkOrders = asyncHandler(async (req, res) => {
   try {
-    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, expenseAdded, startDate, endDate, order, orderBy, workOrderNo } = req.query;
+    const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, expenseAdded, startDate, endDate, startDateStart, startDateEnd, endDateStart, endDateEnd, order, orderBy, workOrderNo } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -180,13 +180,29 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
       if (toDate) query.createdAt.$lte = new Date(toDate);
     }
 
-    if (startDate) {
+    if (startDateStart || startDateEnd) {
+      query.actualStartDate = {};
+      if (startDateStart) {
+        query.actualStartDate.$gte = dayjs.tz(`${startDateStart}`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      }
+      if (startDateEnd) {
+        query.actualStartDate.$lte = dayjs.tz(`${startDateEnd}`, DEFAULT_TIMEZONE).endOf('day').toDate();
+      }
+    } else if (startDate) {
       const start = dayjs.tz(`${startDate}`, DEFAULT_TIMEZONE).startOf('day').toDate();
       const end = dayjs.tz(`${startDate}`, DEFAULT_TIMEZONE).add(1, 'day').startOf('day').toDate();
       query.actualStartDate = { $gte: start, $lt: end };
     }
 
-    if (endDate) {
+    if (endDateStart || endDateEnd) {
+      query.completedDate = {};
+      if (endDateStart) {
+        query.completedDate.$gte = dayjs.tz(`${endDateStart}`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      }
+      if (endDateEnd) {
+        query.completedDate.$lte = dayjs.tz(`${endDateEnd}`, DEFAULT_TIMEZONE).endOf('day').toDate();
+      }
+    } else if (endDate) {
       const start = dayjs.tz(`${endDate}`, DEFAULT_TIMEZONE).startOf('day').toDate();
       const end = dayjs.tz(`${endDate}`, DEFAULT_TIMEZONE).add(1, 'day').startOf('day').toDate();
       query.completedDate = { $gte: start, $lt: end };
@@ -619,7 +635,7 @@ const deleteWorkOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/maintenance/work-orders/export
 // @access  Private
 const exportWorkOrders = asyncHandler(async (req, res) => {
-  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, columns, expenseAdded, startDate, endDate, order, orderBy, workOrderNo } = req.query;
+  const { vehicle, status, priority, category, fromDate, toDate, part, createdBy, closedBy, issueAssignee, issue, columns, expenseAdded, startDate, endDate, startDateStart, startDateEnd, endDateStart, endDateEnd, order, orderBy, workOrderNo } = req.query;
 
   const query = addTenantToQuery(req);
 
@@ -652,13 +668,29 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     if (toDate) query.createdAt.$lte = new Date(toDate);
   }
 
-  if (startDate) {
+  if (startDateStart || startDateEnd) {
+    query.actualStartDate = {};
+    if (startDateStart) {
+      query.actualStartDate.$gte = dayjs.tz(`${startDateStart}`, DEFAULT_TIMEZONE).startOf('day').toDate();
+    }
+    if (startDateEnd) {
+      query.actualStartDate.$lte = dayjs.tz(`${startDateEnd}`, DEFAULT_TIMEZONE).endOf('day').toDate();
+    }
+  } else if (startDate) {
     const start = dayjs.tz(`${startDate}`, DEFAULT_TIMEZONE).startOf('day').toDate();
     const end = dayjs.tz(`${startDate}`, DEFAULT_TIMEZONE).add(1, 'day').startOf('day').toDate();
     query.actualStartDate = { $gte: start, $lt: end };
   }
 
-  if (endDate) {
+  if (endDateStart || endDateEnd) {
+    query.completedDate = {};
+    if (endDateStart) {
+      query.completedDate.$gte = dayjs.tz(`${endDateStart}`, DEFAULT_TIMEZONE).startOf('day').toDate();
+    }
+    if (endDateEnd) {
+      query.completedDate.$lte = dayjs.tz(`${endDateEnd}`, DEFAULT_TIMEZONE).endOf('day').toDate();
+    }
+  } else if (endDate) {
     const start = dayjs.tz(`${endDate}`, DEFAULT_TIMEZONE).startOf('day').toDate();
     const end = dayjs.tz(`${endDate}`, DEFAULT_TIMEZONE).add(1, 'day').startOf('day').toDate();
     query.completedDate = { $gte: start, $lt: end };
