@@ -419,12 +419,10 @@ const fetchPaginatedDriverSalaries = asyncHandler(async (req, res) => {
 
     if (billingFromDate || billingToDate) {
       if (billingFromDate) {
-        query["billingPeriod.end"] = query["billingPeriod.end"] || {};
-        query["billingPeriod.end"].$gte = new Date(billingFromDate);
+        query["billingPeriod.start"] = new Date(billingFromDate);
       }
       if (billingToDate) {
-        query["billingPeriod.start"] = query["billingPeriod.start"] || {};
-        query["billingPeriod.start"].$lte = new Date(billingToDate);
+        query["billingPeriod.end"] = new Date(billingToDate);
       }
     }
 
@@ -598,12 +596,10 @@ const exportDriverSalaries = asyncHandler(async (req, res) => {
 
   if (billingFromDate || billingToDate) {
     if (billingFromDate) {
-      query["billingPeriod.end"] = query["billingPeriod.end"] || {};
-      query["billingPeriod.end"].$gte = new Date(billingFromDate);
+      query["billingPeriod.start"] = new Date(billingFromDate);
     }
     if (billingToDate) {
-      query["billingPeriod.start"] = query["billingPeriod.start"] || {};
-      query["billingPeriod.start"].$lte = new Date(billingToDate);
+      query["billingPeriod.end"] = new Date(billingToDate);
     }
   }
 
