@@ -182,6 +182,17 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const customerId = new mongoose.Types.ObjectId(id);
 
+    const yearParam = parseInt(req.query.year, 10);
+    let dateFilterInvoice = {};
+    let dateFilterSubtrip = {};
+
+    if (!Number.isNaN(yearParam)) {
+      const startDate = dayjs.tz(`${yearParam}-04-01`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      const endDate = dayjs.tz(`${yearParam + 1}-04-01`, DEFAULT_TIMEZONE).startOf('day').toDate();
+      dateFilterInvoice = { issueDate: { $gte: startDate, $lt: endDate } };
+      dateFilterSubtrip = { startDate: { $gte: startDate, $lt: endDate } };
+    }
+
     const [
       pendingAgg,
       receivedAgg,
@@ -195,15 +206,32 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
           $match: {
             tenant: req.tenant,
             customerId,
+            ...dateFilterInvoice,
             invoiceStatus: {
-              $in: [INVOICE_STATUS.PENDING],
+              $in: [
+                INVOICE_STATUS.PENDING,
+                INVOICE_STATUS.PARTIAL_RECEIVED,
+              ],
             },
           },
         },
         {
           $group: {
             _id: null,
-            total: { $sum: { $ifNull: ["$netTotal", 0] } },
+            total: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$invoiceStatus", INVOICE_STATUS.PARTIAL_RECEIVED] },
+                  {
+                    $subtract: [
+                      { $ifNull: ["$netTotal", 0] },
+                      { $ifNull: ["$totalReceived", 0] },
+                    ],
+                  },
+                  { $ifNull: ["$netTotal", 0] },
+                ],
+              },
+            },
           },
         },
       ]),
@@ -212,13 +240,16 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
           $match: {
             tenant: req.tenant,
             customerId,
-            invoiceStatus: INVOICE_STATUS.RECEIVED,
+            ...dateFilterInvoice,
+            invoiceStatus: {
+              $in: [INVOICE_STATUS.RECEIVED, INVOICE_STATUS.PARTIAL_RECEIVED],
+            },
           },
         },
         {
           $group: {
             _id: null,
-            total: { $sum: { $ifNull: ["$netTotal", 0] } },
+            total: { $sum: { $ifNull: ["$totalReceived", 0] } },
           },
         },
       ]),
@@ -227,6 +258,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
           $match: {
             tenant: req.tenant,
             customerId,
+            ...dateFilterSubtrip,
             $and: [
               {
                 $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }],
@@ -256,34 +288,96 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
       Invoice.find({
         tenant: req.tenant,
         customerId,
+        ...dateFilterInvoice,
         invoiceStatus: {
-          $in: [INVOICE_STATUS.PENDING],
+          $in: [
+            INVOICE_STATUS.PENDING,
+            INVOICE_STATUS.PARTIAL_RECEIVED,
+          ],
         },
-      }).select("_id invoiceNo issueDate dueDate netTotal"),
+      })
+        .select(
+          "_id invoiceNo issueDate dueDate netTotal totalReceived invoiceStatus customerId payments"
+        )
+        .populate("customerId", "customerName"),
       Invoice.find({
         tenant: req.tenant,
         customerId,
-        invoiceStatus: INVOICE_STATUS.RECEIVED,
-      }).select("_id invoiceNo issueDate dueDate netTotal"),
+        ...dateFilterInvoice,
+        invoiceStatus: {
+          $in: [INVOICE_STATUS.RECEIVED, INVOICE_STATUS.PARTIAL_RECEIVED],
+        },
+      })
+        .select(
+          "_id invoiceNo issueDate dueDate netTotal totalReceived invoiceStatus customerId payments"
+        )
+        .populate("customerId", "customerName"),
       Subtrip.find({
         tenant: req.tenant,
         customerId,
+        ...dateFilterSubtrip,
         $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }],
         subtripStatus: SUBTRIP_STATUS.RECEIVED,
-      }).select("_id loadingPoint unloadingPoint startDate loadingWeight rate"),
+      })
+        .select(
+          "_id subtripNo customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId"
+        )
+        .populate("customerId", "customerName")
+        .populate({ path: "vehicleId", select: "vehicleNo isOwn" })
+        .populate({ path: "driverId", select: "driverName" }),
     ]);
 
     const pendingAmount = pendingAgg[0]?.total || 0;
     const receivedAmount = receivedAgg[0]?.total || 0;
     const unbilledAmount = unbilledAgg[0]?.total || 0;
 
+    const formattedPendingInvoices = pendingInvoices.map((inv) => ({
+      _id: inv._id,
+      invoiceNo: inv.invoiceNo,
+      customerName: inv.customerId?.customerName || null,
+      invoiceStatus: inv.invoiceStatus,
+      issueDate: inv.issueDate,
+      dueDate: inv.dueDate,
+      netTotal: inv.netTotal,
+      totalReceived: inv.totalReceived,
+      payments: inv.payments || [],
+    }));
+
+    const formattedReceivedInvoices = receivedInvoices.map((inv) => ({
+      _id: inv._id,
+      invoiceNo: inv.invoiceNo,
+      customerName: inv.customerId?.customerName || null,
+      invoiceStatus: inv.invoiceStatus,
+      issueDate: inv.issueDate,
+      dueDate: inv.dueDate,
+      netTotal: inv.netTotal,
+      totalReceived: inv.totalReceived,
+      payments: inv.payments || [],
+    }));
+
+    const formattedUnbilledSubtrips = unbilledSubtrips.map((st) => ({
+      _id: st._id,
+      subtripNo: st.subtripNo,
+      customerName: st.customerId?.customerName || null,
+      startDate: st.startDate,
+      receivedDate: st.endDate,
+      loadingPoint: st.loadingPoint,
+      loadingWeight: st.loadingWeight,
+      rate: st.rate,
+      unloadingPoint: st.unloadingPoint,
+      unloadingDate: st.endDate,
+      vehicleNo: st.vehicleId?.vehicleNo || null,
+      driver: st.driverId?.driverName || null,
+      subtripType: st.vehicleId?.isOwn ? "own" : "market",
+    }));
+
     res.status(200).json({
       pendingAmount,
-      pendingInvoices,
+      pendingInvoices: formattedPendingInvoices,
       receivedAmount,
-      receivedInvoices,
+      receivedInvoices: formattedReceivedInvoices,
       unbilledAmount,
-      unbilledSubtrips,
+      unbilledSubtrips: formattedUnbilledSubtrips,
     });
   } catch (error) {
     console.log(error);
