@@ -63,7 +63,7 @@ const createCustomer = asyncHandler(async (req, res) => {
 const fetchCustomers = asyncHandler(async (req, res) => {
   try {
     // Support explicit filters from UI instead of generic `search`
-    const { customerName, cellNo, gstIn } = req.query;
+    const { customerName, cellNo, gstIn, gstEnabled } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -78,6 +78,9 @@ const fetchCustomers = asyncHandler(async (req, res) => {
     if (gstIn) {
       // Model field is `GSTNo` — map gstIn query param to it
       query.GSTNo = { $regex: gstIn, $options: "i" };
+    }
+    if (gstEnabled !== undefined && gstEnabled !== '') {
+      query.gstEnabled = gstEnabled === 'true' || gstEnabled === true;
     }
 
     const [customers, total] = await Promise.all([
