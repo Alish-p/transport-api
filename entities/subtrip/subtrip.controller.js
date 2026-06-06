@@ -1,21 +1,21 @@
+import dayjs from 'dayjs';
+import { calculateSubtripFreightAmount } from './subtrip.utils.js';
 import asyncHandler from 'express-async-handler';
-import Trip from '../trip/trip.model.js';
+
 import Subtrip from './subtrip.model.js';
+import Trip from '../trip/trip.model.js';
 import Driver from '../driver/driver.model.js';
 import Expense from '../expense/expense.model.js';
-import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
-import Customer from '../customer/customer.model.js';
-import Tenant from '../tenant/tenant.model.js';
-import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { SUBTRIP_STATUS } from './subtrip.constants.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import { recalculateTripFinancials } from '../trip/trip.service.js';
+import { buildChangedFields } from '../../utils/serialize-field-value.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
-import { recalculateTripFinancials } from '../trip/trip.service.js';
-import { buildPublicFileUrl, createPresignedPutUrl } from '../../services/s3.service.js';
-import { buildChangedFields } from '../../utils/serialize-field-value.js';
+import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import { resolveChangedFieldLabels } from '../../helpers/resolve-changed-fields.js';
+import { buildPublicFileUrl, createPresignedPutUrl } from '../../services/s3.service.js';
 
 // helper function to Poppulate Subtrip
 const populateSubtrip = (query) =>
@@ -571,13 +571,14 @@ const receiveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
     unloadingWeight,
-    commissionRate,
+    commissionDetails = {},
     hasError,
     remarks,
     shortageWeight,
     shortageAmount,
     endDate,
     docs,
+    freightDetails,
   } = req.body;
 
   const subtrip = await populateSubtrip(
@@ -588,6 +589,14 @@ const receiveLR = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Subtrip not found" });
   }
 
+  const finalCommissionDetails = { ...commissionDetails };
+  if (subtrip.freightDetails?.freightModel === 'per_ton' && commissionDetails.commissionRate !== undefined) {
+    const rate = Number(commissionDetails.commissionRate) || 0;
+    const weight = Number(subtrip.loadingWeight) || 0;
+    finalCommissionDetails.commissionAmount = rate * weight;
+    finalCommissionDetails.commissionRate = rate;
+  }
+
   Object.assign(subtrip, {
     unloadingWeight,
     endDate,
@@ -595,9 +604,46 @@ const receiveLR = asyncHandler(async (req, res) => {
     shortageAmount,
     subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,
     remarks,
-    commissionRate,
+    commissionDetails: finalCommissionDetails,
     docs,
   });
+
+  if (subtrip.freightDetails && subtrip.freightDetails.freightModel === 'time_based') {
+    subtrip.freightDetails.startTime = subtrip.startDate;
+    subtrip.freightDetails.endTime = endDate || subtrip.endDate;
+  }
+
+  if (freightDetails && subtrip.freightDetails) {
+    const mergedDetails = {
+      ...subtrip.freightDetails.toObject(),
+      ...freightDetails
+    };
+    const baseFreight = Number(subtrip.freightDetails.freightAmount) || 0;
+    const expectedFreightAmount = calculateSubtripFreightAmount({
+      ...mergedDetails,
+      loadingWeight: subtrip.loadingWeight,
+      baseFreight,
+      startDate: subtrip.startDate,
+      endDate: endDate || subtrip.endDate,
+    });
+
+    let freightAmountToStore = expectedFreightAmount;
+    if (freightDetails.freightAmount !== undefined) {
+      const submittedAmount = Number(freightDetails.freightAmount) || 0;
+      if (Math.abs(submittedAmount - expectedFreightAmount) > 0.01) {
+        freightAmountToStore = submittedAmount; // User override
+      }
+    }
+
+    subtrip.freightDetails.freightAmount = freightAmountToStore;
+    if (freightDetails.endKm !== undefined) subtrip.freightDetails.endKm = freightDetails.endKm;
+    if (mergedDetails.freightModel === 'time_based') {
+      subtrip.freightDetails.startTime = subtrip.startDate;
+      subtrip.freightDetails.endTime = endDate || subtrip.endDate;
+    } else {
+      if (freightDetails.endTime !== undefined) subtrip.freightDetails.endTime = freightDetails.endTime;
+    }
+  }
 
   // Record appropriate event
   if (hasError) {
@@ -691,6 +737,83 @@ const updateSubtrip = asyncHandler(async (req, res) => {
 
     if (duplicateEwayBill) {
       return res.status(400).json({ message: "E-way bill already exists" });
+    }
+  }
+
+  // Recalculate freight and commission if applicable
+  if (req.body.freightDetails) {
+    const existingFd = existingSubtrip.freightDetails ? existingSubtrip.freightDetails.toObject() : {};
+    req.body.freightDetails = { ...existingFd, ...req.body.freightDetails };
+  }
+  if (req.body.commissionDetails) {
+    const existingCd = existingSubtrip.commissionDetails ? existingSubtrip.commissionDetails.toObject() : {};
+    req.body.commissionDetails = { ...existingCd, ...req.body.commissionDetails };
+  }
+
+  const fdToUse = req.body.freightDetails || (existingSubtrip.freightDetails ? existingSubtrip.freightDetails.toObject() : {});
+  const cdToUse = req.body.commissionDetails || (existingSubtrip.commissionDetails ? existingSubtrip.commissionDetails.toObject() : {});
+  const weightToUse = Number(req.body.loadingWeight !== undefined ? req.body.loadingWeight : existingSubtrip.loadingWeight) || 0;
+
+  const model = fdToUse.freightModel || 'per_ton';
+  const startDateToUse = req.body.startDate !== undefined ? req.body.startDate : existingSubtrip.startDate;
+  const endDateToUse = req.body.endDate !== undefined ? req.body.endDate : existingSubtrip.endDate;
+
+  if (model === 'per_ton' || model === 'per_km' || model === 'time_based') {
+    const expectedFreight = calculateSubtripFreightAmount({
+      ...fdToUse,
+      loadingWeight: weightToUse,
+      baseFreight: 0,
+      startDate: startDateToUse,
+      endDate: endDateToUse,
+    });
+    
+    let freightAmountToStore = expectedFreight;
+    if (req.body.freightDetails && req.body.freightDetails.freightAmount !== undefined) {
+      const submittedAmount = Number(req.body.freightDetails.freightAmount) || 0;
+      if (Math.abs(submittedAmount - expectedFreight) > 0.01) {
+        freightAmountToStore = submittedAmount;
+      }
+    }
+
+    req.body.freightDetails = {
+      ...fdToUse,
+      freightAmount: freightAmountToStore
+    };
+
+    if (model === 'time_based') {
+      req.body.freightDetails.startTime = startDateToUse;
+      req.body.freightDetails.endTime = endDateToUse;
+    }
+  } else if (model === 'hybrid' && req.body.freightDetails) {
+    const baseFreight = Number(existingSubtrip.freightDetails?.freightAmount) || 0;
+    const expectedFreight = calculateSubtripFreightAmount({
+      ...fdToUse,
+      loadingWeight: weightToUse,
+      baseFreight,
+      startDate: startDateToUse,
+      endDate: endDateToUse,
+    });
+
+    let freightAmountToStore = expectedFreight;
+    if (req.body.freightDetails.freightAmount !== undefined) {
+      const submittedAmount = Number(req.body.freightDetails.freightAmount) || 0;
+      if (Math.abs(submittedAmount - expectedFreight) > 0.01) {
+        freightAmountToStore = submittedAmount;
+      }
+    }
+
+    req.body.freightDetails = {
+      ...fdToUse,
+      freightAmount: freightAmountToStore
+    };
+  }
+
+  if (model === 'per_ton') {
+    if (cdToUse.commissionRate !== undefined && cdToUse.commissionRate !== null && cdToUse.commissionRate !== '') {
+      req.body.commissionDetails = {
+        ...cdToUse,
+        commissionAmount: Number(cdToUse.commissionRate) * weightToUse
+      };
     }
   }
 

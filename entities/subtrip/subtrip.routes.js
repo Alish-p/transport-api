@@ -17,11 +17,12 @@ import {
 import { createJob } from '../job/job.controller.js';
 import validate from '../../middlewares/validate.js';
 import { jobCreateSchema, } from '../job/job.validation.js';
+import { validateFormFields } from '../formConfig/formConfig.validation.js';
 
 const router = Router();
 
 // new route for job creation
-router.post('/jobs', authenticate, checkPermission('subtrip', 'create'), validate(jobCreateSchema), createJob);
+router.post('/jobs', authenticate, checkPermission('subtrip', 'create'), validate(jobCreateSchema), validateFormFields('job_create'), createJob);
 
 router.get("/export", authenticate, exportSubtrips);
 router.get("/upload-url", authenticate, getDocumentUploadUrl);
@@ -48,6 +49,7 @@ router.put(
   "/:id/receive",
   authenticate,
   checkPermission("subtrip", "update"),
+  validateFormFields('job_receive'),
   receiveLR
 );
 router.put(

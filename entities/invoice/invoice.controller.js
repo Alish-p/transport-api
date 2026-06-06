@@ -94,14 +94,14 @@ const createInvoice = asyncHandler(async (req, res) => {
       unloadingPoint: st.unloadingPoint,
       diNumber: st.diNumber,
       vehicleNo: st.vehicleId?.vehicleNo,
-      rate: st.rate,
+      freightDetails: st.freightDetails,
+      rate: st.freightDetails?.rate,
       materialType: st.materialType,
       loadingWeight: st.loadingWeight,
       shortageWeight: st.shortageWeight,
       shortageAmount: st.shortageAmount,
-      freightAmount: (st.rate || 0) * (st.loadingWeight || 0),
-      totalAmount:
-        (st.rate || 0) * (st.loadingWeight || 0) - (st.shortageAmount || 0),
+      freightAmount: st.freightDetails?.freightAmount || 0,
+      totalAmount: (st.freightDetails?.freightAmount || 0) - (st.shortageAmount || 0),
       startDate: st.startDate,
       invoiceNo: st.invoiceNo,
     }));

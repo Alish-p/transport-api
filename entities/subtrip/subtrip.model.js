@@ -49,8 +49,20 @@ const subtripSchema = new Schema({
   shortageAmount: { type: Number },
 
   // Financial details
-  rate: { type: Number },
-  commissionRate: { type: Number },
+  freightDetails: {
+    freightModel: { type: String, enum: ['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid'], default: 'per_ton' },
+    rate: { type: Number },
+    freightAmount: { type: Number },
+    baseKm: { type: Number },
+    startKm: { type: Number },
+    endKm: { type: Number },
+    startTime: { type: Date },
+    endTime: { type: Date },
+  },
+  commissionDetails: {
+    commissionRate: { type: Number },
+    commissionAmount: { type: Number },
+  },
   tds: { type: Number },
 
   // Fuel management (Fuel Intent)

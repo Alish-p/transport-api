@@ -3,13 +3,30 @@ import { CONFIG } from '../../constants/CONFIG.js';
 const calculateTransporterPayment = (subtrip) => {
   if (!subtrip) return null;
 
-  const rate = subtrip.rate || 0;
-  const commissionRate = subtrip.commissionRate || 0;
-  const effectiveFreightRate = rate - commissionRate;
-  const loadingWeight = subtrip.loadingWeight || 0;
+  let grossFreightAmount = 0;
+  if (subtrip.freightDetails) {
+    grossFreightAmount = subtrip.freightDetails.freightAmount !== undefined && subtrip.freightDetails.freightAmount !== null
+      ? subtrip.freightDetails.freightAmount
+      : (subtrip.freightDetails.rate || 0) * (subtrip.loadingWeight || 0);
+  } else {
+    grossFreightAmount = (subtrip.rate || 0) * (subtrip.loadingWeight || 0);
+  }
 
-  // 🚛 Total Freight
-  const totalFreightAmount = effectiveFreightRate * loadingWeight;
+  const commissionAmount = subtrip.commissionDetails?.commissionAmount || 0;
+
+  // 🚛 Total Freight (gross freight - transporter commission)
+  const totalFreightAmount = grossFreightAmount - commissionAmount;
+
+  let effectiveFreightRate = 0;
+  if (!subtrip.freightDetails) {
+    const rate = subtrip.rate || 0;
+    const commissionRate = subtrip.commissionRate || 0;
+    effectiveFreightRate = rate - commissionRate;
+  } else {
+    effectiveFreightRate = subtrip.freightDetails?.rate 
+      ? subtrip.freightDetails.rate - (subtrip.commissionDetails?.commissionRate || 0) 
+      : 0;
+  }
 
   // ⛽ Total Deductions (advances for market vehicles, expenses for own)
   const deductionSource = Array.isArray(subtrip.advances) && subtrip.advances.length > 0

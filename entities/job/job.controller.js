@@ -14,6 +14,7 @@ import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import { sendLRGenerationNotification, sendDriverJobAssignedNotification } from '../../services/whatsapp.service.js';
 import { getStartOfTodayIST } from '../../utils/time-utils.js';
+import { FORM_CONFIG_DEFAULTS } from '../formConfig/formConfig.defaults.js';
 
 
 // New controller: createJob
@@ -49,7 +50,6 @@ const createJob = asyncHandler(async (req, res) => {
 
       // Material
       loadingWeight,
-      rate,
       invoiceNo,
       ewayExpiryDate: ewayExpiryDateRaw,
       materialType,
@@ -60,6 +60,7 @@ const createJob = asyncHandler(async (req, res) => {
       orderNo,
       referenceSubtripNo,
       diNumber,
+      freightDetails = {},
 
       // Optional driver advance inputs
       driverAdvance,
@@ -136,9 +137,26 @@ const createJob = asyncHandler(async (req, res) => {
     // Validate loaded/market required fields
     const isLoaded = !isEmptyInput || !isOwnVehicle; // market treated as loaded
 
-    // Require loading/unloading points explicitly
-    if (!loadingPointInput || !unloadingPointInput) {
-      const err = new Error('loadingPoint and unloadingPoint are required');
+    const fieldsConfig = req.formConfig?.fields || FORM_CONFIG_DEFAULTS.job_create.fields;
+    const isFieldRequired = (name) => {
+      const visibility = fieldsConfig?.[name]?.visibility;
+      if (visibility === 'required') return true;
+      if (visibility === 'optional' || visibility === 'hidden') return false;
+      // Fallback defaults
+      if (['loadingPoint', 'unloadingPoint', 'consignee', 'loadingWeight', 'invoiceNo', 'materialType'].includes(name)) {
+        return true;
+      }
+      return false;
+    };
+
+    // Require loading/unloading points explicitly if required by configuration
+    if (isFieldRequired('loadingPoint') && !loadingPointInput) {
+      const err = new Error('loadingPoint is required');
+      err.status = 400;
+      throw err;
+    }
+    if (isFieldRequired('unloadingPoint') && !unloadingPointInput) {
+      const err = new Error('unloadingPoint is required');
       err.status = 400;
       throw err;
     }
@@ -151,29 +169,38 @@ const createJob = asyncHandler(async (req, res) => {
         err.status = 400;
         throw err;
       }
-      if (!consignee || !consignee.trim()) {
+      if (isFieldRequired('consignee') && (!consignee || !consignee.trim())) {
         const err = new Error('consignee is required for loaded/market job');
         err.status = 400;
         throw err;
       }
-      if (
-        [loadingWeight, rate, invoiceNo, ewayExpiryDate, materialType].some(
-          (v) => v === undefined || v === null || v === ''
-        )
-      ) {
+
+      const missingRequiredFields = [];
+      ['loadingWeight', 'invoiceNo', 'ewayExpiryDate', 'materialType'].forEach((field) => {
+        if (isFieldRequired(field)) {
+          const val = req.body[field];
+          if (val === undefined || val === null || val === '') {
+            missingRequiredFields.push(field);
+          }
+        }
+      });
+
+      if (missingRequiredFields.length > 0) {
         const err = new Error(
-          'loadingWeight, rate, invoiceNo, ewayExpiryDate and materialType are required for loaded/market job'
+          `${missingRequiredFields.join(', ')} are required for loaded/market job`
         );
         err.status = 400;
         throw err;
       }
 
-      // ewayExpiryDate must be today or later
-      const startOfToday = getStartOfTodayIST();
-      if (ewayExpiryDate < startOfToday) {
-        const err = new Error('ewayExpiryDate must be today or later');
-        err.status = 400;
-        throw err;
+      // ewayExpiryDate must be today or later if provided
+      if (ewayExpiryDate) {
+        const startOfToday = getStartOfTodayIST();
+        if (ewayExpiryDate < startOfToday) {
+          const err = new Error('ewayExpiryDate must be today or later');
+          err.status = 400;
+          throw err;
+        }
       }
     }
 
@@ -323,7 +350,7 @@ const createJob = asyncHandler(async (req, res) => {
       if (ewayBill) {
         const existingSubtrip = await Subtrip.findOne({
           tenant: req.tenant,
-          ewayBill: ewayBill,
+          ewayBill,
         }).session(session);
 
         if (existingSubtrip) {
@@ -333,11 +360,29 @@ const createJob = asyncHandler(async (req, res) => {
         }
       }
 
+      // Freight Calculation
+      let calculatedFreightAmount = freightDetails.freightAmount;
+
+      if (!freightDetails.freightModel || freightDetails.freightModel === 'per_ton') {
+        const parsedRate = Number(freightDetails.rate) || 0;
+        const parsedWeight = Number(loadingWeight) || 0;
+        calculatedFreightAmount = parsedRate * parsedWeight;
+      }
+
       Object.assign(subtripFields, {
         customerId,
         consignee,
         loadingWeight,
-        rate,
+        freightDetails: {
+          freightModel: freightDetails.freightModel || 'per_ton',
+          rate: freightDetails.rate,
+          freightAmount: calculatedFreightAmount,
+          baseKm: freightDetails.baseKm,
+          startKm: freightDetails.startKm,
+          endKm: freightDetails.endKm,
+          startTime: (freightDetails.freightModel === 'time_based') ? startDate : freightDetails.startTime,
+          endTime: (freightDetails.freightModel === 'time_based') ? undefined : freightDetails.endTime,
+        },
         invoiceNo,
         ewayExpiryDate,
         materialType,
@@ -353,21 +398,18 @@ const createJob = asyncHandler(async (req, res) => {
         driverAdvanceGivenBy,
       });
       if (pumpCd) subtripFields.intentFuelPump = pumpCd;
-    } else {
+    } else if (
       // Empty job: ensure no loaded-only fields mistakenly sent
-      if (
-        customerId ||
-        consignee ||
-        loadingWeight ||
-        rate ||
-        invoiceNo ||
-        ewayExpiryDate ||
-        materialType
-      ) {
-        const err = new Error('Empty job must not include customer/consignee/material fields');
-        err.status = 400;
-        throw err;
-      }
+      customerId ||
+      consignee ||
+      loadingWeight ||
+      invoiceNo ||
+      ewayExpiryDate ||
+      materialType
+    ) {
+      const err = new Error('Empty job must not include customer/consignee/material fields');
+      err.status = 400;
+      throw err;
     }
 
     if (subtripRemarks) {

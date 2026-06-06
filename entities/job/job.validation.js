@@ -22,14 +22,23 @@ const jobCreateSchema = z.object({
       remarks: z.string().optional(),
 
       // Points/party
-      loadingPoint: z.string().min(1, 'loadingPoint is required'),
-      unloadingPoint: z.string().min(1, 'unloadingPoint is required'),
+      loadingPoint: z.string().optional(),
+      unloadingPoint: z.string().optional(),
 
       // Loaded-only fields (required when isEmpty=false)
       customerId: z.string().optional(),
       consignee: z.string().optional(),
       loadingWeight: z.number().optional(),
-      rate: z.number().optional(),
+      freightDetails: z.object({
+        freightModel: z.enum(['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid']).optional(),
+        freightAmount: z.number().optional(),
+        baseKm: z.number().optional(),
+        rate: z.number().optional(),
+        startKm: z.number().nullable().optional(),
+        endKm: z.number().nullable().optional(),
+        startTime: z.string().nullable().optional(),
+        endTime: z.string().nullable().optional(),
+      }).optional(),
       invoiceNo: z.string().optional(),
       ewayExpiryDate: z.string().optional(),
       materialType: z.string().optional(),
@@ -52,22 +61,8 @@ const jobCreateSchema = z.object({
       const isLoaded = !body.isEmpty; // market treated as loaded in controller
 
       if (isLoaded) {
-        const missing = [];
-        if (!body.customerId) missing.push('customerId');
-        if (!body.consignee || !body.consignee.trim()) missing.push('consignee');
-        if (body.loadingWeight === undefined) missing.push('loadingWeight');
-        if (body.rate === undefined) missing.push('rate');
-        if (!body.invoiceNo) missing.push('invoiceNo');
-        if (!body.ewayExpiryDate) missing.push('ewayExpiryDate');
-        if (!body.materialType) missing.push('materialType');
-
-        missing.forEach((f) =>
-          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [f], message: `${f} is required for loaded job` })
-        );
-
-        if (missing.length === 0 && body.ewayExpiryDate) {
+        if (body.ewayExpiryDate) {
           const d = new Date(body.ewayExpiryDate);
-          const now = new Date();
           const startOfToday = getStartOfTodayIST();
           if (Number.isNaN(d.getTime())) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['ewayExpiryDate'], message: 'Invalid ewayExpiryDate' });
@@ -80,7 +75,7 @@ const jobCreateSchema = z.object({
           'customerId',
           'consignee',
           'loadingWeight',
-          'rate',
+          'freightDetails',
           'invoiceNo',
           'ewayExpiryDate',
           'materialType',
