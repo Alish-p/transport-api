@@ -1,23 +1,24 @@
 import { Router } from 'express';
+
+import validate from '../../middlewares/validate.js';
 import pagination from '../../middlewares/pagination.js';
+import { jobCreateSchema } from './subtrip.validation.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
+import { validateFormFields } from '../formConfig/formConfig.validation.js';
 import {
-  fetchSubtrips,
-  fetchSubtrip,
-  updateSubtrip,
-  deleteSubtrip,
   receiveLR,
   resolveLR,
-  fetchSubtripsByStatuses,
-  fetchSubtripsByTransporter,
-  fetchPaginatedSubtrips,
+  createJob,
+  fetchSubtrip,
+  fetchSubtrips,
+  updateSubtrip,
+  deleteSubtrip,
   exportSubtrips,
   getDocumentUploadUrl,
+  fetchPaginatedSubtrips,
+  fetchSubtripsByStatuses,
+  fetchSubtripsByTransporter,
 } from './subtrip.controller.js';
-import { createJob } from '../job/job.controller.js';
-import validate from '../../middlewares/validate.js';
-import { jobCreateSchema, } from '../job/job.validation.js';
-import { validateFormFields } from '../formConfig/formConfig.validation.js';
 
 const router = Router();
 
