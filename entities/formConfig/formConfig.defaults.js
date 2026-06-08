@@ -1,10 +1,12 @@
-export const FREIGHT_MODELS = ['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid'];
+import { FREIGHT_MODELS as SUBTRIP_FREIGHT_MODELS } from '../subtrip/subtrip.constants.js';
+
+export const FREIGHT_MODELS = Object.values(SUBTRIP_FREIGHT_MODELS);
 
 export const FORM_CONFIG_DEFAULTS = {
   job_create: {
     freightConfig: {
-      defaultModel: 'per_ton',
-      allowedModels: ['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid'],
+      defaultModel: SUBTRIP_FREIGHT_MODELS.PER_TON,
+      allowedModels: FREIGHT_MODELS,
     },
     fields: {
       // These match current hardcoded behavior of the app
@@ -28,8 +30,8 @@ export const FORM_CONFIG_DEFAULTS = {
   },
   job_edit: {
     freightConfig: {
-      defaultModel: 'per_ton',
-      allowedModels: ['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid'],
+      defaultModel: SUBTRIP_FREIGHT_MODELS.PER_TON,
+      allowedModels: FREIGHT_MODELS,
     },
     fields: {
       // ALL fields from create + receive
@@ -62,8 +64,8 @@ export const FORM_CONFIG_DEFAULTS = {
   },
   job_receive: {
     freightConfig: {
-      defaultModel: 'per_ton',
-      allowedModels: ['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid'],
+      defaultModel: SUBTRIP_FREIGHT_MODELS.PER_TON,
+      allowedModels: FREIGHT_MODELS,
     },
     fields: {
       unloadingWeight: { visibility: 'required', label: 'Unloading Weight' },

@@ -1,6 +1,7 @@
 import { Schema, model } from 'mongoose';
+import { FREIGHT_MODELS } from '../subtrip/subtrip.constants.js';
 
-const FREIGHT_MODEL_ENUM = ['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid'];
+const FREIGHT_MODEL_ENUM = Object.values(FREIGHT_MODELS);
 const FORM_TYPE_ENUM = ['job_create', 'job_edit', 'job_receive'];
 const VISIBILITY_ENUM = ['required', 'optional', 'hidden'];
 

@@ -1,6 +1,6 @@
 import { Schema, model } from 'mongoose';
 import CounterModel from '../../model/Counter.js';
-import { DRIVER_ADVANCE_GIVEN_BY_OPTIONS } from './subtrip.constants.js';
+import { DRIVER_ADVANCE_GIVEN_BY_OPTIONS, FREIGHT_MODELS } from './subtrip.constants.js';
 
 // subtrip Schema
 const subtripSchema = new Schema({
@@ -49,7 +49,7 @@ const subtripSchema = new Schema({
 
   // Financial details
   freightDetails: {
-    freightModel: { type: String, enum: ['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid'], default: 'per_ton' },
+    freightModel: { type: String, enum: Object.values(FREIGHT_MODELS), default: FREIGHT_MODELS.PER_TON },
     rate: { type: Number },
     freightAmount: { type: Number },
     baseKm: { type: Number },

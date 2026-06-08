@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { FREIGHT_MODELS } from './subtrip.constants.js';
 import { getStartOfTodayIST } from '../../utils/time-utils.js';
 
 const subtripSchema = z.object({
@@ -38,7 +39,7 @@ const jobCreateSchema = z.object({
       consignee: z.string().optional(),
       loadingWeight: z.number().optional(),
       freightDetails: z.object({
-        freightModel: z.enum(['per_ton', 'fixed', 'per_km', 'time_based', 'hybrid']).optional(),
+        freightModel: z.enum(Object.values(FREIGHT_MODELS)).optional(),
         freightAmount: z.number().optional(),
         baseKm: z.number().optional(),
         rate: z.number().optional(),
