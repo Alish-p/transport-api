@@ -1,5 +1,3 @@
-import dayjs from 'dayjs';
-import { calculateSubtripFreightAmount } from './subtrip.utils.js';
 import asyncHandler from 'express-async-handler';
 
 import Subtrip from './subtrip.model.js';
@@ -15,6 +13,7 @@ import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import { resolveChangedFieldLabels } from '../../helpers/resolve-changed-fields.js';
+import { buildSubtripQuery, resolveSubtripFinancials } from './subtrip.utils.js';
 import { buildPublicFileUrl, createPresignedPutUrl } from '../../services/s3.service.js';
 
 // helper function to Poppulate Subtrip
@@ -37,156 +36,27 @@ const populateSubtrip = (query) =>
     .populate({ path: "driverId", model: "Driver" })
     .populate("tripId");
 
-// Controller removed: previously created subtrip directly; superseded by createJob
 
 // Fetch Subtrips with flexible querying
 const fetchSubtrips = asyncHandler(async (req, res) => {
   try {
-    const {
-      subtripNo,
-      tripId,
-      customerId,
-      subtripStatus,
-      invoiceId,
-      driverSalaryId,
-      driverId,
-      vehicleId,
-      transporterId,
-      fromDate,
-      toDate,
-      ewayExpiryFromDate,
-      ewayExpiryToDate,
-      subtripEndFromDate,
-      subtripEndToDate,
-      isEmpty,
-      hasInvoice,
-      hasDriverSalary,
-      hasTransporterPayment,
-      materials,
-      commissionRateMin,
-      commissionRateMax,
-    } = req.query;
+    const { query, hasNoMatchingVehicles } = await buildSubtripQuery(req, req.query);
 
-    // Initialize base query with tenant filter
-    const query = addTenantToQuery(req);
-
-    // Direct field filters
-    // Support partial, case-insensitive search on subtrip number
-    if (subtripNo) {
-      const escaped = String(subtripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      query.subtripNo = { $regex: escaped, $options: "i" };
+    if (hasNoMatchingVehicles) {
+      return res.status(404).json({
+        message: "No vehicles found matching the specified criteria.",
+      });
     }
-    if (tripId) query.tripId = tripId;
-    if (customerId) query.customerId = customerId;
-    if (invoiceId) query.invoiceId = invoiceId;
-    if (driverSalaryId) query.driverSalaryId = driverSalaryId;
-
-    // Handle existence filters
-    if (hasInvoice !== undefined) {
-      query.invoiceId =
-        hasInvoice === "true" ? { $exists: true, $ne: null } : null;
-    }
-
-    if (hasDriverSalary !== undefined) {
-      query.driverSalaryId =
-        hasDriverSalary === "true"
-          ? { $exists: true, $ne: null }
-          : null;
-    }
-
-    if (hasTransporterPayment !== undefined) {
-      query.transporterPaymentReceiptId =
-        hasTransporterPayment === "true"
-          ? { $exists: true, $ne: null }
-          : null;
-    }
-
-    // Handle isEmpty filter
-    if (isEmpty !== undefined) {
-      query.isEmpty = isEmpty === "true";
-    }
-    // Handle status filter (single or array)
-    if (subtripStatus) {
-      const statusArray = Array.isArray(subtripStatus)
-        ? subtripStatus
-        : [subtripStatus];
-      query.subtripStatus = { $in: statusArray };
-    }
-
-    // Handle materials filter (kept case insensitive for now)
-    if (materials) {
-      const materialsArray = Array.isArray(materials) ? materials : [materials];
-      query.materialType = {
-        $in: materialsArray.map((mat) => {
-          const escaped = String(mat).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          return new RegExp(`^${escaped}$`, "i");
-        }),
-      };
-    }
-
-    if (commissionRateMin !== undefined || commissionRateMax !== undefined) {
-      query.commissionRate = {};
-      if (commissionRateMin !== undefined && commissionRateMin !== '') {
-        query.commissionRate.$gte = Number(commissionRateMin);
-      }
-      if (commissionRateMax !== undefined && commissionRateMax !== '') {
-        query.commissionRate.$lte = Number(commissionRateMax);
-      }
-    }
-
-    // Date range filters
-    if (fromDate && toDate) {
-      query.startDate = {
-        $gte: new Date(fromDate),
-        $lte: new Date(toDate),
-      };
-    }
-
-    if (ewayExpiryFromDate && ewayExpiryToDate) {
-      query.ewayExpiryDate = {
-        $gte: new Date(ewayExpiryFromDate),
-        $lte: new Date(ewayExpiryToDate),
-      };
-    }
-
-    if (subtripEndFromDate && subtripEndToDate) {
-      query.endDate = {
-        $gte: new Date(subtripEndFromDate),
-        $lte: new Date(subtripEndToDate),
-      };
-    }
-
-    // Handle driver, vehicle, and transporter filters
-    if (driverId) {
-      query.driverId = driverId;
-    }
-
-    if (transporterId) {
-      const vehicleSearch = { transporter: transporterId };
-      if (vehicleId) vehicleSearch._id = vehicleId;
-      const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select(
-        "_id vehicleNo"
-      );
-      if (!vehicles.length) {
-        return res.status(404).json({
-          message: "No vehicles found matching the specified criteria.",
-        });
-      }
-      query.vehicleId = { $in: vehicles.map((v) => v._id) };
-    } else if (vehicleId) {
-      query.vehicleId = vehicleId;
-    }
-
 
     // Execute the query with population
     const subtrips = await populateSubtrip(Subtrip.find(query)).lean();
 
     // Attach createdAt for backwards compatibility
-    subtrips.forEach((st) => {
+    for (const st of subtrips) {
       if (!st.createdAt && st._id) {
         st.createdAt = st._id.getTimestamp();
       }
-    });
+    }
 
     if (!subtrips.length) {
       return res.status(404).json({
@@ -206,167 +76,16 @@ const fetchSubtrips = asyncHandler(async (req, res) => {
 // Fetch Subtrips with pagination and search (non-empty only)
 const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
   try {
-    const {
-      subtripNo,
-      customerId,
-      subtripStatus,
-      referenceSubtripNo,
-      loadingPoint,
-      unloadingPoint,
-      ewayBill,
-      driverId,
-      vehicleId,
-      transporterId,
-      vehicleOwnership,
-      fromDate,
-      toDate,
-      subtripEndFromDate,
-      subtripEndToDate,
-      expiringIn,
-      materials,
-      subtripType,
-      transporterPaymentGenerated,
-      epodSigned,
-      shortage,
-      commissionRateMin,
-      commissionRateMax,
-    } = req.query;
-
     const { limit, skip } = req.pagination;
+    const { query, hasNoMatchingVehicles } = await buildSubtripQuery(req, req.query);
 
-    // Base query with tenant filter
-    const query = addTenantToQuery(req);
-
-    // Handle subtripType filter (Default to Loaded/isEmpty:false if not specified or 'Loaded')
-    if (subtripType === "Empty") {
-      query.isEmpty = true;
-    } else {
-      query.isEmpty = false;
-    }
-
-    if (subtripNo) {
-      const escaped = String(subtripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      query.subtripNo = { $regex: escaped, $options: "i" };
-    }
-    if (customerId) query.customerId = customerId;
-    if (referenceSubtripNo) query.referenceSubtripNo = referenceSubtripNo;
-    if (loadingPoint) {
-      const escaped = String(loadingPoint).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      query.loadingPoint = { $regex: escaped, $options: "i" };
-    }
-    if (unloadingPoint) {
-      const escaped = String(unloadingPoint).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      query.unloadingPoint = { $regex: escaped, $options: "i" };
-    }
-    if (ewayBill) {
-      const escaped = String(ewayBill).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      query.ewayBill = { $regex: escaped, $options: "i" };
-    }
-
-    // Status filter (single or array)
-    if (subtripStatus) {
-      const statusArray = Array.isArray(subtripStatus)
-        ? subtripStatus
-        : [subtripStatus];
-      query.subtripStatus = { $in: statusArray };
-    }
-
-    // Material filter
-    if (materials) {
-      const materialsArray = Array.isArray(materials) ? materials : [materials];
-      query.materialType = {
-        $in: materialsArray.map((mat) => {
-          const escaped = String(mat).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          return new RegExp(`^${escaped}$`, "i");
-        }),
-      };
-    }
-
-    if (commissionRateMin !== undefined || commissionRateMax !== undefined) {
-      query.commissionRate = {};
-      if (commissionRateMin !== undefined && commissionRateMin !== '') {
-        query.commissionRate.$gte = Number(commissionRateMin);
-      }
-      if (commissionRateMax !== undefined && commissionRateMax !== '') {
-        query.commissionRate.$lte = Number(commissionRateMax);
-      }
-    }
-
-    // Start date range
-    if (fromDate || toDate) {
-      query.startDate = {};
-      if (fromDate) query.startDate.$gte = new Date(fromDate);
-      if (toDate) query.startDate.$lte = new Date(toDate);
-    }
-
-    // End date range
-    if (subtripEndFromDate || subtripEndToDate) {
-      query.endDate = {};
-      if (subtripEndFromDate) query.endDate.$gte = new Date(subtripEndFromDate);
-      if (subtripEndToDate) query.endDate.$lte = new Date(subtripEndToDate);
-    }
-
-    // Expiring in hours - only loaded subtrips with expiring/expired ewaybill
-    if (expiringIn) {
-      const hours = parseInt(expiringIn, 10);
-      if (!Number.isNaN(hours)) {
-        const threshold = new Date(Date.now() + hours * 60 * 60 * 1000);
-        query.ewayExpiryDate = { $ne: null, $lte: threshold };
-        query.subtripStatus = SUBTRIP_STATUS.LOADED;
-      }
-    }
-
-    // Driver/vehicle/transporter/ownership filtering
-    if (driverId) {
-      query.driverId = driverId;
-    }
-
-    if (transporterId || vehicleId || vehicleOwnership) {
-      const vehicleSearch = {};
-      if (transporterId) vehicleSearch.transporter = transporterId;
-      if (vehicleId) vehicleSearch._id = vehicleId;
-      if (vehicleOwnership === "Market") vehicleSearch.isOwn = false;
-      if (vehicleOwnership === "Own") vehicleSearch.isOwn = true;
-
-      const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select("_id");
-      if (!vehicles.length) {
-        return res.status(200).json({
-          results: [],
-          total: 0,
-          startRange: 0,
-          endRange: 0,
-        });
-      }
-      query.vehicleId = { $in: vehicles.map((v) => v._id) };
-    }
-
-    // Transporter payment generated filter (market trips only)
-    if (transporterPaymentGenerated) {
-      // Ensure only market vehicles if not already filtered
-      if (!transporterId && !vehicleId && !vehicleOwnership) {
-        const marketVehicles = await Vehicle.find(addTenantToQuery(req, { isOwn: false })).select('_id');
-        query.vehicleId = { $in: marketVehicles.map((v) => v._id) };
-      }
-      if (transporterPaymentGenerated === 'yes') {
-        query.transporterPaymentReceiptId = { $exists: true, $ne: null };
-      } else if (transporterPaymentGenerated === 'no') {
-        query.transporterPaymentReceiptId = null;
-      }
-    }
-
-    // Epod signed filter
-    if (epodSigned === 'yes') {
-      query.podSignature = { $exists: true, $ne: null };
-    } else if (epodSigned === 'no') {
-      query.podSignature = null;
-    }
-
-    // Shortage filter
-    if (shortage === 'yes') {
-      query.$or = [{ shortageWeight: { $gt: 0 } }, { shortageAmount: { $gt: 0 } }];
-    } else if (shortage === 'no') {
-      query.shortageWeight = { $in: [0, null] };
-      query.shortageAmount = { $in: [0, null] };
+    if (hasNoMatchingVehicles) {
+      return res.status(200).json({
+        results: [],
+        total: 0,
+        startRange: 0,
+        endRange: 0,
+      });
     }
 
     // Fetch data and totals in parallel
@@ -381,11 +100,11 @@ const fetchPaginatedSubtrips = asyncHandler(async (req, res) => {
     ]);
 
     // Attach createdAt for backwards compatibility
-    subtrips.forEach((st) => {
+    for (const st of subtrips) {
       if (!st.createdAt && st._id) {
         st.createdAt = st._id.getTimestamp();
       }
-    });
+    }
 
     const totalsObj = {};
     const statusKeys = Object.values(SUBTRIP_STATUS);
@@ -450,9 +169,9 @@ const fetchSubtripsByStatuses = asyncHandler(async (req, res) => {
       const marketVehicles = await Vehicle.find({ isOwn: false, tenant: req.tenant }).select('_id').lean();
       if (marketVehicles.length > 0) {
         if (query.vehicleId && query.vehicleId.$nin) {
-           query.vehicleId.$nin.push(...marketVehicles.map(v => v._id));
+          query.vehicleId.$nin.push(...marketVehicles.map(v => v._id));
         } else {
-           query.vehicleId = { $nin: marketVehicles.map(v => v._id) };
+          query.vehicleId = { $nin: marketVehicles.map(v => v._id) };
         }
       }
     }
@@ -564,21 +283,17 @@ const fetchSubtripPublic = asyncHandler(async (req, res) => {
   res.status(200).json(subtrip);
 });
 
-// Controller removed: material info now handled via createJob
-
 // received Subtrip (LR)
 const receiveLR = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
     unloadingWeight,
-    commissionDetails = {},
     hasError,
     remarks,
     shortageWeight,
     shortageAmount,
     endDate,
     docs,
-    freightDetails,
   } = req.body;
 
   const subtrip = await populateSubtrip(
@@ -589,13 +304,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Subtrip not found" });
   }
 
-  const finalCommissionDetails = { ...commissionDetails };
-  if (subtrip.freightDetails?.freightModel === 'per_ton' && commissionDetails.commissionRate !== undefined) {
-    const rate = Number(commissionDetails.commissionRate) || 0;
-    const weight = Number(subtrip.loadingWeight) || 0;
-    finalCommissionDetails.commissionAmount = rate * weight;
-    finalCommissionDetails.commissionRate = rate;
-  }
+  const { freightDetails, commissionDetails } = resolveSubtripFinancials(subtrip, req.body);
 
   Object.assign(subtrip, {
     unloadingWeight,
@@ -604,46 +313,10 @@ const receiveLR = asyncHandler(async (req, res) => {
     shortageAmount,
     subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,
     remarks,
-    commissionDetails: finalCommissionDetails,
+    commissionDetails,
+    freightDetails,
     docs,
   });
-
-  if (subtrip.freightDetails && subtrip.freightDetails.freightModel === 'time_based') {
-    subtrip.freightDetails.startTime = subtrip.startDate;
-    subtrip.freightDetails.endTime = endDate || subtrip.endDate;
-  }
-
-  if (freightDetails && subtrip.freightDetails) {
-    const mergedDetails = {
-      ...subtrip.freightDetails.toObject(),
-      ...freightDetails
-    };
-    const baseFreight = Number(subtrip.freightDetails.freightAmount) || 0;
-    const expectedFreightAmount = calculateSubtripFreightAmount({
-      ...mergedDetails,
-      loadingWeight: subtrip.loadingWeight,
-      baseFreight,
-      startDate: subtrip.startDate,
-      endDate: endDate || subtrip.endDate,
-    });
-
-    let freightAmountToStore = expectedFreightAmount;
-    if (freightDetails.freightAmount !== undefined) {
-      const submittedAmount = Number(freightDetails.freightAmount) || 0;
-      if (Math.abs(submittedAmount - expectedFreightAmount) > 0.01) {
-        freightAmountToStore = submittedAmount; // User override
-      }
-    }
-
-    subtrip.freightDetails.freightAmount = freightAmountToStore;
-    if (freightDetails.endKm !== undefined) subtrip.freightDetails.endKm = freightDetails.endKm;
-    if (mergedDetails.freightModel === 'time_based') {
-      subtrip.freightDetails.startTime = subtrip.startDate;
-      subtrip.freightDetails.endTime = endDate || subtrip.endDate;
-    } else {
-      if (freightDetails.endTime !== undefined) subtrip.freightDetails.endTime = freightDetails.endTime;
-    }
-  }
 
   // Record appropriate event
   if (hasError) {
@@ -741,81 +414,9 @@ const updateSubtrip = asyncHandler(async (req, res) => {
   }
 
   // Recalculate freight and commission if applicable
-  if (req.body.freightDetails) {
-    const existingFd = existingSubtrip.freightDetails ? existingSubtrip.freightDetails.toObject() : {};
-    req.body.freightDetails = { ...existingFd, ...req.body.freightDetails };
-  }
-  if (req.body.commissionDetails) {
-    const existingCd = existingSubtrip.commissionDetails ? existingSubtrip.commissionDetails.toObject() : {};
-    req.body.commissionDetails = { ...existingCd, ...req.body.commissionDetails };
-  }
-
-  const fdToUse = req.body.freightDetails || (existingSubtrip.freightDetails ? existingSubtrip.freightDetails.toObject() : {});
-  const cdToUse = req.body.commissionDetails || (existingSubtrip.commissionDetails ? existingSubtrip.commissionDetails.toObject() : {});
-  const weightToUse = Number(req.body.loadingWeight !== undefined ? req.body.loadingWeight : existingSubtrip.loadingWeight) || 0;
-
-  const model = fdToUse.freightModel || 'per_ton';
-  const startDateToUse = req.body.startDate !== undefined ? req.body.startDate : existingSubtrip.startDate;
-  const endDateToUse = req.body.endDate !== undefined ? req.body.endDate : existingSubtrip.endDate;
-
-  if (model === 'per_ton' || model === 'per_km' || model === 'time_based') {
-    const expectedFreight = calculateSubtripFreightAmount({
-      ...fdToUse,
-      loadingWeight: weightToUse,
-      baseFreight: 0,
-      startDate: startDateToUse,
-      endDate: endDateToUse,
-    });
-    
-    let freightAmountToStore = expectedFreight;
-    if (req.body.freightDetails && req.body.freightDetails.freightAmount !== undefined) {
-      const submittedAmount = Number(req.body.freightDetails.freightAmount) || 0;
-      if (Math.abs(submittedAmount - expectedFreight) > 0.01) {
-        freightAmountToStore = submittedAmount;
-      }
-    }
-
-    req.body.freightDetails = {
-      ...fdToUse,
-      freightAmount: freightAmountToStore
-    };
-
-    if (model === 'time_based') {
-      req.body.freightDetails.startTime = startDateToUse;
-      req.body.freightDetails.endTime = endDateToUse;
-    }
-  } else if (model === 'hybrid' && req.body.freightDetails) {
-    const baseFreight = Number(existingSubtrip.freightDetails?.freightAmount) || 0;
-    const expectedFreight = calculateSubtripFreightAmount({
-      ...fdToUse,
-      loadingWeight: weightToUse,
-      baseFreight,
-      startDate: startDateToUse,
-      endDate: endDateToUse,
-    });
-
-    let freightAmountToStore = expectedFreight;
-    if (req.body.freightDetails.freightAmount !== undefined) {
-      const submittedAmount = Number(req.body.freightDetails.freightAmount) || 0;
-      if (Math.abs(submittedAmount - expectedFreight) > 0.01) {
-        freightAmountToStore = submittedAmount;
-      }
-    }
-
-    req.body.freightDetails = {
-      ...fdToUse,
-      freightAmount: freightAmountToStore
-    };
-  }
-
-  if (model === 'per_ton') {
-    if (cdToUse.commissionRate !== undefined && cdToUse.commissionRate !== null && cdToUse.commissionRate !== '') {
-      req.body.commissionDetails = {
-        ...cdToUse,
-        commissionAmount: Number(cdToUse.commissionRate) * weightToUse
-      };
-    }
-  }
+  const { freightDetails, commissionDetails } = resolveSubtripFinancials(existingSubtrip, req.body);
+  req.body.freightDetails = freightDetails;
+  req.body.commissionDetails = commissionDetails;
 
   // Find and update the subtrip
   const updatedSubtrip = await Subtrip.findOneAndUpdate(
@@ -930,10 +531,6 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
     });
   }
 });
-
-// Controller removed: empty subtrip creation superseded by createJob
-
-// Controller removed: empty subtrip close superseded by createJob
 
 // Fetch subtrips grouped by transporter with loans for a given date period
 const fetchSubtripsByTransporter = asyncHandler(async (req, res) => {
@@ -1135,195 +732,22 @@ const getEpodUploadUrlPublic = asyncHandler(async (req, res) => {
   }
 });
 
-export {
-  fetchSubtrips,
-  fetchSubtrip,
-  fetchSubtripPublic,
-  fetchPaginatedSubtrips,
-  updateSubtrip,
-  deleteSubtrip,
-  receiveLR,
-  resolveLR,
-  fetchSubtripsByStatuses,
-  fetchSubtripsByTransporter,
-  exportSubtrips,
-  getDocumentUploadUrl,
-  submitEpod,
-  getEpodUploadUrlPublic,
-};
-
 // Export Subtrips to Excel
 const exportSubtrips = asyncHandler(async (req, res) => {
-  const {
-    subtripNo,
-    customerId,
-    subtripStatus,
-    referenceSubtripNo,
-    loadingPoint,
-    unloadingPoint,
-    ewayBill,
-    driverId,
-    vehicleId,
-    transporterId,
-    vehicleOwnership,
-    fromDate,
-    toDate,
-    subtripEndFromDate,
-    subtripEndToDate,
-    expiringIn,
-    materials,
-    subtripType,
-    transporterPaymentGenerated,
-    epodSigned,
-    shortage,
-    columns,
-    commissionRateMin,
-    commissionRateMax,
-  } = req.query;
+  const { columns } = req.query;
 
-  const query = addTenantToQuery(req);
+  const { query, hasNoMatchingVehicles } = await buildSubtripQuery(req, req.query);
 
-  // Handle subtripType filter (Default to Loaded/isEmpty:false if not specified or 'Loaded')
-  if (subtripType === "Empty") {
-    query.isEmpty = true;
-  } else {
-    query.isEmpty = false;
-  }
-
-  if (subtripNo) {
-    const escaped = String(subtripNo).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    query.subtripNo = { $regex: escaped, $options: "i" };
-  }
-
-  // Helper helper to cast to ObjectId safely
-  async function toObjectId(id) {
-    const { Types } = await import('mongoose');
-    if (Types.ObjectId.isValid(id)) return new Types.ObjectId(id);
-    return id;
-  }
-
-  if (customerId) query.customerId = await toObjectId(customerId);
-  if (referenceSubtripNo) query.referenceSubtripNo = referenceSubtripNo;
-  if (loadingPoint) {
-    const escaped = String(loadingPoint).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    query.loadingPoint = { $regex: escaped, $options: "i" };
-  }
-  if (unloadingPoint) {
-    const escaped = String(unloadingPoint).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    query.unloadingPoint = { $regex: escaped, $options: "i" };
-  }
-  if (ewayBill) {
-    const escaped = String(ewayBill).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    query.ewayBill = { $regex: escaped, $options: "i" };
-  }
-
-  // Status filter (single or array)
-  if (subtripStatus) {
-    const statusArray = Array.isArray(subtripStatus)
-      ? subtripStatus
-      : [subtripStatus];
-    query.subtripStatus = { $in: statusArray };
-  }
-
-  // Material filter
-  if (materials) {
-    const materialsArray = Array.isArray(materials) ? materials : [materials];
-    query.materialType = {
-      $in: materialsArray.map((mat) => {
-        const escaped = String(mat).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`^${escaped}$`, "i");
-      }),
-    };
-  }
-
-  if (commissionRateMin !== undefined || commissionRateMax !== undefined) {
-    query.commissionRate = {};
-    if (commissionRateMin !== undefined && commissionRateMin !== '') {
-      query.commissionRate.$gte = Number(commissionRateMin);
-    }
-    if (commissionRateMax !== undefined && commissionRateMax !== '') {
-      query.commissionRate.$lte = Number(commissionRateMax);
-    }
-  }
-
-  // Start date range
-  if (fromDate || toDate) {
-    query.startDate = {};
-    if (fromDate) query.startDate.$gte = new Date(fromDate);
-    if (toDate) query.startDate.$lte = new Date(toDate);
-  }
-
-  // End date range
-  if (subtripEndFromDate || subtripEndToDate) {
-    query.endDate = {};
-    if (subtripEndFromDate) query.endDate.$gte = new Date(subtripEndFromDate);
-    if (subtripEndToDate) query.endDate.$lte = new Date(subtripEndToDate);
-  }
-
-  // Expiring in hours - only loaded subtrips with expiring/expired ewaybill
-  if (expiringIn) {
-    const hours = parseInt(expiringIn, 10);
-    if (!Number.isNaN(hours)) {
-      const threshold = new Date(Date.now() + hours * 60 * 60 * 1000);
-      query.ewayExpiryDate = { $ne: null, $lte: threshold };
-      query.subtripStatus = SUBTRIP_STATUS.LOADED;
-    }
-  }
-
-  // Driver/vehicle/transporter/ownership filtering
-  if (driverId) {
-    query.driverId = await toObjectId(driverId);
-  }
-
-  if (transporterId || vehicleId || vehicleOwnership) {
-    const vehicleSearch = {};
-    if (transporterId) vehicleSearch.transporter = await toObjectId(transporterId);
-    if (vehicleId) vehicleSearch._id = await toObjectId(vehicleId);
-    if (vehicleOwnership === "Market") vehicleSearch.isOwn = false;
-    if (vehicleOwnership === "Own") vehicleSearch.isOwn = true;
-
-    const vehicles = await Vehicle.find(addTenantToQuery(req, vehicleSearch)).select("_id");
-    if (!vehicles.length) {
-      const ExcelJS = await import('exceljs');
-      const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
-        stream: res,
-        useStyles: true,
-      });
-      const worksheet = workbook.addWorksheet('Jobs');
-      worksheet.commit();
-      await workbook.commit();
-      return;
-    }
-    query.vehicleId = { $in: vehicles.map((v) => v._id) };
-  }
-
-  // Transporter payment generated filter (market trips only)
-  if (transporterPaymentGenerated) {
-    // Ensure only market vehicles if not already filtered
-    if (!transporterId && !vehicleId && !vehicleOwnership) {
-      const marketVehicles = await Vehicle.find(addTenantToQuery(req, { isOwn: false })).select('_id');
-      query.vehicleId = { $in: marketVehicles.map((v) => v._id) };
-    }
-    if (transporterPaymentGenerated === 'yes') {
-      query.transporterPaymentReceiptId = { $exists: true, $ne: null };
-    } else if (transporterPaymentGenerated === 'no') {
-      query.transporterPaymentReceiptId = null;
-    }
-  }
-
-  // Epod signed filter
-  if (epodSigned === 'yes') {
-    query.podSignature = { $exists: true, $ne: null };
-  } else if (epodSigned === 'no') {
-    query.podSignature = null;
-  }
-
-  // Shortage filter
-  if (shortage === 'yes') {
-    query.$or = [{ shortageWeight: { $gt: 0 } }, { shortageAmount: { $gt: 0 } }];
-  } else if (shortage === 'no') {
-    query.shortageWeight = { $in: [0, null] };
-    query.shortageAmount = { $in: [0, null] };
+  if (hasNoMatchingVehicles) {
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.default.stream.xlsx.WorkbookWriter({
+      stream: res,
+      useStyles: true,
+    });
+    const worksheet = workbook.addWorksheet('Jobs');
+    worksheet.commit();
+    await workbook.commit();
+    return;
   }
 
   // Column Mapping
@@ -1590,3 +1014,20 @@ const exportSubtrips = asyncHandler(async (req, res) => {
   worksheet.commit();
   await workbook.commit();
 });
+
+export {
+  fetchSubtrips,
+  fetchSubtrip,
+  fetchSubtripPublic,
+  fetchPaginatedSubtrips,
+  updateSubtrip,
+  deleteSubtrip,
+  receiveLR,
+  resolveLR,
+  fetchSubtripsByStatuses,
+  fetchSubtripsByTransporter,
+  exportSubtrips,
+  getDocumentUploadUrl,
+  submitEpod,
+  getEpodUploadUrlPublic,
+};

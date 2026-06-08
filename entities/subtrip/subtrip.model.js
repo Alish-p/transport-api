@@ -11,8 +11,7 @@ const subtripSchema = new Schema({
   isEmpty: { type: Boolean, default: false },
 
   // References to related entities
-  // Trip reference will only be present for own vehicles
-  tripId: { type: Schema.Types.ObjectId, ref: "Trip" },
+  tripId: { type: Schema.Types.ObjectId, ref: "Trip" },   // Trip reference will only be present for own vehicles
   driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
@@ -56,8 +55,6 @@ const subtripSchema = new Schema({
     baseKm: { type: Number },
     startKm: { type: Number },
     endKm: { type: Number },
-    startTime: { type: Date },
-    endTime: { type: Date },
   },
   commissionDetails: {
     commissionRate: { type: Number },
@@ -130,25 +127,6 @@ subtripSchema.pre("validate", async function (next) {
   } catch (error) {
     return next(error);
   }
-});
-
-// for locking once subtrip is closed
-subtripSchema.pre("save", function (next) {
-  // If no modifications, proceed
-
-  if (!this.isModified()) return next();
-
-  // Allow updates only for transitioning to "closed"
-  if (this.isModified("subtripStatus") && this.subtripStatus === "closed") {
-    return next(); // Transition to "closed" is allowed
-  }
-
-  // If the subtrip is already closed, block further modifications
-  if (this.subtripStatus === "closed") {
-    return next(new Error("Closed subtrips cannot be modified."));
-  }
-
-  next(); // Allow other modifications
 });
 
 export default model("Subtrip", subtripSchema);

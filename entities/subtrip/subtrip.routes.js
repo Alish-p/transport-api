@@ -21,41 +21,43 @@ import { validateFormFields } from '../formConfig/formConfig.validation.js';
 
 const router = Router();
 
-// new route for job creation
-router.post('/jobs', authenticate, checkPermission('subtrip', 'create'), validate(jobCreateSchema), validateFormFields('job_create'), createJob);
-
-router.get("/export", authenticate, exportSubtrips);
-router.get("/upload-url", authenticate, getDocumentUploadUrl);
-router.get("/pagination", authenticate, pagination, fetchPaginatedSubtrips);
-router.get("/status", authenticate, pagination, fetchSubtripsByStatuses);
-router.get("/", authenticate, fetchSubtrips);
-router.post("/by-transporter", authenticate, fetchSubtripsByTransporter);
-router.get("/:id", authenticate, fetchSubtrip);
-
-router.put(
-  "/:id",
+// --- Job & Subtrip Creation ---
+router.post(
+  '/jobs',
   authenticate,
-  checkPermission("subtrip", "update"),
-  updateSubtrip
-);
-router.delete(
-  "/:id",
-  authenticate,
-  checkPermission("subtrip", "delete"),
-  deleteSubtrip
+  checkPermission('subtrip', 'create'),
+  validate(jobCreateSchema),
+  validateFormFields('job_create'),
+  createJob
 );
 
+// --- Utility Routes ---
+router.get('/export', authenticate, exportSubtrips);
+router.get('/upload-url', authenticate, getDocumentUploadUrl);
+
+// --- Read / Fetch Subtrips ---
+router.get('/:id', authenticate, fetchSubtrip);
+router.get('/', authenticate, fetchSubtrips);
+router.get('/pagination', authenticate, pagination, fetchPaginatedSubtrips);
+router.get('/status', authenticate, pagination, fetchSubtripsByStatuses);
+router.post('/by-transporter', authenticate, fetchSubtripsByTransporter);
+
+// --- Subtrip CRUD (By ID) ---
+router.put('/:id', authenticate, checkPermission('subtrip', 'update'), updateSubtrip);
+router.delete('/:id', authenticate, checkPermission('subtrip', 'delete'), deleteSubtrip);
+
+// --- Subtrip Actions ---
 router.put(
-  "/:id/receive",
+  '/:id/receive',
   authenticate,
-  checkPermission("subtrip", "update"),
+  checkPermission('subtrip', 'update'),
   validateFormFields('job_receive'),
   receiveLR
 );
 router.put(
-  "/:id/resolve",
+  '/:id/resolve',
   authenticate,
-  checkPermission("subtrip", "update"),
+  checkPermission('subtrip', 'update'),
   resolveLR
 );
 
