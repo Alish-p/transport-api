@@ -37,10 +37,10 @@ router.get('/export', authenticate, exportSubtrips);
 router.get('/upload-url', authenticate, getDocumentUploadUrl);
 
 // --- Read / Fetch Subtrips ---
-router.get('/:id', authenticate, fetchSubtrip);
-router.get('/', authenticate, fetchSubtrips);
 router.get('/pagination', authenticate, pagination, fetchPaginatedSubtrips);
 router.get('/status', authenticate, pagination, fetchSubtripsByStatuses);
+router.get('/:id', authenticate, fetchSubtrip);
+router.get('/', authenticate, fetchSubtrips);
 router.post('/by-transporter', authenticate, fetchSubtripsByTransporter);
 
 // --- Subtrip CRUD (By ID) ---
