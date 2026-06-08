@@ -2,7 +2,7 @@ export const FREIGHT_MODELS = {
   PER_TON: 'per_ton',
   PER_KM: 'per_km',
   FIXED: 'fixed',
-  TIME_BASED: 'time_based',
+  PER_HOUR: 'per_hour',
   HYBRID: 'hybrid',
 };
 

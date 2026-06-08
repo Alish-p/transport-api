@@ -64,7 +64,7 @@ export const calculateSubtripFreightAmount = ({
     return Number(baseFreight);
   }
 
-  if (model === FREIGHT_MODELS.TIME_BASED) {
+  if (model === FREIGHT_MODELS.PER_HOUR) {
     if (startDate && endDate) {
       const start = dayjs(startDate);
       const end = dayjs(endDate);
@@ -305,7 +305,7 @@ export const buildSubtripQuery = async (req, queryParams) => {
 
 /**
  * Resolves and recalculates freight details and commission details for a subtrip.
- * Consolidates business rules for different freight models (per_ton, hybrid, time_based, etc.).
+ * Consolidates business rules for different freight models (per_ton, hybrid, per_hour, etc.).
  * 
  * @param {Object} subtrip - Existing subtrip document or object
  * @param {Object} updateData - Request body/updates containing updated fields
@@ -336,7 +336,7 @@ export const resolveSubtripFinancials = (subtrip, updateData) => {
   const model = fdToUse.freightModel || FREIGHT_MODELS.PER_TON;
 
   // Recalculate freight amount
-  if (model === FREIGHT_MODELS.PER_TON || model === FREIGHT_MODELS.PER_KM || model === FREIGHT_MODELS.TIME_BASED || model === FREIGHT_MODELS.FIXED) {
+  if (model === FREIGHT_MODELS.PER_TON || model === FREIGHT_MODELS.PER_KM || model === FREIGHT_MODELS.PER_HOUR || model === FREIGHT_MODELS.FIXED) {
     const expectedFreight = calculateSubtripFreightAmount({
       ...fdToUse,
       loadingWeight: weightToUse,
@@ -682,8 +682,8 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
         baseKm: freightDetails.baseKm,
         startKm: freightDetails.startKm,
         endKm: freightDetails.endKm,
-        startTime: (freightDetails.freightModel === FREIGHT_MODELS.TIME_BASED) ? startDate : freightDetails.startTime,
-        endTime: (freightDetails.freightModel === FREIGHT_MODELS.TIME_BASED) ? undefined : freightDetails.endTime,
+        startTime: (freightDetails.freightModel === FREIGHT_MODELS.PER_HOUR) ? startDate : freightDetails.startTime,
+        endTime: (freightDetails.freightModel === FREIGHT_MODELS.PER_HOUR) ? undefined : freightDetails.endTime,
       },
       invoiceNo: body.invoiceNo,
       ewayExpiryDate,
