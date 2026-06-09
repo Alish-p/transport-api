@@ -2,10 +2,10 @@ import { Schema, model } from 'mongoose';
 import { FREIGHT_MODELS } from '../subtrip/subtrip.constants.js';
 
 const FREIGHT_MODEL_ENUM = Object.values(FREIGHT_MODELS);
-const FORM_TYPE_ENUM = ['job_create', 'job_edit', 'job_receive'];
+const ENTITY_ENUM = ['subtrip'];
 const VISIBILITY_ENUM = ['required', 'optional', 'hidden'];
 
-const fieldConfigSchema = new Schema(
+const fieldConfigEntrySchema = new Schema(
   {
     visibility: {
       type: String,
@@ -26,13 +26,13 @@ const customerOverrideSchema = new Schema(
     },
     fields: {
       type: Map,
-      of: fieldConfigSchema,
+      of: fieldConfigEntrySchema,
     },
   },
   { _id: false }
 );
 
-const formConfigSchema = new Schema(
+const fieldConfigSchema = new Schema(
   {
     tenant: {
       type: Schema.Types.ObjectId,
@@ -40,9 +40,9 @@ const formConfigSchema = new Schema(
       required: true,
       index: true,
     },
-    formType: {
+    entity: {
       type: String,
-      enum: FORM_TYPE_ENUM,
+      enum: ENTITY_ENUM,
       required: true,
     },
     freightConfig: {
@@ -60,14 +60,14 @@ const formConfigSchema = new Schema(
     },
     fields: {
       type: Map,
-      of: fieldConfigSchema,
+      of: fieldConfigEntrySchema,
     },
     customerOverrides: [customerOverrideSchema],
   },
   { timestamps: true }
 );
 
-// One config per tenant per form type
-formConfigSchema.index({ tenant: 1, formType: 1 }, { unique: true });
+// One config per tenant per entity
+fieldConfigSchema.index({ tenant: 1, entity: 1 }, { unique: true });
 
-export default model('FormConfig', formConfigSchema);
+export default model('FieldConfig', fieldConfigSchema);

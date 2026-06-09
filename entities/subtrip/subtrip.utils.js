@@ -8,7 +8,7 @@ import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.j
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { SUBTRIP_STATUS, FREIGHT_MODELS } from './subtrip.constants.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
-import { FORM_CONFIG_DEFAULTS } from '../formConfig/formConfig.defaults.js';
+import { FIELD_CONFIG_DEFAULTS } from '../fieldConfig/fieldConfig.defaults.js';
 import { getStartOfTodayIST } from '../../utils/time-utils.js';
 
 /**
@@ -437,7 +437,7 @@ export const validateJobCreateInput = ({ body, vehicle, formConfig }) => {
   // Validate loaded/market required fields
   const isLoaded = !body.isEmpty || !isOwnVehicle; // market treated as loaded
 
-  const fieldsConfig = formConfig?.fields || FORM_CONFIG_DEFAULTS.job_create.fields;
+  const fieldsConfig = formConfig?.fields || FIELD_CONFIG_DEFAULTS.subtrip.fields;
   const isFieldRequired = (name) => {
     const visibility = fieldsConfig?.[name]?.visibility;
     if (visibility === 'required') return true;

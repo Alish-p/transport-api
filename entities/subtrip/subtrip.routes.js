@@ -4,7 +4,7 @@ import validate from '../../middlewares/validate.js';
 import pagination from '../../middlewares/pagination.js';
 import { jobCreateSchema } from './subtrip.validation.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import { validateFormFields } from '../formConfig/formConfig.validation.js';
+import { validateFieldConfig } from '../fieldConfig/fieldConfig.validation.js';
 import {
   receiveLR,
   resolveLR,
@@ -28,7 +28,7 @@ router.post(
   authenticate,
   checkPermission('subtrip', 'create'),
   validate(jobCreateSchema),
-  validateFormFields('job_create'),
+  validateFieldConfig('subtrip'),
   createJob
 );
 
@@ -52,7 +52,7 @@ router.put(
   '/:id/receive',
   authenticate,
   checkPermission('subtrip', 'update'),
-  validateFormFields('job_receive'),
+  validateFieldConfig('subtrip'),
   receiveLR
 );
 router.put(

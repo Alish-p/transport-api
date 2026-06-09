@@ -34,7 +34,7 @@ import optionRouter from '../entities/option/option.routes.js';
 import activityRouter from '../entities/activity/activity.routes.js';
 import tyreRouter from '../entities/tyre/tyre.routes.js';
 import transporterAdvanceRouter from '../entities/transporterAdvance/transporterAdvance.routes.js';
-import formConfigRouter from '../entities/formConfig/formConfig.routes.js';
+import fieldConfigRouter from '../entities/fieldConfig/fieldConfig.routes.js';
 
 const router = express.Router();
 
@@ -67,7 +67,7 @@ router.use('/options', optionRouter);
 router.use('/activities', activityRouter);
 router.use('/tyre', tyreRouter);
 router.use('/transporter-advances', transporterAdvanceRouter);
-router.use('/form-configs', formConfigRouter);
+router.use('/field-configs', fieldConfigRouter);
 
 //Vehicle Maintenance & Inventory
 router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);

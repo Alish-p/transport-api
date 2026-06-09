@@ -1,5 +1,5 @@
-import FormConfig from './formConfig.model.js';
-import { FORM_CONFIG_DEFAULTS } from './formConfig.defaults.js';
+import FieldConfig from './fieldConfig.model.js';
+import { FIELD_CONFIG_DEFAULTS } from './fieldConfig.defaults.js';
 
 /**
  * Merges base field configs with customer-specific overrides.
@@ -30,14 +30,14 @@ export const mergeFieldConfigs = (baseFields, overrideFields) => {
 };
 
 /**
- * Resolves the effective field config for a tenant + formType + optional customer.
- * Falls back to FORM_CONFIG_DEFAULTS if no DB config exists.
+ * Resolves the effective field config for a tenant + entity + optional customer.
+ * Falls back to FIELD_CONFIG_DEFAULTS if no DB config exists.
  */
-const resolveFieldConfig = async (tenantId, formType, customerId) => {
-  const config = await FormConfig.findOne({ tenant: tenantId, formType });
+const resolveFieldConfig = async (tenantId, entity, customerId) => {
+  const config = await FieldConfig.findOne({ tenant: tenantId, entity });
 
   // Fall back to defaults if no config exists
-  const defaults = FORM_CONFIG_DEFAULTS[formType];
+  const defaults = FIELD_CONFIG_DEFAULTS[entity];
   if (!config) {
     return {
       fields: { ...defaults.fields },
@@ -65,18 +65,18 @@ const resolveFieldConfig = async (tenantId, formType, customerId) => {
 };
 
 /**
- * Express middleware factory for form field validation.
+ * Express middleware factory for field config validation.
  * Validates required fields, strips hidden fields, and checks freight model.
  *
- * @param {string} formType - One of 'job_create', 'job_edit', 'job_receive'
+ * @param {string} entity - One of the valid entities (e.g. 'subtrip')
  * @returns {Function} Express middleware
  */
-export const validateFormFields = (formType) => async (req, res, next) => {
+export const validateFieldConfig = (entity) => async (req, res, next) => {
   try {
     const customerId = req.body.customerId || req.body.customer;
     const { fields, freightConfig } = await resolveFieldConfig(
       req.tenant,
-      formType,
+      entity,
       customerId
     );
 
@@ -119,7 +119,7 @@ export const validateFormFields = (formType) => async (req, res, next) => {
     }
 
     // Attach resolved config to request for downstream use
-    req.formConfig = { fields, freightConfig };
+    req.fieldConfig = { fields, freightConfig };
     next();
   } catch (err) {
     next(err);

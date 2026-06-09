@@ -15,7 +15,7 @@ import { recalculateTripFinancials } from '../trip/trip.service.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import { buildChangedFields } from '../../utils/serialize-field-value.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
-import { FORM_CONFIG_DEFAULTS } from '../formConfig/formConfig.defaults.js';
+import { FIELD_CONFIG_DEFAULTS } from '../fieldConfig/fieldConfig.defaults.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import {
   buildSubtripQuery,
@@ -935,7 +935,7 @@ const createJob = asyncHandler(async (req, res) => {
     const isLoaded = !isEmptyInput || !isOwnVehicle;
 
     // Validate inputs
-    const formConfig = req.formConfig || FORM_CONFIG_DEFAULTS.job_create;
+    const formConfig = req.fieldConfig || FIELD_CONFIG_DEFAULTS.subtrip;
     validateJobCreateInput({ body: req.body, vehicle, formConfig });
 
     // Resolve or create trip (own vehicles only)
