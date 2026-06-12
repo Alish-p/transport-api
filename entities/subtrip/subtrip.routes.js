@@ -52,7 +52,7 @@ router.put(
   '/:id/receive',
   authenticate,
   checkPermission('subtrip', 'update'),
-  validateFieldConfig('subtrip'),
+  // validateFieldConfig('subtrip'),
   receiveLR
 );
 router.put(

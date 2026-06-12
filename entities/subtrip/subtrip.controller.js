@@ -320,6 +320,35 @@ const receiveLR = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Subtrip not found" });
   }
 
+  // Dynamic Validation based on Freight Model and Ownership
+  const freightModel = subtrip.freightDetails?.freightModel || 'per_ton';
+  const startKm = subtrip.freightDetails?.startKm || 0;
+  const isOwn = subtrip.vehicleId?.isOwn ?? true;
+
+  if (freightModel === 'per_km' || freightModel === 'hybrid') {
+    const endKm = req.body.freightDetails?.endKm;
+    if (endKm === undefined || endKm === null || endKm === '') {
+      return res.status(400).json({ message: 'Billing End KM is required' });
+    }
+    if (Number(endKm) < startKm) {
+      return res.status(400).json({ message: `Billing End KM cannot be less than Start KM (${startKm})` });
+    }
+  }
+
+  if (!isOwn) {
+    if (freightModel === 'per_ton') {
+      const commRate = req.body.commissionDetails?.commissionRate;
+      if (commRate === undefined || commRate === null || commRate === '') {
+        return res.status(400).json({ message: 'Commission rate is required for market vehicles' });
+      }
+    } else {
+      const commAmount = req.body.commissionDetails?.commissionAmount;
+      if (commAmount === undefined || commAmount === null || commAmount === '') {
+        return res.status(400).json({ message: 'Commission amount is required for market vehicles' });
+      }
+    }
+  }
+
   const { freightDetails, commissionDetails } = resolveSubtripFinancials(subtrip, req.body);
 
   Object.assign(subtrip, {

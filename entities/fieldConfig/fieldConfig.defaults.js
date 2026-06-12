@@ -11,7 +11,6 @@ export const FIELD_CONFIG_DEFAULTS = {
       allowedModels: FREIGHT_MODELS,
     },
     fields: {
-      // Job creation fields
       invoiceNo: { visibility: 'required', label: 'Invoice No' },
       ewayBill: { visibility: 'optional', label: 'Eway Bill' },
       ewayExpiryDate: { visibility: 'optional', label: 'Eway Expiry Date' },
@@ -22,22 +21,10 @@ export const FIELD_CONFIG_DEFAULTS = {
       consignee: { visibility: 'required', label: 'Consignee' },
       loadingPoint: { visibility: 'required', label: 'Loading Point' },
       unloadingPoint: { visibility: 'required', label: 'Unloading Point' },
-      loadingWeight: { visibility: 'required', label: 'Loading Weight' },
       materialType: { visibility: 'required', label: 'Material Type' },
       grade: { visibility: 'optional', label: 'Grade' },
       quantity: { visibility: 'optional', label: 'Quantity' },
-      startKm: { visibility: 'optional', label: 'Start KM' },
       remarks: { visibility: 'optional', label: 'Remarks' },
-      // Receive/edit fields
-      rate: { visibility: 'required', label: 'Rate' },
-      unloadingWeight: { visibility: 'required', label: 'Unloading Weight' },
-      endKm: { visibility: 'optional', label: 'End KM' },
-      endTime: { visibility: 'optional', label: 'End Time' },
-      commissionRate: { visibility: 'optional', label: 'Commission Rate' },
-      commissionAmount: { visibility: 'optional', label: 'Commission Amount' },
-      freightAmountOverride: { visibility: 'optional', label: 'Freight Amount Override' },
-      shortageWeight: { visibility: 'optional', label: 'Shortage Weight' },
-      shortageAmount: { visibility: 'optional', label: 'Shortage Amount' },
     },
   },
 };
