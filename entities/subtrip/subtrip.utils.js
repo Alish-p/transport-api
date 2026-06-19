@@ -475,6 +475,9 @@ export const validateJobCreateInput = ({ body, vehicle, formConfig }) => {
     const missingRequiredFields = [];
     ['loadingWeight', 'invoiceNo', 'ewayExpiryDate', 'materialType'].forEach((field) => {
       if (isFieldRequired(field)) {
+        if (field === 'loadingWeight' && body.freightDetails?.freightModel !== 'per_ton') {
+          return;
+        }
         const val = body[field];
         if (val === undefined || val === null || val === '') {
           missingRequiredFields.push(field);

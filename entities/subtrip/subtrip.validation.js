@@ -49,7 +49,7 @@ const jobCreateSchema = z.object({
         endTime: z.string().nullable().optional(),
       }).optional(),
       invoiceNo: z.string().optional(),
-      ewayExpiryDate: z.string().optional(),
+      ewayExpiryDate: z.string().nullable().optional(),
       materialType: z.string().optional(),
       ewayBill: z.string().optional(),
       quantity: z.number().optional(),
