@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 
 import Customer from '../customer/customer.model.js';
 import EwayBill from './ewaybill.model.js';
+import TransporterEwayBillCache from './transporter-ewaybill-cache.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import {
@@ -96,7 +97,7 @@ export { getEwayBillByNumber };
 
 // GET list of eway bills for transporter filtered by generated date
 const getEwayBillsForTransporter = asyncHandler(async (req, res) => {
-  const { generated_date: generatedDate } = req.query;
+  const { generated_date: generatedDate, force } = req.query;
 
   if (!generatedDate) {
     return res.status(400).json({ message: 'generated_date is required (DD/MM/YYYY)' });
@@ -117,14 +118,60 @@ const getEwayBillsForTransporter = asyncHandler(async (req, res) => {
   const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
   const cleanIp = String(rawIp).split(',')[0].trim();
 
-  const payload = await getWhitebooksEwayBillsForTransporter(
-    gstin,
-    generatedDate,
-    cleanIp,
-  );
+  const isForceRefresh = force === 'true' || force === true;
+  const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes cache validity
 
-  // Extract raw list from Whitebooks data
-  const rawList = payload?.data || [];
+  let rawList = [];
+  let cacheEntry = null;
+
+  if (!isForceRefresh) {
+    try {
+      cacheEntry = await TransporterEwayBillCache.findOne({
+        tenant: req.tenant,
+        generatedDate,
+      });
+      if (cacheEntry && (Date.now() - new Date(cacheEntry.fetchedAt).getTime() < CACHE_DURATION_MS)) {
+        rawList = cacheEntry.ewayBills || [];
+      }
+    } catch (err) {
+      console.error('Failed to read transporter ewaybill cache', err);
+    }
+  }
+
+  const isCacheStaleOrMissing =
+    !cacheEntry || (Date.now() - new Date(cacheEntry.fetchedAt).getTime() >= CACHE_DURATION_MS);
+
+  if (isForceRefresh || isCacheStaleOrMissing) {
+    try {
+      const payload = await getWhitebooksEwayBillsForTransporter(
+        gstin,
+        generatedDate,
+        cleanIp,
+      );
+      rawList = payload?.data || [];
+
+      // Save/update cache
+      await TransporterEwayBillCache.findOneAndUpdate(
+        { tenant: req.tenant, generatedDate },
+        {
+          $set: {
+            ewayBills: rawList,
+            fetchedAt: new Date(),
+          },
+        },
+        { upsert: true, new: true },
+      );
+    } catch (err) {
+      console.error('Failed to fetch transporter ewaybills from Whitebooks API', err);
+      // Fallback to cache if one exists to survive external API outages
+      if (cacheEntry) {
+        console.warn('Falling back to expired cache entry');
+        rawList = cacheEntry.ewayBills || [];
+      } else {
+        throw err; // Re-throw if no cache entry is available to fallback on
+      }
+    }
+  }
 
   // Normalize the provider response to a list we can enrich
   const list = rawList.map((it) => ({
