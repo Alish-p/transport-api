@@ -155,7 +155,7 @@ const fetchPaginatedAdvances = asyncHandler(async (req, res) => {
         select: 'vehicleNo transporter',
         populate: { path: 'transporter', select: 'transportName' },
       })
-      .populate({ path: 'pumpCd', select: 'pumpName' })
+      .populate({ path: 'pumpCd', select: 'name' })
       .populate({
         path: 'subtripId',
         select: 'subtripNo transporterPaymentReceiptId',
@@ -196,7 +196,7 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
     dieselRate: { header: 'Diesel Rate (Rs/Ltr)', key: 'dieselPrice', width: 18 },
     dieselLtr: { header: 'Diesel (Ltr)', key: 'dieselLtr', width: 15 },
     paidThrough: { header: 'Paid Through', key: 'paidThrough', width: 20 },
-    pumpCd: { header: 'Pump Name', key: 'pumpName', width: 20 },
+    pumpCd: { header: 'Pump Name', key: 'name', width: 20 },
     paymentReceiptId: { header: 'Payment Receipt', key: 'paymentId', width: 20 },
     amount: { header: 'Amount', key: 'amount', width: 15 },
   };
@@ -319,7 +319,7 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
         remarks: 1,
         vehicleNo: '$vehicle.vehicleNo',
         transporterName: '$transporter.transportName',
-        pumpName: '$pump.pumpName',
+        name: '$pump.name',
         subtripNo: '$subtrip.subtripNo',
         paymentId: '$paymentReceipt.paymentId',
       },

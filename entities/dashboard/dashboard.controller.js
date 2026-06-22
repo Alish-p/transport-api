@@ -1839,7 +1839,7 @@ const getDailySummary = asyncHandler(async (req, res) => {
       )
       .populate('vehicleId', 'vehicleNo')
       .populate('subtripId', 'subtripNo')
-      .populate('pumpCd', 'pumpName')
+      .populate('pumpCd', 'name')
       .lean();
 
     const totalExpenseAmount = expensesOnDate.reduce((sum, e) => sum + (e.amount || 0), 0);
@@ -1854,7 +1854,7 @@ const getDailySummary = asyncHandler(async (req, res) => {
       )
       .populate('vehicleId', 'vehicleNo')
       .populate('subtripId', 'subtripNo')
-      .populate('pumpCd', 'pumpName')
+      .populate('pumpCd', 'name')
       .lean();
 
     const totalAdvanceAmount = advancesOnDate.reduce((sum, a) => sum + (a.amount || 0), 0);
