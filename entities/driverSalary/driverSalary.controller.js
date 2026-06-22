@@ -81,9 +81,9 @@ const createDriverSalary = asyncHandler(async (req, res) => {
         startDate: st.startDate,
         customerName: st.customerId?.customerName,
         invoiceNo: st.invoiceNo,
-        rate: st.rate,
+        rate: st.freightDetails?.rate,
         loadingWeight: st.loadingWeight,
-        freightAmount: st.rate,
+        freightAmount: st.freightDetails?.freightAmount,
         shortageWeight: st.shortageWeight,
         shortageAmount: st.shortageAmount,
 
@@ -263,9 +263,9 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
           startDate: st.startDate,
           customerName: st.customerId?.customerName,
           invoiceNo: st.invoiceNo,
-          rate: st.rate,
+          rate: st.freightDetails?.rate,
           loadingWeight: st.loadingWeight,
-          freightAmount: st.rate,
+          freightAmount: st.freightDetails?.freightAmount,
           shortageWeight: st.shortageWeight,
           shortageAmount: st.shortageAmount,
 

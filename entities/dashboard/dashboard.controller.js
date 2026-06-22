@@ -107,12 +107,7 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
           _id: "$customerId",
           totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
           totalFreightAmount: {
-            $sum: {
-              $multiply: [
-                { $ifNull: ["$loadingWeight", 0] },
-                { $ifNull: ["$rate", 0] },
-              ],
-            },
+            $sum: { $ifNull: ["$freightDetails.freightAmount", 0] }
           },
           inQueue: {
             $sum: {
@@ -289,18 +284,8 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
             expenseAmount: {
               $ifNull: [{ $arrayElemAt: ["$expenseSummary.totalExpenses", 0] }, 0],
             },
-            freightAmount: {
-              $multiply: [
-                { $ifNull: ["$loadingWeight", 0] },
-                { $ifNull: ["$rate", 0] },
-              ],
-            },
-            commissionAmount: {
-              $multiply: [
-                { $ifNull: ["$loadingWeight", 0] },
-                { $ifNull: ["$commissionRate", 0] },
-              ],
-            },
+            freightAmount: { $ifNull: ["$freightDetails.freightAmount", 0] },
+            commissionAmount: { $ifNull: ["$commissionDetails.commissionAmount", 0] },
           },
         },
         {
@@ -1019,7 +1004,7 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
         }),
       )
         .select(
-          '_id subtripNo customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId',
+          '_id subtripNo customerId loadingPoint unloadingPoint startDate endDate loadingWeight freightDetails commissionDetails vehicleId driverId',
         )
         .populate('customerId', 'customerName')
         .populate({
@@ -1055,7 +1040,7 @@ const getTransporterPaymentSummary = asyncHandler(async (req, res) => {
           startDate: st.startDate,
           endDate: st.endDate,
           loadingWeight: st.loadingWeight,
-          rate: st.rate,
+          rate: st.freightDetails?.rate,
           transporter: st.vehicleId?.transporter?.transportName || null,
           vehicleNo: st.vehicleId?.vehicleNo || null,
           driver: st.driverId?.driverName || null,
@@ -1195,12 +1180,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
           $group: {
             _id: null,
             total: {
-              $sum: {
-                $multiply: [
-                  { $ifNull: ["$loadingWeight", 0] },
-                  { $ifNull: ["$rate", 0] },
-                ],
-              },
+              $sum: { $ifNull: ["$freightDetails.freightAmount", 0] }
             },
           },
         },
@@ -1237,7 +1217,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
         subtripStatus: SUBTRIP_STATUS.RECEIVED,
       })
         .select(
-          "_id subtripNo customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId"
+          "_id subtripNo customerId loadingPoint unloadingPoint startDate endDate loadingWeight freightDetails vehicleId driverId"
         )
         .populate("customerId", "customerName")
         .populate({ path: "vehicleId", select: "vehicleNo isOwn" })
@@ -1277,7 +1257,7 @@ const getInvoiceAmountSummary = asyncHandler(async (req, res) => {
       receivedDate: st.endDate,
       loadingPoint: st.loadingPoint,
       loadingWeight: st.loadingWeight,
-      rate: st.rate,
+      rate: st.freightDetails?.rate,
       unloadingPoint: st.unloadingPoint,
       unloadingDate: st.endDate,
       vehicleNo: st.vehicleId?.vehicleNo || null,
@@ -1637,12 +1617,7 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
           subtripCount: { $sum: 1 },
           totalLoadingWeight: { $sum: { $ifNull: ["$loadingWeight", 0] } },
           totalCommission: {
-            $sum: {
-              $multiply: [
-                { $ifNull: ["$loadingWeight", 0] },
-                { $ifNull: ["$commissionRate", 0] },
-              ],
-            },
+            $sum: { $ifNull: ["$commissionDetails.commissionAmount", 0] }
           },
         },
       },

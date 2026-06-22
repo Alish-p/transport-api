@@ -209,15 +209,15 @@ export const buildSubtripQuery = async (req, queryParams) => {
 
   // Commission Rate filter
   if (commissionRateMin !== undefined || commissionRateMax !== undefined) {
-    query.commissionRate = {};
+    query['commissionDetails.commissionRate'] = {};
     if (commissionRateMin !== undefined && commissionRateMin !== '') {
-      query.commissionRate.$gte = Number(commissionRateMin);
+      query['commissionDetails.commissionRate'].$gte = Number(commissionRateMin);
     }
     if (commissionRateMax !== undefined && commissionRateMax !== '') {
-      query.commissionRate.$lte = Number(commissionRateMax);
+      query['commissionDetails.commissionRate'].$lte = Number(commissionRateMax);
     }
-    if (Object.keys(query.commissionRate).length === 0) {
-      delete query.commissionRate;
+    if (Object.keys(query['commissionDetails.commissionRate']).length === 0) {
+      delete query['commissionDetails.commissionRate'];
     }
   }
 
@@ -926,9 +926,9 @@ export const buildExportSubtripsPipeline = (query) => {
         unloadingWeight: 1,
         shortageWeight: 1,
         shortageAmount: 1,
-        rate: 1,
-        freightAmount: 1,
-        commissionRate: 1,
+        rate: '$freightDetails.rate',
+        freightAmount: '$freightDetails.freightAmount',
+        commissionRate: '$commissionDetails.commissionRate',
         subtripStatus: 1,
         transporterName: '$transporter.transportName',
         // Calculate Total Expenses
@@ -938,13 +938,7 @@ export const buildExportSubtripsPipeline = (query) => {
     {
       $addFields: {
         // Calculate Freight
-        calculatedFreight: {
-          $cond: {
-            if: { $ne: [{ $type: '$freightAmount' }, 'missing'] },
-            then: '$freightAmount',
-            else: { $multiply: ['$rate', '$loadingWeight'] },
-          },
-        },
+        calculatedFreight: '$freightAmount',
       },
     },
     {

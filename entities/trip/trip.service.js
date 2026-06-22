@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import Trip from './trip.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
@@ -25,11 +24,7 @@ export const recalculateTripFinancials = async (tripId, tenant) => {
     let totalDieselLtr = 0;
 
     subtrips.forEach((st) => {
-        if (typeof st.freightAmount === "number") {
-            totalIncome += st.freightAmount;
-        } else if (st.rate && st.loadingWeight) {
-            totalIncome += st.rate * st.loadingWeight;
-        }
+        totalIncome += st.freightDetails?.freightAmount || 0;
     });
 
     expenses.forEach(exp => {
