@@ -1,13 +1,14 @@
+/* eslint-disable perfectionist/sort-imports */
 import asyncHandler from 'express-async-handler';
+
+import Customer from '../customer/customer.model.js';
+import EwayBill from './ewaybill.model.js';
+import Subtrip from '../subtrip/subtrip.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import {
-  getMastersIndiaEwayBill,
-  getMastersIndiaEwayBillsForTransporterByState,
+  getWhitebooksEwayBillsForTransporter,
+  getWhitebooksEwayBill,
 } from './ewaybill.util.js';
-import EwayBill from './ewaybill.model.js';
-import { STATE_CODE_MAP, STATE_NAME_TO_CODE } from './ewaybill.constants.js';
-import Customer from '../customer/customer.model.js';
-import Subtrip from '../subtrip/subtrip.model.js';
 
 const getEwayBillByNumber = asyncHandler(async (req, res) => {
   const { number } = req.params; // eway bill number
@@ -23,31 +24,58 @@ const getEwayBillByNumber = asyncHandler(async (req, res) => {
   }
 
   const gstin = tenant?.legalInfo?.gstNumber;
-  const payload = await getMastersIndiaEwayBill(gstin, number);
 
-  if (!payload) {
+  const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
+  const cleanIp = String(rawIp).split(',')[0].trim();
+
+  console.log('Fetching Single E-Way Bill for Tenant:', tenant._id, 'GSTIN:', gstin, 'EWB No:', number, 'IP:', cleanIp);
+  const payload = await getWhitebooksEwayBill(gstin, number, cleanIp);
+  console.log('Whitebooks single payload retrieved:', JSON.stringify(payload));
+
+  if (!payload || !payload.data) {
     return res.status(404).json({ message: 'E-Way Bill not found' });
   }
 
-  // Persist successful fetch into flexible EwayBill collection
-  const resolvedNumber =
-    payload?.EwbNo ||
-    payload?.ewbNo ||
-    payload?.EWBNo ||
-    payload?.ewayBillNo ||
-    payload?.eway_bill_number ||
-    number;
+  const { data } = payload;
 
+  // Normalize details for frontend prefill compatibility
+  const normalizedMessage = {
+    ...data,
+    eway_bill_number: String(data.ewbNo || number),
+    eway_bill_date: data.ewayBillDate || '',
+    eway_bill_valid_date: data.validUpto || '',
+    document_number: data.docNo || '',
+    address1_of_consignor: data.fromAddr1 || '',
+    place_of_consignor: data.fromPlace || '',
+    place_of_consignee: data.toPlace || '',
+    legal_name_of_consignee: data.toTrdName || '',
+    gstin_of_consignee: data.toGstin || '',
+    gstin_of_consignor: data.fromGstin || '',
+    legal_name_of_consignor: data.fromTrdName || '',
+    legal_name_of_supply: data.fromTrdName || '',
+    userGstin: data.userGstin || data.fromGstin || '',
+    itemList: (data.itemList || []).map((item) => ({
+      ...item,
+      product_description: item.productDesc || '',
+      taxable_amount: item.taxableAmount || 0,
+    })),
+    VehiclListDetails: (data.VehiclListDetails || []).map((v) => ({
+      ...v,
+      vehicle_number: v.vehicleNo || '',
+    })),
+  };
+
+  // Persist successful fetch into EwayBill collection
   try {
     await EwayBill.findOneAndUpdate(
-      { tenant: req.tenant, ewayBillNo: String(resolvedNumber) },
+      { tenant: req.tenant, ewayBillNo: String(normalizedMessage.eway_bill_number) },
       {
         $set: {
-          ewayBillNo: String(resolvedNumber),
+          ewayBillNo: String(normalizedMessage.eway_bill_number),
           gstin,
-          source: 'MastersIndia',
+          source: 'Whitebooks',
           status: 'SUCCESS',
-          payload,
+          payload: normalizedMessage,
           fetchedAt: new Date(),
           tenant: req.tenant,
         },
@@ -55,21 +83,24 @@ const getEwayBillByNumber = asyncHandler(async (req, res) => {
       { new: true, upsert: true },
     );
   } catch (err) {
-    // Do not block response on persistence errors
     console.error('Failed to persist EwayBill', err);
   }
 
-  // Return the provider payload
-  res.status(200).json(payload);
+  res.status(200).json({
+    ...normalizedMessage,
+    results: {
+      message: normalizedMessage,
+    },
+  });
 });
 
 export { getEwayBillByNumber };
 
-// GET list of eway bills for transporter filtered by state and generated date
-const getEwayBillsForTransporterByState = asyncHandler(async (req, res) => {
-  const { generated_date, state_code } = req.query;
+// GET list of eway bills for transporter filtered by generated date
+const getEwayBillsForTransporter = asyncHandler(async (req, res) => {
+  const { generated_date: generatedDate } = req.query;
 
-  if (!generated_date) {
+  if (!generatedDate) {
     return res.status(400).json({ message: 'generated_date is required (DD/MM/YYYY)' });
   }
 
@@ -85,45 +116,35 @@ const getEwayBillsForTransporterByState = asyncHandler(async (req, res) => {
 
   const gstin = tenant?.legalInfo?.gstNumber;
 
-  // Resolve state code: prefer query param, else tenant state
-  let resolvedStateCode = null;
-  if (state_code) {
-    // Accept either "29" or 29, ensure zero-padded string
-    const sc = String(state_code).padStart(2, '0');
-    if (!STATE_CODE_MAP[sc]) {
-      return res.status(400).json({ message: `Invalid state_code: ${state_code}` });
-    }
-    resolvedStateCode = sc;
-  } else {
-    const stateName = tenant?.legalInfo?.registeredState || tenant?.address?.state;
-    const normalized = (stateName || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-    const sc = STATE_NAME_TO_CODE[normalized] || null;
-    if (!sc) {
-      return res.status(400).json({
-        message:
-          'state_code not provided and could not derive from tenant state. Please supply state_code query param.',
-      });
-    }
-    resolvedStateCode = sc;
-  }
+  const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
+  const cleanIp = String(rawIp).split(',')[0].trim();
 
-  const payload = await getMastersIndiaEwayBillsForTransporterByState(
+  console.log('Fetching E-Way Bills for Tenant:', tenant._id, 'GSTIN:', gstin, 'Date:', generatedDate, 'IP:', cleanIp);
+  const payload = await getWhitebooksEwayBillsForTransporter(
     gstin,
-    generated_date,
-    resolvedStateCode,
+    generatedDate,
+    cleanIp,
   );
+  console.log('Whitebooks payload retrieved:', JSON.stringify(payload));
+
+  // Extract raw list from Whitebooks data
+  const rawList = payload?.data || [];
+  console.log('rawList length extracted:', rawList.length);
 
   // Normalize the provider response to a list we can enrich
-  const list = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.results?.message)
-    ? payload.results.message
-    : [];
+  const list = rawList.map((it) => ({
+    ...it,
+    eway_bill_number: String(it.ewbNo || ''),
+    eway_bill_date: it.ewbDate || '',
+    document_number: it.docNo || '',
+    place_of_delivery: it.delPlace || '',
+    gstin_of_generator: it.genGstin || '',
+  }));
 
   // Collect lookups
   const gstins = [...new Set(
     list
-      .map((it) => (it?.gstin_of_generator ? String(it.gstin_of_generator) : null))
+      .map((it) => (it.gstin_of_generator ? String(it.gstin_of_generator) : null))
       .filter(Boolean)
   )];
   const ewbNos = [...new Set(list.map((it) => String(it.eway_bill_number)).filter(Boolean))];
@@ -164,7 +185,7 @@ const getEwayBillsForTransporterByState = asyncHandler(async (req, res) => {
   );
 
   const enriched = list.map((it) => {
-    const genGstin = normalize(it?.gstin_of_generator || '');
+    const genGstin = normalize(it.gstin_of_generator || '');
     const customer = customerByGST.get(genGstin) || null;
     const ewbKey = String(it.eway_bill_number);
     const st = subtripByEwb.get(ewbKey) || null;
@@ -176,15 +197,13 @@ const getEwayBillsForTransporterByState = asyncHandler(async (req, res) => {
     };
   });
 
-  if (Array.isArray(payload)) {
-    return res.status(200).json(enriched);
-  }
-
-  const response = { ...payload };
-  if (response?.results && Array.isArray(response.results.message)) {
-    response.results = { ...response.results, message: enriched };
-  }
-  return res.status(200).json(response);
+  return res.status(200).json({
+    results: {
+      message: enriched,
+    },
+    data: enriched,
+  });
 });
 
-export { getEwayBillsForTransporterByState };
+export { getEwayBillsForTransporter };
+

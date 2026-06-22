@@ -145,3 +145,101 @@ export async function getMastersIndiaEwayBillsForTransporterByState(
   const message = data?.results?.message ?? null;
   return message || data;
 }
+
+export async function getWhitebooksEwayBillsForTransporter(gstin, generatedDate, ipAddress) {
+  const clientId = process.env.WHITEBOOKS_CLIENT_ID;
+  const clientSecret = process.env.WHITEBOOKS_CLIENT_SECRET;
+  const email = process.env.WHITEBOOKS_EMAIL;
+
+  if (!clientId || !clientSecret || !email) {
+    throw new Error('Whitebooks credentials or email not configured in environment');
+  }
+  if (!gstin) {
+    throw new Error('GSTIN missing in tenant');
+  }
+  if (!generatedDate) {
+    throw new Error('generatedDate is required in DD/MM/YYYY');
+  }
+
+  const url = `https://api.whitebooks.in/ewaybillapi/v1.03/ewayapi/getewaybillsfortransporter?email=${encodeURIComponent(
+    email
+  )}&date=${encodeURIComponent(generatedDate)}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'client_id': clientId,
+      'client_secret': clientSecret,
+      'gstin': gstin,
+      'ip_address': ipAddress || '127.0.0.1',
+    },
+  });
+
+  const bodyText = await res.text();
+  console.log('Whitebooks API Raw Response:', bodyText);
+  let data;
+  try {
+    data = JSON.parse(bodyText);
+  } catch (_) {
+    data = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      `Whitebooks EWB list fetch failed ${res.status}: ${bodyText || res.statusText}`
+    );
+  }
+
+  return data;
+}
+
+export async function getWhitebooksEwayBill(gstin, ewayBillNumber, ipAddress) {
+  const clientId = process.env.WHITEBOOKS_CLIENT_ID;
+  const clientSecret = process.env.WHITEBOOKS_CLIENT_SECRET;
+  const email = process.env.WHITEBOOKS_EMAIL;
+
+  if (!clientId || !clientSecret || !email) {
+    throw new Error('Whitebooks credentials or email not configured in environment');
+  }
+  if (!gstin) {
+    throw new Error('GSTIN missing in tenant');
+  }
+  if (!ewayBillNumber) {
+    throw new Error('eway bill number is required');
+  }
+
+  const url = `https://api.whitebooks.in/ewaybillapi/v1.03/ewayapi/getewaybill?email=${encodeURIComponent(
+    email
+  )}&ewbNo=${encodeURIComponent(ewayBillNumber)}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'client_id': clientId,
+      'client_secret': clientSecret,
+      'gstin': gstin,
+      'ip_address': ipAddress || '127.0.0.1',
+      'Accept': 'application/json',
+    },
+  });
+
+  const bodyText = await res.text();
+  console.log('Whitebooks Single EWB API Raw Response:', bodyText);
+
+  let data;
+  try {
+    data = JSON.parse(bodyText);
+  } catch (_) {
+    data = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      `Whitebooks EWB fetch failed ${res.status}: ${bodyText || res.statusText}`
+    );
+  }
+
+  return data;
+}
+
+
