@@ -224,7 +224,6 @@ export async function getWhitebooksEwayBill(gstin, ewayBillNumber, ipAddress) {
   });
 
   const bodyText = await res.text();
-  console.log('Whitebooks Single EWB API Raw Response:', bodyText);
 
   let data;
   try {
