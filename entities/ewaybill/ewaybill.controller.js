@@ -28,9 +28,7 @@ const getEwayBillByNumber = asyncHandler(async (req, res) => {
   const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
   const cleanIp = String(rawIp).split(',')[0].trim();
 
-  console.log('Fetching Single E-Way Bill for Tenant:', tenant._id, 'GSTIN:', gstin, 'EWB No:', number, 'IP:', cleanIp);
   const payload = await getWhitebooksEwayBill(gstin, number, cleanIp);
-  console.log('Whitebooks single payload retrieved:', JSON.stringify(payload));
 
   if (!payload || !payload.data) {
     return res.status(404).json({ message: 'E-Way Bill not found' });
@@ -119,17 +117,14 @@ const getEwayBillsForTransporter = asyncHandler(async (req, res) => {
   const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
   const cleanIp = String(rawIp).split(',')[0].trim();
 
-  console.log('Fetching E-Way Bills for Tenant:', tenant._id, 'GSTIN:', gstin, 'Date:', generatedDate, 'IP:', cleanIp);
   const payload = await getWhitebooksEwayBillsForTransporter(
     gstin,
     generatedDate,
     cleanIp,
   );
-  console.log('Whitebooks payload retrieved:', JSON.stringify(payload));
 
   // Extract raw list from Whitebooks data
   const rawList = payload?.data || [];
-  console.log('rawList length extracted:', rawList.length);
 
   // Normalize the provider response to a list we can enrich
   const list = rawList.map((it) => ({

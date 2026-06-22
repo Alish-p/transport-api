@@ -176,7 +176,6 @@ export async function getWhitebooksEwayBillsForTransporter(gstin, generatedDate,
   });
 
   const bodyText = await res.text();
-  console.log('Whitebooks API Raw Response:', bodyText);
   let data;
   try {
     data = JSON.parse(bodyText);
