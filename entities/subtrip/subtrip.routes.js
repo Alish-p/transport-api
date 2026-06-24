@@ -1,59 +1,64 @@
 import { Router } from 'express';
+
+import validate from '../../middlewares/validate.js';
 import pagination from '../../middlewares/pagination.js';
+import { jobCreateSchema } from './subtrip.validation.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
+import { validateFieldConfig } from '../fieldConfig/fieldConfig.validation.js';
 import {
-  fetchSubtrips,
-  fetchSubtrip,
-  updateSubtrip,
-  deleteSubtrip,
   receiveLR,
   resolveLR,
-  fetchSubtripsByStatuses,
-  fetchSubtripsByTransporter,
-  fetchPaginatedSubtrips,
+  createJob,
+  fetchSubtrip,
+  fetchSubtrips,
+  updateSubtrip,
+  deleteSubtrip,
   exportSubtrips,
   getDocumentUploadUrl,
+  fetchPaginatedSubtrips,
+  fetchSubtripsByStatuses,
+  fetchSubtripsByTransporter,
 } from './subtrip.controller.js';
-import { createJob } from '../job/job.controller.js';
-import validate from '../../middlewares/validate.js';
-import { jobCreateSchema, } from '../job/job.validation.js';
 
 const router = Router();
 
-// new route for job creation
-router.post('/jobs', authenticate, checkPermission('subtrip', 'create'), validate(jobCreateSchema), createJob);
-
-router.get("/export", authenticate, exportSubtrips);
-router.get("/upload-url", authenticate, getDocumentUploadUrl);
-router.get("/pagination", authenticate, pagination, fetchPaginatedSubtrips);
-router.get("/status", authenticate, pagination, fetchSubtripsByStatuses);
-router.get("/", authenticate, fetchSubtrips);
-router.post("/by-transporter", authenticate, fetchSubtripsByTransporter);
-router.get("/:id", authenticate, fetchSubtrip);
-
-router.put(
-  "/:id",
+// --- Job & Subtrip Creation ---
+router.post(
+  '/jobs',
   authenticate,
-  checkPermission("subtrip", "update"),
-  updateSubtrip
-);
-router.delete(
-  "/:id",
-  authenticate,
-  checkPermission("subtrip", "delete"),
-  deleteSubtrip
+  checkPermission('subtrip', 'create'),
+  validate(jobCreateSchema),
+  validateFieldConfig('subtrip'),
+  createJob
 );
 
+// --- Utility Routes ---
+router.get('/export', authenticate, exportSubtrips);
+router.get('/upload-url', authenticate, getDocumentUploadUrl);
+
+// --- Read / Fetch Subtrips ---
+router.get('/pagination', authenticate, pagination, fetchPaginatedSubtrips);
+router.get('/status', authenticate, pagination, fetchSubtripsByStatuses);
+router.get('/:id', authenticate, fetchSubtrip);
+router.get('/', authenticate, fetchSubtrips);
+router.post('/by-transporter', authenticate, fetchSubtripsByTransporter);
+
+// --- Subtrip CRUD (By ID) ---
+router.put('/:id', authenticate, checkPermission('subtrip', 'update'), updateSubtrip);
+router.delete('/:id', authenticate, checkPermission('subtrip', 'delete'), deleteSubtrip);
+
+// --- Subtrip Actions ---
 router.put(
-  "/:id/receive",
+  '/:id/receive',
   authenticate,
-  checkPermission("subtrip", "update"),
+  checkPermission('subtrip', 'update'),
+  // validateFieldConfig('subtrip'),
   receiveLR
 );
 router.put(
-  "/:id/resolve",
+  '/:id/resolve',
   authenticate,
-  checkPermission("subtrip", "update"),
+  checkPermission('subtrip', 'update'),
   resolveLR
 );
 

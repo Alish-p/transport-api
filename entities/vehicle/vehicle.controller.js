@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import Vehicle from './vehicle.model.js';
 import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
@@ -11,8 +10,6 @@ import Expense from '../expense/expense.model.js';
 import Tyre from '../tyre/tyre.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { deleteObjectFromS3 } from '../../services/s3.service.js';
-import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
-import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import { TYRE_LAYOUTS } from '../../constants/tyreLayouts.js';
 import { getAllFleetxVehicleData } from '../../helpers/fleetx.js';
 
@@ -440,7 +437,7 @@ const getVehicleMonthlyAnalytics = asyncHandler(async (req, res) => {
     subtripStatus: 'billed',
     startDate: { $gte: startOfYear, $lte: endOfYear },
   })
-    .select('startDate createdAt freightAmount rate loadingWeight expenses')
+    .select('startDate createdAt freightDetails expenses')
     .populate('expenses', 'amount');
 
   const jobs = Array(12).fill(0);
@@ -457,12 +454,7 @@ const getVehicleMonthlyAnalytics = asyncHandler(async (req, res) => {
     const monthIdx = stDate.getMonth();
     jobs[monthIdx] += 1;
 
-    let amount = 0;
-    if (typeof st.freightAmount === 'number') {
-      amount = st.freightAmount;
-    } else {
-      amount = (st.rate || 0) * (st.loadingWeight || 0);
-    }
+    const amount = st.freightDetails?.freightAmount || 0;
     income[monthIdx] += amount;
 
     const subtripExpense = (st.expenses || []).reduce((sum, e) => sum + (e.amount || 0), 0);

@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import Tenant from './tenant.model.js';
-import { buildPublicFileUrl, createPresignedPutUrl, deleteObjectFromS3 } from '../../services/s3.service.js';
+import { buildPublicFileUrl, deleteObjectFromS3, generateUploadUrl, buildDatedFilename } from '../../services/s3.service.js';
 
 function sanitizeSegment(input, toLower = true) {
   const str = String(input || '')
@@ -61,20 +61,16 @@ const getLogoUploadUrl = asyncHandler(async (req, res) => {
   if (!tenantDoc) return res.status(404).json({ message: 'Tenant not found' });
 
   const tenantSegment = sanitizeSegment(tenantDoc.slug || tenantDoc.name || 'tenant', true);
-
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const rand4 = Math.random().toString(36).slice(2, 6);
-  const filename = `logo_${yyyy}-${mm}-${dd}_${rand4}.${safeExt}`;
-
-  // Store under top-level logos/ for CloudFront origin path mapping
-  const key = `logos/${tenantSegment}/${filename}`;
+  const filename = buildDatedFilename('logo', safeExt);
 
   try {
-    const uploadUrl = await createPresignedPutUrl({ key, contentType, expiresIn: 900 });
-    return res.status(200).json({ key, uploadUrl });
+    const result = await generateUploadUrl({
+      tenantSegment,
+      contentType,
+      pattern: 'tenant-logo',
+      filename
+    });
+    return res.status(200).json({ key: result.key, uploadUrl: result.uploadUrl });
   } catch (err) {
     return res.status(500).json({ message: 'Failed to create upload URL', error: err.message });
   }

@@ -1,3 +1,11 @@
+export const FREIGHT_MODELS = {
+  PER_TON: 'per_ton',
+  PER_KM: 'per_km',
+  FIXED: 'fixed',
+  PER_HOUR: 'per_hour',
+  HYBRID: 'hybrid',
+};
+
 export const SUBTRIP_STATUS = {
   IN_QUEUE: 'in-queue',
   LOADED: 'loaded',

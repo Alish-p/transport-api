@@ -3,18 +3,32 @@ import { CONFIG } from '../../constants/CONFIG.js';
 const calculateTransporterPayment = (subtrip) => {
   if (!subtrip) return null;
 
-  const rate = subtrip.rate || 0;
-  const commissionRate = subtrip.commissionRate || 0;
-  const effectiveFreightRate = rate - commissionRate;
-  const loadingWeight = subtrip.loadingWeight || 0;
+  const freightDetails = subtrip.freightDetails || {};
+  const commissionDetails = subtrip.commissionDetails || {};
 
-  // 🚛 Total Freight
-  const totalFreightAmount = effectiveFreightRate * loadingWeight;
+  const grossFreightAmount = freightDetails.freightAmount || 0;
+
+  const commissionAmount = commissionDetails.commissionAmount || 0;
+
+  // 🚛 Total Freight (gross freight - transporter commission)
+  const totalFreightAmount = grossFreightAmount - commissionAmount;
+
+  let effectiveFreightRate = 0;
+  if (freightDetails.freightModel === 'fixed') {
+    effectiveFreightRate = (freightDetails.freightAmount || 0) - commissionAmount;
+  } else {
+    effectiveFreightRate = freightDetails.rate
+      ? freightDetails.rate - (commissionDetails.commissionRate || 0)
+      : 0;
+  }
 
   // ⛽ Total Deductions (advances for market vehicles, expenses for own)
-  const deductionSource = Array.isArray(subtrip.advances) && subtrip.advances.length > 0
-    ? subtrip.advances
-    : (Array.isArray(subtrip.expenses) ? subtrip.expenses : []);
+  let deductionSource = [];
+  if (Array.isArray(subtrip.advances) && subtrip.advances.length > 0) {
+    deductionSource = subtrip.advances;
+  } else if (Array.isArray(subtrip.expenses)) {
+    deductionSource = subtrip.expenses;
+  }
   const totalExpense = deductionSource.reduce((acc, item) => acc + (item.amount || 0), 0);
 
   // 📉 Shortage Deduction

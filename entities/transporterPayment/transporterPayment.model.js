@@ -48,8 +48,16 @@ const subtripPaymentSnapshotSchema = new Schema(
     invoiceNo: String,
 
     // Financial info
-    rate: Number,
-    commissionRate: Number,
+    freightDetails: {
+      freightModel: String,
+      rate: Number,
+      freightAmount: Number,
+      baseKm: Number,
+    },
+    commissionDetails: {
+      commissionRate: Number,
+      commissionAmount: Number,
+    },
     effectiveFreightRate: Number,
     loadingWeight: Number,
     freightAmount: Number,

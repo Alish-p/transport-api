@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
+
 import { INVOICE_STATUS } from './invoice.constants.js';
 
 const taxBreakupSchema = new Schema(
@@ -29,6 +30,12 @@ const subtripSnapshotSchema = new Schema(
     vehicleNo: String,
     diNumber: String,
     rate: Number,
+    freightDetails: {
+      freightModel: String,
+      rate: Number,
+      freightAmount: Number,
+      baseKm: Number,
+    },
     loadingWeight: Number,
     materialType: String,
     shortageWeight: Number,
@@ -53,7 +60,7 @@ const paymentSchema = new Schema(
 
 const invoiceSchema = new Schema(
   {
-    invoiceNo: { type: String, unique: true, index: true }, // e.g., INV-101
+    invoiceNo: { type: String, index: true }, // e.g., INV-101
     customerId: {
       type: Schema.Types.ObjectId,
       ref: "Customer",
@@ -114,6 +121,8 @@ const invoiceSchema = new Schema(
     timestamps: true, // adds createdAt and updatedAt
   }
 );
+
+invoiceSchema.index({ tenant: 1, invoiceNo: 1 }, { unique: true });
 
 invoiceSchema.pre("save", function (next) {
   const totalPaid = (this.payments || []).reduce(

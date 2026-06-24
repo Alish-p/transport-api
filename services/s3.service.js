@@ -55,3 +55,54 @@ export async function deleteObjectFromS3(key) {
   const command = new DeleteObjectCommand({ Bucket: bucket, Key: key });
   await client.send(command);
 }
+
+export function buildDatedFilename(prefix, extension) {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const rand4 = Math.random().toString(36).slice(2, 6);
+  return `${prefix}_${yyyy}-${mm}-${dd}_${rand4}.${extension}`;
+}
+
+export async function generateUploadUrl({
+  tenantId,
+  tenantSegment,
+  contentType,
+  fileExtension,
+  pattern = 'standard',
+  entityType,
+  subFolder,
+  fileNamePrefix,
+  id,
+  vehicleSegment,
+  docTypeSegment,
+  filename,
+  expiresIn = 900
+}) {
+  let key;
+  const timestamp = Date.now();
+  const rand = Math.floor(Math.random() * 10000);
+
+  if (pattern === 'standard') {
+    const idPart = id ? `${id}_` : '';
+    key = `logos/${entityType}/${tenantId}/${subFolder}/${fileNamePrefix}_${idPart}${timestamp}_${rand}.${fileExtension}`;
+  } else if (pattern === 'tenant-logo') {
+    key = `logos/${tenantSegment}/${filename}`;
+  } else if (pattern === 'vehicle-doc') {
+    key = `${tenantSegment}/vehicles/${vehicleSegment}/${docTypeSegment}/${filename}`;
+  } else {
+    throw new Error(`Invalid pattern: ${pattern}`);
+  }
+
+  const uploadUrl = await createPresignedPutUrl({ key, contentType, expiresIn });
+
+  const base = process.env.AWS_PUBLIC_BASE_URL;
+  const publicKey = key.replace(/^logos\//, '');
+  const publicUrl = base
+    ? `${base.replace(/\/$/, '')}/${publicKey}`
+    : (buildPublicFileUrl(key) || null);
+
+  return { key, uploadUrl, publicUrl };
+}
+

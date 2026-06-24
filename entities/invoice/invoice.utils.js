@@ -2,9 +2,9 @@ import { CONFIG } from '../../constants/CONFIG.js';
 
 // 🛠 Calculate totals for a single subtrip
 const calculateInvoicePerSubtrip = (subtrip) => {
-  const freightAmount = (subtrip.rate || 0) * (subtrip.loadingWeight || 0);
+  const freightAmount = subtrip.freightDetails?.freightAmount || 0;
   const shortageAmount = subtrip.shortageAmount || 0;
-  const totalAmount = freightAmount; // shortage we are not deduting just showing it separately
+  const totalAmount = freightAmount; // shortage we are not deducting just showing it separately
 
   return {
     freightAmount,

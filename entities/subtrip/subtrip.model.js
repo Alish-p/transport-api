@@ -1,6 +1,6 @@
 import { Schema, model } from 'mongoose';
 import CounterModel from '../../model/Counter.js';
-import { DRIVER_ADVANCE_GIVEN_BY_OPTIONS } from './subtrip.constants.js';
+import { DRIVER_ADVANCE_GIVEN_BY_OPTIONS, FREIGHT_MODELS } from './subtrip.constants.js';
 
 // subtrip Schema
 const subtripSchema = new Schema({
@@ -11,8 +11,7 @@ const subtripSchema = new Schema({
   isEmpty: { type: Boolean, default: false },
 
   // References to related entities
-  // Trip reference will only be present for own vehicles
-  tripId: { type: Schema.Types.ObjectId, ref: "Trip" },
+  tripId: { type: Schema.Types.ObjectId, ref: "Trip" },   // Trip reference will only be present for own vehicles
   driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
@@ -49,8 +48,18 @@ const subtripSchema = new Schema({
   shortageAmount: { type: Number },
 
   // Financial details
-  rate: { type: Number },
-  commissionRate: { type: Number },
+  freightDetails: {
+    freightModel: { type: String, enum: Object.values(FREIGHT_MODELS), default: FREIGHT_MODELS.PER_TON },
+    rate: { type: Number },
+    freightAmount: { type: Number },
+    baseKm: { type: Number },
+    startKm: { type: Number },
+    endKm: { type: Number },
+  },
+  commissionDetails: {
+    commissionRate: { type: Number },
+    commissionAmount: { type: Number },
+  },
   tds: { type: Number },
 
   // Fuel management (Fuel Intent)
@@ -118,25 +127,6 @@ subtripSchema.pre("validate", async function (next) {
   } catch (error) {
     return next(error);
   }
-});
-
-// for locking once subtrip is closed
-subtripSchema.pre("save", function (next) {
-  // If no modifications, proceed
-
-  if (!this.isModified()) return next();
-
-  // Allow updates only for transitioning to "closed"
-  if (this.isModified("subtripStatus") && this.subtripStatus === "closed") {
-    return next(); // Transition to "closed" is allowed
-  }
-
-  // If the subtrip is already closed, block further modifications
-  if (this.subtripStatus === "closed") {
-    return next(new Error("Closed subtrips cannot be modified."));
-  }
-
-  next(); // Allow other modifications
 });
 
 export default model("Subtrip", subtripSchema);

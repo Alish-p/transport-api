@@ -275,12 +275,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
           $group: {
             _id: null,
             total: {
-              $sum: {
-                $multiply: [
-                  { $ifNull: ["$loadingWeight", 0] },
-                  { $ifNull: ["$rate", 0] },
-                ],
-              },
+              $sum: { $ifNull: ["$freightDetails.freightAmount", 0] }
             },
           },
         },
@@ -320,7 +315,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
         subtripStatus: SUBTRIP_STATUS.RECEIVED,
       })
         .select(
-          "_id subtripNo customerId loadingPoint unloadingPoint startDate endDate loadingWeight rate vehicleId driverId"
+          "_id subtripNo customerId loadingPoint unloadingPoint startDate endDate loadingWeight freightDetails vehicleId driverId"
         )
         .populate("customerId", "customerName")
         .populate({ path: "vehicleId", select: "vehicleNo isOwn" })
@@ -363,7 +358,7 @@ const getCustomerInvoiceAmountSummary = asyncHandler(async (req, res) => {
       receivedDate: st.endDate,
       loadingPoint: st.loadingPoint,
       loadingWeight: st.loadingWeight,
-      rate: st.rate,
+      rate: st.freightDetails?.rate,
       unloadingPoint: st.unloadingPoint,
       unloadingDate: st.endDate,
       vehicleNo: st.vehicleId?.vehicleNo || null,
@@ -474,12 +469,7 @@ const fetchCustomer = asyncHandler(async (req, res) => {
         _id: "$materialType",
         loadingWeightMoved: { $sum: { $ifNull: ["$loadingWeight", 0] } },
         freightAmount: {
-          $sum: {
-            $multiply: [
-              { $ifNull: ["$loadingWeight", 0] },
-              { $ifNull: ["$rate", 0] },
-            ],
-          },
+          $sum: { $ifNull: ["$freightDetails.freightAmount", 0] }
         },
       },
     },

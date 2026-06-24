@@ -5,7 +5,7 @@ import VehicleDocument from './vehicleDocument.model.js';
 import { REQUIRED_DOC_TYPES } from './vehicleDocument.constants.js';
 import Tenant from '../tenant/tenant.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import { buildPublicFileUrl, createPresignedPutUrl, createPresignedGetUrl, deleteObjectFromS3 } from '../../services/s3.service.js';
+import { buildPublicFileUrl, createPresignedGetUrl, deleteObjectFromS3, generateUploadUrl, buildDatedFilename } from '../../services/s3.service.js';
 import { fetchVehicleByNumber, extractDocuments } from '../../helpers/webcorevision.js';
 
 function ensureObjectId(id) {
@@ -47,22 +47,20 @@ export const getUploadUrl = asyncHandler(async (req, res) => {
   const vehicleSegment = sanitizeSegment(vehicle.vehicleNo || String(vehicleId), false);
   const docTypeSegment = sanitizeSegment(docType, true);
 
-  // Build filename: <docType>_YYYY-MM-DD_<rand4>.<ext>
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const rand4 = Math.random().toString(36).slice(2, 6);
   const safeExt = String(extension).toLowerCase().replace(/[^a-z0-9]/g, '');
   if (!safeExt) return res.status(400).json({ message: 'Invalid extension' });
-  const filename = `${docTypeSegment}_${yyyy}-${mm}-${dd}_${rand4}.${safeExt}`;
-
-  // Final key: <tenant>/vehicles/<vehicleNo>/<docType>/<filename>
-  const key = `${tenantSegment}/vehicles/${vehicleSegment}/${docTypeSegment}/${filename}`;
+  const filename = buildDatedFilename(docTypeSegment, safeExt);
 
   try {
-    const url = await createPresignedPutUrl({ key, contentType, expiresIn: 900 });
-    return res.status(200).json({ key, uploadUrl: url });
+    const result = await generateUploadUrl({
+      tenantSegment,
+      contentType,
+      pattern: 'vehicle-doc',
+      vehicleSegment,
+      docTypeSegment,
+      filename
+    });
+    return res.status(200).json({ key: result.key, uploadUrl: result.uploadUrl });
   } catch (err) {
     return res.status(500).json({ message: 'Failed to create upload URL', error: err.message });
   }
