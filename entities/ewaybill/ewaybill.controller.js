@@ -24,6 +24,21 @@ const getEwayBillByNumber = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'E-Way Bill not integrated' });
   }
 
+  // Check if we already have a successfully cached E-way Bill in our database
+  try {
+    const existing = await EwayBill.findOne({ tenant: req.tenant, ewayBillNo: String(number) });
+    if (existing && existing.status === 'SUCCESS' && existing.payload) {
+      return res.status(200).json({
+        ...existing.payload,
+        results: {
+          message: existing.payload,
+        },
+      });
+    }
+  } catch (err) {
+    console.error('Failed to query existing EwayBill from database', err);
+  }
+
   const gstin = tenant?.legalInfo?.gstNumber;
 
   const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
@@ -119,7 +134,7 @@ const getEwayBillsForTransporter = asyncHandler(async (req, res) => {
   const cleanIp = String(rawIp).split(',')[0].trim();
 
   const isForceRefresh = force === 'true' || force === true;
-  const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes cache validity
+  const CACHE_DURATION_MS = 60 * 60 * 1000; // 60 minutes cache validity
 
   let rawList = [];
   let cacheEntry = null;
