@@ -44,7 +44,7 @@ const getEwayBillByNumber = asyncHandler(async (req, res) => {
   const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
   const cleanIp = String(rawIp).split(',')[0].trim();
 
-  const payload = await getWhitebooksEwayBill(gstin, number, cleanIp);
+  const payload = await getWhitebooksEwayBill(tenant, number, cleanIp);
 
   if (!payload || !payload.data) {
     return res.status(404).json({ message: 'E-Way Bill not found' });
@@ -128,7 +128,6 @@ const getEwayBillsForTransporter = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'E-Way Bill not integrated' });
   }
 
-  const gstin = tenant?.legalInfo?.gstNumber;
 
   const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
   const cleanIp = String(rawIp).split(',')[0].trim();
@@ -159,7 +158,7 @@ const getEwayBillsForTransporter = asyncHandler(async (req, res) => {
   if (isForceRefresh || isCacheStaleOrMissing) {
     try {
       const payload = await getWhitebooksEwayBillsForTransporter(
-        gstin,
+        tenant,
         generatedDate,
         cleanIp,
       );

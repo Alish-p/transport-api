@@ -48,6 +48,8 @@ const integrationSchema = new Schema(
     },
     ewayBill: {
       enabled: { type: Boolean, default: false },
+      username: { type: String, default: '' },
+      password: { type: String, default: '' },
     },
     accounting: {
       enabled: { type: Boolean, default: false },
