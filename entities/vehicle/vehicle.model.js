@@ -19,6 +19,7 @@ const vehicleSchema = new Schema({
   transporter: {
     type: Schema.Types.ObjectId,
     ref: "Transporter",
+    index: true,
   },
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   tyreLayoutId: { type: String },

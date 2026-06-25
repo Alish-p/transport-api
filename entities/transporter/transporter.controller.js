@@ -18,7 +18,7 @@ const createTransporter = asyncHandler(async (req, res) => {
 // Fetch Transporters with pagination and search
 const fetchTransporters = asyncHandler(async (req, res) => {
   try {
-    const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, inactiveDays, order, orderBy } = req.query;
+    const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, inactiveDays, includeLastSubtrip, order, orderBy } = req.query;
     const { limit, skip } = req.pagination;
 
     // Base match stage
@@ -64,6 +64,9 @@ const fetchTransporters = asyncHandler(async (req, res) => {
       }
     }
 
+    // Determine if we need the expensive subtrip lookup
+    const needsLastSubtrip = includeLastSubtrip !== 'false' || (inactiveDays !== undefined && inactiveDays !== null && inactiveDays !== '');
+
     // Aggregation pipeline
     const pipeline = [
       { $match: matchStage },
@@ -80,35 +83,66 @@ const fetchTransporters = asyncHandler(async (req, res) => {
           vehicleCount: { $size: "$vehicles" },
         },
       },
-      {
-        $lookup: {
-          from: "subtrips",
-          let: { vehicleIds: "$vehicles._id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $in: ["$vehicleId", "$$vehicleIds"] }
-              }
-            },
-            { $sort: { startDate: -1 } },
-            { $limit: 1 },
-            { $project: { startDate: 1 } }
-          ],
-          as: "lastSubtrip"
+    ];
+
+    if (needsLastSubtrip) {
+      pipeline.push(
+        // Unwind vehicles so we can do an index-friendly lookup per vehicle
+        { $unwind: { path: "$vehicles", preserveNullAndEmptyArrays: true } },
+        // Lookup the latest subtrip for each vehicle (uses { vehicleId: 1, startDate: -1 } index)
+        {
+          $lookup: {
+            from: "subtrips",
+            localField: "vehicles._id",
+            foreignField: "vehicleId",
+            pipeline: [
+              { $sort: { startDate: -1 } },
+              { $limit: 1 },
+              { $project: { startDate: 1 } }
+            ],
+            as: "vehicleLastSubtrip"
+          }
+        },
+        // Extract the startDate from the single-element array
+        {
+          $addFields: {
+            vehicleLastSubtripDate: { $arrayElemAt: ["$vehicleLastSubtrip.startDate", 0] }
+          }
+        },
+        // Group back by transporter _id, picking the max subtrip date across all vehicles
+        {
+          $group: {
+            _id: "$_id",
+            doc: { $first: "$$ROOT" },
+            vehicleCount: { $first: "$vehicleCount" },
+            lastSubtripDate: { $max: "$vehicleLastSubtripDate" }
+          }
+        },
+        // Restore the document shape
+        {
+          $replaceRoot: {
+            newRoot: {
+              $mergeObjects: ["$doc", { vehicleCount: "$vehicleCount", lastSubtripDate: "$lastSubtripDate" }]
+            }
+          }
+        },
+        // Clean up temporary fields
+        {
+          $project: {
+            vehicles: 0,
+            vehicleLastSubtrip: 0,
+            vehicleLastSubtripDate: 0
+          }
         }
-      },
-      {
-        $addFields: {
-          lastSubtripDate: { $arrayElemAt: ["$lastSubtrip.startDate", 0] }
-        }
-      },
-      {
+      );
+    } else {
+      // Skip the expensive subtrip lookup entirely
+      pipeline.push({
         $project: {
           vehicles: 0,
-          lastSubtrip: 0
         }
-      }
-    ];
+      });
+    }
 
     {
       const vcMatch = {};
@@ -389,32 +423,51 @@ const exportTransporters = asyncHandler(async (req, res) => {
         vehicleCount: { $size: "$vehicles" },
       },
     },
+    // Unwind vehicles so we can do an index-friendly lookup per vehicle
+    { $unwind: { path: "$vehicles", preserveNullAndEmptyArrays: true } },
+    // Lookup the latest subtrip for each vehicle (uses { vehicleId: 1, startDate: -1 } index)
     {
       $lookup: {
         from: "subtrips",
-        let: { vehicleIds: "$vehicles._id" },
+        localField: "vehicles._id",
+        foreignField: "vehicleId",
         pipeline: [
-          {
-            $match: {
-              $expr: { $in: ["$vehicleId", "$$vehicleIds"] }
-            }
-          },
           { $sort: { startDate: -1 } },
           { $limit: 1 },
           { $project: { startDate: 1 } }
         ],
-        as: "lastSubtrip"
+        as: "vehicleLastSubtrip"
       }
     },
+    // Extract the startDate from the single-element array
     {
       $addFields: {
-        lastSubtripDate: { $arrayElemAt: ["$lastSubtrip.startDate", 0] }
+        vehicleLastSubtripDate: { $arrayElemAt: ["$vehicleLastSubtrip.startDate", 0] }
       }
     },
+    // Group back by transporter _id, picking the max subtrip date across all vehicles
+    {
+      $group: {
+        _id: "$_id",
+        doc: { $first: "$$ROOT" },
+        vehicleCount: { $first: "$vehicleCount" },
+        lastSubtripDate: { $max: "$vehicleLastSubtripDate" }
+      }
+    },
+    // Restore the document shape
+    {
+      $replaceRoot: {
+        newRoot: {
+          $mergeObjects: ["$doc", { vehicleCount: "$vehicleCount", lastSubtripDate: "$lastSubtripDate" }]
+        }
+      }
+    },
+    // Clean up temporary fields
     {
       $project: {
         vehicles: 0,
-        lastSubtrip: 0
+        vehicleLastSubtrip: 0,
+        vehicleLastSubtripDate: 0
       }
     }
   ];

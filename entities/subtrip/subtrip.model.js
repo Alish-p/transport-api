@@ -102,6 +102,7 @@ const subtripSchema = new Schema({
 
 // Unique trip number per tenant
 subtripSchema.index({ tenant: 1, subtripNo: 1 }, { unique: true });
+subtripSchema.index({ vehicleId: 1, startDate: -1 });
 
 // for creating incremental id
 subtripSchema.pre("validate", async function (next) {
