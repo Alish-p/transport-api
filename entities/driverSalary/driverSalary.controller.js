@@ -516,39 +516,87 @@ const updateDriverSalary = asyncHandler(async (req, res) => {
 
 // 🗑️ Delete (Mark as Cancelled)
 const deleteDriverSalary = asyncHandler(async (req, res) => {
-  const doc = await DriverSalary.findOne({
-    _id: req.params.id,
-    tenant: req.tenant,
-  });
-  if (!doc) {
-    return res.status(404).json({ message: "Driver Salary not found." });
-  }
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  // unlink subtrips
-  await Subtrip.updateMany(
-    { _id: { $in: doc.associatedSubtrips }, tenant: req.tenant },
-    { $unset: { driverSalaryId: "" } }
-  );
+  try {
+    const doc = await DriverSalary.findOne({
+      _id: req.params.id,
+      tenant: req.tenant,
+    }).session(session);
 
-  doc.status = "cancelled";
-  await doc.save();
+    if (!doc) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: "Driver Salary not found." });
+    }
 
-  // Record events for each unlinked subtrip
-  if (doc.associatedSubtrips && doc.associatedSubtrips.length > 0) {
-    await Promise.all(
-      doc.associatedSubtrips.map((stId) =>
-        recordSubtripEvent(
-          stId,
-          SUBTRIP_EVENT_TYPES.DRIVER_SALARY_CANCELLED,
-          { driverId: doc.driverId, paymentId: doc.paymentId, salaryId: doc._id },
-          req.user,
-          req.tenant
-        )
-      )
+    if (doc.status === 'cancelled') {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Driver Salary is already cancelled." });
+    }
+
+    // unlink subtrips
+    await Subtrip.updateMany(
+      { _id: { $in: doc.associatedSubtrips }, tenant: req.tenant },
+      { $unset: { driverSalaryId: "" } },
+      { session }
     );
-  }
 
-  res.status(200).json({ message: "Driver Salary marked as cancelled successfully." });
+    // Revert loan deductions within transaction
+    if (doc.loanDeductions && doc.loanDeductions.length > 0) {
+      for (const deduction of doc.loanDeductions) {
+        const loan = await Loan.findOne({
+          _id: deduction.loanId,
+          tenant: req.tenant,
+        }).session(session);
+
+        if (loan) {
+          const sourceMatch = `Driver Salary ${doc.paymentId}`;
+          const paymentIndex = loan.payments.findIndex(
+            (p) => p.source === sourceMatch && p.amount === deduction.amount
+          );
+
+          if (paymentIndex > -1) {
+            loan.payments.splice(paymentIndex, 1);
+            loan.outstandingBalance = Math.round((loan.outstandingBalance + deduction.amount) * 100) / 100;
+            loan.status = 'active';
+            await loan.save({ session });
+          }
+        }
+      }
+    }
+
+    doc.status = "cancelled";
+    await doc.save({ session });
+
+    // Record events for each unlinked subtrip
+    if (doc.associatedSubtrips && doc.associatedSubtrips.length > 0) {
+      await Promise.all(
+        doc.associatedSubtrips.map((stId) =>
+          recordSubtripEvent(
+            stId,
+            SUBTRIP_EVENT_TYPES.DRIVER_SALARY_CANCELLED,
+            { driverId: doc.driverId, paymentId: doc.paymentId, salaryId: doc._id },
+            req.user,
+            req.tenant,
+            session
+          )
+        )
+      );
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({ message: "Driver Salary marked as cancelled successfully." });
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Driver salary deletion failed:", err);
+    return res.status(500).json({ message: "Deletion failed", error: err.message });
+  }
 });
 
 // Export Driver Salaries to Excel

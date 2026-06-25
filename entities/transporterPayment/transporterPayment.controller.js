@@ -800,6 +800,14 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
         .json({ message: "Transporter Payment Receipt not found" });
     }
 
+    if (receipt.status === 'cancelled') {
+      await session.abortTransaction();
+      session.endSession();
+      return res
+        .status(400)
+        .json({ message: "Transporter Payment Receipt is already cancelled" });
+    }
+
     // Unlink all associated subtrips within the same transaction
     await Subtrip.updateMany(
       { _id: { $in: receipt.associatedSubtrips }, tenant: req.tenant },
@@ -812,6 +820,30 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       { $set: { status: 'Pending' } },
       { session }
     );
+
+    // Revert loan deductions within transaction
+    if (receipt.loanDeductions && receipt.loanDeductions.length > 0) {
+      for (const deduction of receipt.loanDeductions) {
+        const loan = await Loan.findOne({
+          _id: deduction.loanId,
+          tenant: req.tenant,
+        }).session(session);
+
+        if (loan) {
+          const sourceMatch = `Transporter Payment ${receipt.paymentId}`;
+          const paymentIndex = loan.payments.findIndex(
+            (p) => p.source === sourceMatch && p.amount === deduction.amount
+          );
+
+          if (paymentIndex > -1) {
+            loan.payments.splice(paymentIndex, 1);
+            loan.outstandingBalance = Math.round((loan.outstandingBalance + deduction.amount) * 100) / 100;
+            loan.status = 'active';
+            await loan.save({ session });
+          }
+        }
+      }
+    }
 
     // Mark the receipt as cancelled within the same transaction
     receipt.status = 'cancelled';

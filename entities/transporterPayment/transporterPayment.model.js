@@ -84,7 +84,7 @@ const subtripPaymentSnapshotSchema = new Schema(
 const transporterPaymentReceiptSchema = new Schema(
   {
     // Unique identifier
-    paymentId: { type: String, immutable: true, unique: true },
+    paymentId: { type: String, immutable: true },
 
     // Transporter reference
     transporterId: {
@@ -161,6 +161,8 @@ const transporterPaymentReceiptSchema = new Schema(
     timestamps: true,
   }
 );
+
+transporterPaymentReceiptSchema.index({ tenant: 1, paymentId: 1 }, { unique: true });
 
 //
 // 🔁 Auto-generate paymentId before saving

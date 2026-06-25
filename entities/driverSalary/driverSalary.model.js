@@ -38,7 +38,7 @@ const subtripPaymentSnapshotSchema = new Schema(
 
 const driverSalarySchema = new Schema({
   // Unique identifier
-  paymentId: { type: String, immutable: true, unique: true },
+  paymentId: { type: String, immutable: true },
   // Reference to the driver
   driverId: { type: Schema.Types.ObjectId, required: true, ref: "Driver" },
   tenant: {
@@ -104,6 +104,8 @@ const driverSalarySchema = new Schema({
     lastModified: Date,
   },
 });
+
+driverSalarySchema.index({ tenant: 1, paymentId: 1 }, { unique: true });
 
 // Pre-save middleware for creating incremental ID
 driverSalarySchema.pre("save", async function (next) {
