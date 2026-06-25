@@ -87,6 +87,15 @@ export const validateFieldConfig = (entity) => async (req, res, next) => {
       const { visibility } = fieldConfig;
 
       if (visibility === 'required') {
+        // Skip required validation for loaded-only fields on empty subtrips
+        if (
+          entity === 'subtrip' &&
+          req.body.isEmpty &&
+          !['loadingPoint', 'unloadingPoint', 'remarks'].includes(fieldName)
+        ) {
+          continue;
+        }
+
         const value = req.body[fieldName];
         if (value === undefined || value === null || value === '') {
           const label = fieldConfig.label || fieldName;
