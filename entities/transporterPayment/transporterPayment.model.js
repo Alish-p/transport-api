@@ -131,6 +131,12 @@ const transporterPaymentReceiptSchema = new Schema(
     // Tax details for audit
     taxBreakup: taxBreakupSchema,
 
+    // Billing Period
+    billingPeriod: {
+      start: Date,
+      end: Date,
+    },
+
     // Summary of computed values
     summary: {
       totalTripWiseIncome: Number,

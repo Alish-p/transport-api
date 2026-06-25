@@ -24,6 +24,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   const {
     transporterId,
     associatedSubtrips,
+    billingPeriod,
     additionalCharges = [],
     loanDeductions = [],
     meta,
@@ -128,6 +129,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     const receipt = new TransporterPayment({
       transporterId,
       associatedSubtrips,
+      billingPeriod,
       subtripSnapshot,
       additionalCharges,
       loanDeductions,
@@ -226,6 +228,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       const {
         transporterId,
         associatedSubtrips,
+        billingPeriod,
         additionalCharges = [],
         loanDeductions = [],
         meta,
@@ -340,6 +343,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       const receipt = new TransporterPayment({
         transporterId,
         associatedSubtrips,
+        billingPeriod,
         subtripSnapshot,
         additionalCharges,
         loanDeductions,
