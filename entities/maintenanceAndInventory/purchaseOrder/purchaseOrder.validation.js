@@ -33,6 +33,7 @@ const purchaseOrderCreateSchema = z.object({
 
 const purchaseOrderReceiveSchema = z.object({
   body: z.object({
+    notes: z.string().optional(),
     lines: z
       .array(
         z.object({
@@ -40,6 +41,9 @@ const purchaseOrderReceiveSchema = z.object({
           quantityToReceive: z
             .number()
             .positive('Quantity to receive must be positive'),
+          actualUnitCost: z
+            .number()
+            .nonnegative('Actual unit cost cannot be negative'),
           tyreDetails: z.array(z.any()).optional(),
         }),
       )
@@ -54,9 +58,16 @@ const purchaseOrderPaySchema = z.object({
   }),
 });
 
+const purchaseOrderCloseSchema = z.object({
+  body: z.object({
+    closeReason: z.string().optional(),
+  }),
+});
+
 export {
   purchaseOrderCreateSchema,
   purchaseOrderReceiveSchema,
   purchaseOrderPaySchema,
+  purchaseOrderCloseSchema,
 };
 

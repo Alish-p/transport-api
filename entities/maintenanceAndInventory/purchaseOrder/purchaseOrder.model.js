@@ -29,6 +29,41 @@ const purchaseOrderLineSchema = new Schema(
   { _id: true },
 );
 
+// ─── GRN (Goods Receipt Note) Sub-schemas ────────────────────────────────────
+// Each receive action creates a GRN entry with per-line actual prices and variance tracking
+
+const grnLineSchema = new Schema(
+  {
+    lineId: { type: Schema.Types.ObjectId, required: true },
+    part: { type: Schema.Types.ObjectId, ref: 'Part' },
+    partSnapshot: {
+      partNumber: String,
+      name: String,
+      measurementUnit: String,
+    },
+    quantityReceived: { type: Number, required: true, min: 0 },
+    poUnitCost: { type: Number, required: true, min: 0 },
+    actualUnitCost: { type: Number, required: true, min: 0 },
+    amount: { type: Number, required: true, min: 0 },
+    priceVariance: { type: Number, default: 0 },
+    priceVariancePercent: { type: Number, default: 0 },
+  },
+  { _id: false },
+);
+
+const grnEntrySchema = new Schema(
+  {
+    grnNumber: { type: Number, required: true },
+    receivedAt: { type: Date, default: Date.now },
+    receivedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    notes: { type: String, trim: true },
+    lines: [grnLineSchema],
+    totalAmount: { type: Number, default: 0 },
+    totalVariance: { type: Number, default: 0 },
+  },
+  { _id: true },
+);
+
 const purchaseOrderSchema = new Schema(
   {
     purchaseOrderNo: { type: String, required: true },
@@ -109,6 +144,14 @@ const purchaseOrderSchema = new Schema(
     rejectionReason: { type: String },
     paymentReference: { type: String },
 
+    // GRN receipt history — each receive action appends an entry
+    receipts: [grnEntrySchema],
+
+    // Close PO fields — for force-closing partial/received POs
+    closedAt: { type: Date },
+    closedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    closeReason: { type: String, trim: true },
+
     tenant: {
       type: Schema.Types.ObjectId,
       ref: 'Tenant',
@@ -155,11 +198,12 @@ purchaseOrderSchema.pre('findOneAndDelete', async function (next) {
     PURCHASE_ORDER_STATUS.PURCHASED,
     PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED,
     PURCHASE_ORDER_STATUS.RECEIVED,
+    PURCHASE_ORDER_STATUS.CLOSED,
   ];
   if (doc && restrictedStatuses.includes(doc.status)) {
     return next(
       new Error(
-        'Cannot delete a purchase order that is purchased, partially received, or received.',
+        'Cannot delete a purchase order that is purchased, partially received, received, or closed.',
       ),
     );
   }

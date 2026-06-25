@@ -233,14 +233,15 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
 
     const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
 
-    const [orders, totalsAgg] = await Promise.all([
+    const [orders, totalsAgg, receivedValueAgg] = await Promise.all([
       PurchaseOrder.find(query)
         .populate('vendor', 'name phone address')
         .populate('partLocation', 'name address')
         .populate('createdBy approvedBy purchasedBy', 'name')
         .sort(sortObj)
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       PurchaseOrder.aggregate([
         { $match: aggQuery },
         {
@@ -248,6 +249,20 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
             _id: '$status',
             count: { $sum: 1 },
             amount: { $sum: '$total' },
+          },
+        },
+      ]),
+      // Compute per-PO actual received value and qty totals (lean — no full receipts)
+      PurchaseOrder.aggregate([
+        { $match: aggQuery },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $project: {
+            actualReceivedValue: { $sum: '$receipts.totalAmount' },
+            totalQtyOrdered: { $sum: '$lines.quantityOrdered' },
+            totalQtyReceived: { $sum: '$lines.quantityReceived' },
+            closedAt: 1,
           },
         },
       ]),
@@ -281,8 +296,21 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
       totals.all.amount += t.amount;
     });
 
+    // Merge computed fields onto orders
+    const receivedValueMap = new Map(receivedValueAgg.map((r) => [r._id.toString(), r]));
+    const enrichedOrders = orders.map((o) => {
+      const computed = receivedValueMap.get(o._id.toString()) || {};
+      return {
+        ...o,
+        actualReceivedValue: computed.actualReceivedValue || 0,
+        totalQtyOrdered: computed.totalQtyOrdered || 0,
+        totalQtyReceived: computed.totalQtyReceived || 0,
+        closedAt: computed.closedAt || null,
+      };
+    });
+
     res.status(200).json({
-      purchaseOrders: orders,
+      purchaseOrders: enrichedOrders,
       totals,
       total: totals.all.count,
       startRange: skip + 1,
@@ -307,8 +335,9 @@ const fetchPurchaseOrderById = asyncHandler(async (req, res) => {
   })
     .populate('vendor', 'name phone address bankDetails')
     .populate('partLocation', 'name address')
-    .populate('createdBy approvedBy purchasedBy', 'name')
-    .populate('lines.part', 'partNumber name manufacturer measurementUnit');
+    .populate('createdBy approvedBy purchasedBy closedBy', 'name')
+    .populate('lines.part', 'partNumber name manufacturer measurementUnit')
+    .populate('receipts.receivedBy', 'name');
 
   if (!order) {
     return res.status(404).json({ message: 'Purchase order not found' });
@@ -344,11 +373,12 @@ const updatePurchaseOrder = asyncHandler(async (req, res) => {
 
   if (
     order.status === PURCHASE_ORDER_STATUS.RECEIVED ||
-    order.status === PURCHASE_ORDER_STATUS.REJECTED
+    order.status === PURCHASE_ORDER_STATUS.REJECTED ||
+    order.status === PURCHASE_ORDER_STATUS.CLOSED
   ) {
     return res.status(400).json({
       message:
-        'Cannot edit a purchase order that is already received or rejected',
+        'Cannot edit a purchase order that is already received, rejected, or closed',
     });
   }
 
@@ -575,7 +605,7 @@ const payPurchaseOrder = asyncHandler(async (req, res) => {
 
 const receivePurchaseOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { lines } = req.body;
+  const { lines, notes } = req.body;
 
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -600,6 +630,14 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
       });
     }
 
+    if (order.status === PURCHASE_ORDER_STATUS.CLOSED) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: 'Cannot receive items for a closed purchase order',
+      });
+    }
+
     if (
       ![
         PURCHASE_ORDER_STATUS.APPROVED,
@@ -618,12 +656,12 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
 
     const updatesMap = new Map();
     lines.forEach((line) => {
-      const id = line.lineId || line._id || line.id;
-      if (id) updatesMap.set(id.toString(), line);
+      const lineId = line.lineId || line._id || line.id;
+      if (lineId) updatesMap.set(lineId.toString(), line);
     });
 
-    const invalidLineIds = [];
     const inventoryUpdates = [];
+    const grnLines = [];
 
     // Pre-fetch parts to check category for tyre detection
     const linePartIds = [...new Set(order.lines.map((l) => l.part.toString()))];
@@ -642,20 +680,22 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
 
       const updateData = updatesMap.get(lineIdStr);
       const currentReceived = line.quantityReceived || 0;
-      const maxQty = line.quantityOrdered || 0;
-
       const qtyToReceive = Number(updateData.quantityToReceive);
+      const actualUnitCost = Number(updateData.actualUnitCost);
 
       if (isNaN(qtyToReceive) || qtyToReceive <= 0) {
         continue;
       }
 
-      const newReceived = currentReceived + qtyToReceive;
-
-      if (newReceived > maxQty) {
-        invalidLineIds.push(lineIdStr);
-        continue;
+      if (isNaN(actualUnitCost) || actualUnitCost < 0) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          message: `Actual unit cost is required and must be non-negative for line "${line.partSnapshot?.name || 'Unknown'}"`,
+        });
       }
+
+      const newReceived = currentReceived + qtyToReceive;
 
       // Check if this line's part is a Tyre (category === 'Tires')
       const partRecord = partMap[line.part.toString()];
@@ -686,25 +726,38 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
         }
       }
 
-      const delta = qtyToReceive;
       line.quantityReceived = newReceived;
       inventoryUpdates.push({
         partId: line.part,
-        delta,
+        delta: qtyToReceive,
         lineId: line._id,
         isTyrePart,
         tyreDetails: isTyrePart ? updateData.tyreDetails : null,
         partRecord,
+        actualUnitCost,
       });
-    }
 
-    if (invalidLineIds.length > 0) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        message:
-          'Invalid quantity updates: cannot decrease received quantity or exceed ordered quantity',
-        invalidLines: invalidLineIds,
+      // Build GRN line entry with variance data
+      const poUnitCost = Number(line.unitCost) || 0;
+      const variance = (actualUnitCost - poUnitCost) * qtyToReceive;
+      const variancePercent = poUnitCost > 0
+        ? ((actualUnitCost - poUnitCost) / poUnitCost) * 100
+        : 0;
+
+      grnLines.push({
+        lineId: line._id,
+        part: line.part,
+        partSnapshot: {
+          partNumber: line.partSnapshot?.partNumber,
+          name: line.partSnapshot?.name,
+          measurementUnit: line.partSnapshot?.measurementUnit,
+        },
+        quantityReceived: qtyToReceive,
+        poUnitCost,
+        actualUnitCost,
+        amount: actualUnitCost * qtyToReceive,
+        priceVariance: Math.round(variance * 100) / 100,
+        priceVariancePercent: Math.round(variancePercent * 100) / 100,
       });
     }
 
@@ -719,10 +772,7 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
 
     // Process inventory updates
     for (const update of inventoryUpdates) {
-      const lineItem = order.lines.find(
-        (l) => l._id.toString() === update.lineId.toString()
-      );
-      const incomingCost = lineItem ? Number(lineItem.unitCost) || 0 : 0;
+      const incomingCost = update.actualUnitCost;
       const incomingQty = Number(update.delta) || 0;
 
       // ─── TYRE PARTS: Create Tyre records instead of incrementing PartStock ───
@@ -759,8 +809,7 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
       }
 
       // ─── REGULAR PARTS: Existing flow (increment PartStock) ─────────────────
-      // Calculate and update Tenant-Wide Average Unit Cost
-      // We only update cost if we are adding stock
+      // Calculate and update Tenant-Wide Average Unit Cost using actual GRN price
       if (incomingQty > 0) {
         const part = update.partRecord || await Part.findOne({
           _id: update.partId,
@@ -768,8 +817,7 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
         }).session(session);
 
         if (part) {
-          // Calculate Weighted Average
-          // 1. Get current total quantity across ALL locations for this tenant
+          // Calculate Weighted Average using actual price (industry standard MAP)
           const stockAgg = await PartStock.aggregate([
             {
               $match: {
@@ -820,6 +868,22 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
       );
     }
 
+    // Build and append GRN receipt entry
+    const grnNumber = (order.receipts?.length || 0) + 1;
+    const grnTotalAmount = grnLines.reduce((sum, l) => sum + l.amount, 0);
+    const grnTotalVariance = grnLines.reduce((sum, l) => sum + l.priceVariance, 0);
+
+    order.receipts.push({
+      grnNumber,
+      receivedAt: new Date(),
+      receivedBy: req.user._id,
+      notes: notes || undefined,
+      lines: grnLines,
+      totalAmount: Math.round(grnTotalAmount * 100) / 100,
+      totalVariance: Math.round(grnTotalVariance * 100) / 100,
+    });
+
+    // Determine PO status
     const allFullyReceived = order.lines.every(
       (line) =>
         (line.quantityReceived || 0) >= (line.quantityOrdered || 0),
@@ -842,6 +906,9 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    // Populate for response
+    await updated.populate('receipts.receivedBy', 'name');
+
     res.status(200).json(updated);
   } catch (error) {
     await session.abortTransaction();
@@ -863,6 +930,44 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
   }
 });
 
+// ─── CLOSE PO (FORCE CLOSE) ──────────────────────────────────────────────────
+
+const closePurchaseOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { closeReason } = req.body || {};
+
+  const order = await PurchaseOrder.findOne({
+    _id: id,
+    tenant: req.tenant,
+  });
+
+  if (!order) {
+    return res.status(404).json({ message: 'Purchase order not found' });
+  }
+
+  const allowedStatuses = [
+    PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED,
+    PURCHASE_ORDER_STATUS.RECEIVED,
+  ];
+
+  if (!allowedStatuses.includes(order.status)) {
+    return res.status(400).json({
+      message: 'Only partially received or fully received purchase orders can be closed',
+    });
+  }
+
+  order.status = PURCHASE_ORDER_STATUS.CLOSED;
+  order.closedAt = new Date();
+  order.closedBy = req.user?._id;
+  if (closeReason) {
+    order.closeReason = closeReason;
+  }
+
+  order._user = req.user;
+  const updated = await order.save();
+  res.status(200).json(updated);
+});
+
 // ─── DELETE ──────────────────────────────────────────────────────────────────
 
 const deletePurchaseOrder = asyncHandler(async (req, res) => {
@@ -876,11 +981,6 @@ const deletePurchaseOrder = asyncHandler(async (req, res) => {
   });
 
   if (!deletedOrder) {
-    // If the hook didn't throw but no document was found (or it was filtered out?)
-    // Actually if the hook throws, we go to catch block (asyncHandler).
-    // If we are here, it means either it was deleted or it wasn't found.
-    // However, findOneAndDelete returns the document *before* deletion (or after depending on options) if found.
-    // If not found, it returns null.
     return res.status(404).json({ message: 'Purchase order not found' });
   }
 
@@ -1034,6 +1134,8 @@ export {
   rejectPurchaseOrder,
   payPurchaseOrder,
   receivePurchaseOrder,
+  closePurchaseOrder,
   exportPurchaseOrders,
   deletePurchaseOrder,
 };
+

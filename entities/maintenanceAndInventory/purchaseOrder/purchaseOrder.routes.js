@@ -8,6 +8,7 @@ import {
   rejectPurchaseOrder,
   payPurchaseOrder,
   receivePurchaseOrder,
+  closePurchaseOrder,
   exportPurchaseOrders,
   deletePurchaseOrder,
 } from './purchaseOrder.controller.js';
@@ -15,6 +16,7 @@ import {
   purchaseOrderCreateSchema,
   purchaseOrderReceiveSchema,
   purchaseOrderPaySchema,
+  purchaseOrderCloseSchema,
 } from './purchaseOrder.validation.js';
 import { authenticate, checkPermission } from '../../../middlewares/auth.js';
 import pagination from '../../../middlewares/pagination.js';
@@ -77,6 +79,15 @@ router.put(
   checkPermission('purchaseOrder', 'update'),
   validate(purchaseOrderReceiveSchema),
   receivePurchaseOrder,
+);
+
+// Close PO (force close partial/received)
+router.put(
+  '/:id/close',
+  authenticate,
+  checkPermission('purchaseOrder', 'update'),
+  validate(purchaseOrderCloseSchema),
+  closePurchaseOrder,
 );
 
 // Delete
