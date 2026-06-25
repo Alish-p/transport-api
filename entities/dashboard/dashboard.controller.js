@@ -1728,7 +1728,7 @@ const getDailySummary = asyncHandler(async (req, res) => {
 
       return Subtrip.find({ tenant: req.tenant, $or: or })
         .select(
-          '_id subtripNo startDate endDate loadingPoint unloadingPoint loadingWeight rate materialType subtripStatus customerId vehicleId driverId'
+          '_id subtripNo startDate endDate loadingPoint unloadingPoint loadingWeight freightDetails materialType subtripStatus customerId vehicleId driverId'
         )
         .populate('customerId', 'customerName')
         .populate({
