@@ -1,5 +1,6 @@
 export const FREIGHT_MODELS = {
   PER_TON: 'per_ton',
+  PER_KL: 'per_kl',
   PER_KM: 'per_km',
   FIXED: 'fixed',
   PER_HOUR: 'per_hour',

@@ -42,7 +42,7 @@ export const calculateSubtripFreightAmount = ({
   const r = Number(rate) || 0;
   const weight = Number(loadingWeight) || 0;
 
-  if (model === FREIGHT_MODELS.PER_TON) {
+  if (model === FREIGHT_MODELS.PER_TON || model === FREIGHT_MODELS.PER_KL) {
     return r * weight;
   }
 
@@ -336,7 +336,7 @@ export const resolveSubtripFinancials = (subtrip, updateData) => {
   const model = fdToUse.freightModel || FREIGHT_MODELS.PER_TON;
 
   // Recalculate freight amount
-  if (model === FREIGHT_MODELS.PER_TON || model === FREIGHT_MODELS.PER_KM || model === FREIGHT_MODELS.PER_HOUR || model === FREIGHT_MODELS.FIXED) {
+  if (model === FREIGHT_MODELS.PER_TON || model === FREIGHT_MODELS.PER_KL || model === FREIGHT_MODELS.PER_KM || model === FREIGHT_MODELS.PER_HOUR || model === FREIGHT_MODELS.FIXED) {
     const expectedFreight = calculateSubtripFreightAmount({
       ...fdToUse,
       loadingWeight: weightToUse,
@@ -376,7 +376,7 @@ export const resolveSubtripFinancials = (subtrip, updateData) => {
   }
 
   // Recalculate commission details
-  if (model === FREIGHT_MODELS.PER_TON) {
+  if (model === FREIGHT_MODELS.PER_TON || model === FREIGHT_MODELS.PER_KL) {
     if (cdToUse.commissionRate !== undefined && cdToUse.commissionRate !== null && cdToUse.commissionRate !== '') {
       cdToUse.commissionAmount = Number(cdToUse.commissionRate) * weightToUse;
     }
@@ -475,7 +475,7 @@ export const validateJobCreateInput = ({ body, vehicle, formConfig }) => {
     const missingRequiredFields = [];
     ['loadingWeight', 'invoiceNo', 'ewayExpiryDate', 'materialType'].forEach((field) => {
       if (isFieldRequired(field)) {
-        if (field === 'loadingWeight' && body.freightDetails?.freightModel !== 'per_ton') {
+        if (field === 'loadingWeight' && body.freightDetails?.freightModel !== 'per_ton' && body.freightDetails?.freightModel !== 'per_kl') {
           return;
         }
         const val = body[field];
@@ -668,7 +668,7 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
     // Freight Calculation
     let calculatedFreightAmount = freightDetails.freightAmount;
 
-    if (!freightDetails.freightModel || freightDetails.freightModel === FREIGHT_MODELS.PER_TON) {
+    if (!freightDetails.freightModel || freightDetails.freightModel === FREIGHT_MODELS.PER_TON || freightDetails.freightModel === FREIGHT_MODELS.PER_KL) {
       const parsedRate = Number(freightDetails.rate) || 0;
       const parsedWeight = Number(body.loadingWeight) || 0;
       calculatedFreightAmount = parsedRate * parsedWeight;

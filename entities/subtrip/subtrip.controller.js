@@ -336,7 +336,7 @@ const receiveLR = asyncHandler(async (req, res) => {
   }
 
   if (!isOwn) {
-    if (freightModel === 'per_ton') {
+    if (freightModel === 'per_ton' || freightModel === 'per_kl') {
       const commRate = req.body.commissionDetails?.commissionRate;
       if (commRate === undefined || commRate === null || commRate === '') {
         return res.status(400).json({ message: 'Commission rate is required for market vehicles' });
