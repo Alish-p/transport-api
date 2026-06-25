@@ -18,7 +18,7 @@ const createTransporter = asyncHandler(async (req, res) => {
 // Fetch Transporters with pagination and search
 const fetchTransporters = asyncHandler(async (req, res) => {
   try {
-    const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, order, orderBy } = req.query;
+    const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, inactiveDays, order, orderBy } = req.query;
     const { limit, skip } = req.pagination;
 
     // Base match stage
@@ -80,11 +80,32 @@ const fetchTransporters = asyncHandler(async (req, res) => {
           vehicleCount: { $size: "$vehicles" },
         },
       },
-      // Remove vehicles array to keep response light, unless needed.
-      // But we need the count.
+      {
+        $lookup: {
+          from: "subtrips",
+          let: { vehicleIds: "$vehicles._id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ["$vehicleId", "$$vehicleIds"] }
+              }
+            },
+            { $sort: { startDate: -1 } },
+            { $limit: 1 },
+            { $project: { startDate: 1 } }
+          ],
+          as: "lastSubtrip"
+        }
+      },
+      {
+        $addFields: {
+          lastSubtripDate: { $arrayElemAt: ["$lastSubtrip.startDate", 0] }
+        }
+      },
       {
         $project: {
-          vehicles: 0
+          vehicles: 0,
+          lastSubtrip: 0
         }
       }
     ];
@@ -92,14 +113,28 @@ const fetchTransporters = asyncHandler(async (req, res) => {
     {
       const vcMatch = {};
       if (vehicleCountMin !== undefined && vehicleCountMin !== null && vehicleCountMin !== '') {
-        vcMatch.$gte = parseInt(vehicleCountMin);
+        vcMatch.$gte = parseInt(vehicleCountMin, 10);
       }
       if (vehicleCountMax !== undefined && vehicleCountMax !== null && vehicleCountMax !== '') {
-        vcMatch.$lte = parseInt(vehicleCountMax);
+        vcMatch.$lte = parseInt(vehicleCountMax, 10);
       }
       if (Object.keys(vcMatch).length > 0) {
         pipeline.push({ $match: { vehicleCount: vcMatch } });
       }
+    }
+
+    if (inactiveDays !== undefined && inactiveDays !== null && inactiveDays !== '') {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - parseInt(inactiveDays, 10));
+      pipeline.push({
+        $match: {
+          $or: [
+            { lastSubtripDate: { $lte: cutoffDate } },
+            { lastSubtripDate: { $exists: false } },
+            { lastSubtripDate: null }
+          ]
+        }
+      });
     }
 
     const sortObj = buildSortObject(orderBy, order, { transportName: 1 });
@@ -287,7 +322,7 @@ const cleanupTransporters = asyncHandler(async (req, res) => {
 // @route   GET /api/transporter/export
 // @access  Private
 const exportTransporters = asyncHandler(async (req, res) => {
-  const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, columns, order, orderBy } = req.query;
+  const { search, vehicleCountMin, vehicleCountMax, includeInactive, state, paymentMode, gstEnabled, status, gstNo, panNo, vehicleId, inactiveDays, columns, order, orderBy } = req.query;
 
   const matchStage = { tenant: req.tenant };
 
@@ -355,8 +390,31 @@ const exportTransporters = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "subtrips",
+        let: { vehicleIds: "$vehicles._id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $in: ["$vehicleId", "$$vehicleIds"] }
+            }
+          },
+          { $sort: { startDate: -1 } },
+          { $limit: 1 },
+          { $project: { startDate: 1 } }
+        ],
+        as: "lastSubtrip"
+      }
+    },
+    {
+      $addFields: {
+        lastSubtripDate: { $arrayElemAt: ["$lastSubtrip.startDate", 0] }
+      }
+    },
+    {
       $project: {
-        vehicles: 0
+        vehicles: 0,
+        lastSubtrip: 0
       }
     }
   ];
@@ -364,14 +422,28 @@ const exportTransporters = asyncHandler(async (req, res) => {
   {
     const vcMatch = {};
     if (vehicleCountMin !== undefined && vehicleCountMin !== null && vehicleCountMin !== '') {
-      vcMatch.$gte = parseInt(vehicleCountMin);
+      vcMatch.$gte = parseInt(vehicleCountMin, 10);
     }
     if (vehicleCountMax !== undefined && vehicleCountMax !== null && vehicleCountMax !== '') {
-      vcMatch.$lte = parseInt(vehicleCountMax);
+      vcMatch.$lte = parseInt(vehicleCountMax, 10);
     }
     if (Object.keys(vcMatch).length > 0) {
       pipeline.push({ $match: { vehicleCount: vcMatch } });
     }
+  }
+
+  if (inactiveDays !== undefined && inactiveDays !== null && inactiveDays !== '') {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - parseInt(inactiveDays, 10));
+    pipeline.push({
+      $match: {
+        $or: [
+          { lastSubtripDate: { $lte: cutoffDate } },
+          { lastSubtripDate: { $exists: false } },
+          { lastSubtripDate: null }
+        ]
+      }
+    });
   }
 
   // Define column mappings according to frontend transproter config
@@ -390,6 +462,7 @@ const exportTransporters = asyncHandler(async (req, res) => {
     ifscCode: { header: 'IFSC Code', key: 'ifscCode', width: 15 },
     bankName: { header: 'Bank Name', key: 'bankName', width: 20 },
     vehicleCount: { header: 'Active Vehicles', key: 'vehicleCount', width: 15 },
+    lastSubtripDate: { header: 'Last Subtrip Date', key: 'lastSubtripDate', width: 20 },
   };
 
   let exportColumns = [];
@@ -436,6 +509,8 @@ const exportTransporters = asyncHandler(async (req, res) => {
       const key = col.key;
       if (key === 'gstEnabled') {
         row[key] = doc[key] ? 'Yes' : 'No';
+      } else if (key === 'lastSubtripDate') {
+        row[key] = doc[key] ? new Date(doc[key]).toLocaleDateString() : 'Never';
       } else {
         row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
       }
