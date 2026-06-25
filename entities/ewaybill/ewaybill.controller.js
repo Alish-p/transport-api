@@ -7,8 +7,8 @@ import TransporterEwayBillCache from './transporter-ewaybill-cache.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import {
-  getWhitebooksEwayBillsForTransporter,
   getWhitebooksEwayBill,
+  getWhitebooksEwayBillsForTransporter,
 } from './ewaybill.util.js';
 
 const getEwayBillByNumber = asyncHandler(async (req, res) => {
@@ -165,7 +165,7 @@ const getEwayBillsForTransporter = asyncHandler(async (req, res) => {
       rawList = payload?.data || [];
 
       // Save/update cache
-      await TransporterEwayBillCache.findOneAndUpdate(
+      cacheEntry = await TransporterEwayBillCache.findOneAndUpdate(
         { tenant: req.tenant, generatedDate },
         {
           $set: {
@@ -258,6 +258,7 @@ const getEwayBillsForTransporter = asyncHandler(async (req, res) => {
       message: enriched,
     },
     data: enriched,
+    fetchedAt: cacheEntry?.fetchedAt || new Date(),
   });
 });
 
