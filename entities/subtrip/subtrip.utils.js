@@ -139,6 +139,7 @@ export const buildSubtripQuery = async (req, queryParams) => {
     transporterPaymentGenerated,
     epodSigned,
     shortage,
+    freightModel,
   } = queryParams;
 
   const query = { tenant: req.tenant };
@@ -298,6 +299,10 @@ export const buildSubtripQuery = async (req, queryParams) => {
   } else if (shortage === 'no') {
     query.shortageWeight = { $in: [0, null] };
     query.shortageAmount = { $in: [0, null] };
+  }
+
+  if (freightModel) {
+    query['freightDetails.freightModel'] = freightModel;
   }
 
   return { query, hasNoMatchingVehicles };
