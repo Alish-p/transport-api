@@ -43,7 +43,7 @@ export const getFieldConfig = asyncHandler(async (req, res) => {
   const config = await FieldConfig.findOne({
     tenant: req.tenant,
     entity,
-  });
+  }).populate('customerOverrides.customerId', 'customerName');
 
   res.status(200).json(toResponseObject(config, entity));
 });
@@ -70,7 +70,7 @@ export const upsertFieldConfig = asyncHandler(async (req, res) => {
     { tenant: req.tenant, entity },
     { $set: updateData },
     { upsert: true, new: true, runValidators: true }
-  );
+  ).populate('customerOverrides.customerId', 'customerName');
 
   res.status(200).json(toResponseObject(config, entity));
 });
@@ -103,7 +103,7 @@ export const upsertCustomerOverride = asyncHandler(async (req, res) => {
     },
     { $set: { 'customerOverrides.$.fields': fields } },
     { new: true, runValidators: true }
-  );
+  ).populate('customerOverrides.customerId', 'customerName');
 
   if (updated) {
     return res.status(200).json(toResponseObject(updated, entity));
@@ -120,7 +120,7 @@ export const upsertCustomerOverride = asyncHandler(async (req, res) => {
       },
     },
     { upsert: true, new: true, runValidators: true }
-  );
+  ).populate('customerOverrides.customerId', 'customerName');
 
   res.status(200).json(toResponseObject(config, entity));
 });
@@ -141,7 +141,7 @@ export const deleteCustomerOverride = asyncHandler(async (req, res) => {
     { tenant: req.tenant, entity },
     { $pull: { customerOverrides: { customerId } } },
     { new: true }
-  );
+  ).populate('customerOverrides.customerId', 'customerName');
 
   if (!config) {
     const error = new Error('Field config not found');

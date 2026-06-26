@@ -6,8 +6,8 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/:entity', getFieldConfig);
-router.put('/:entity', checkPermission('fieldConfig', 'update'), upsertFieldConfig);
-router.put('/:entity/customer/:customerId', checkPermission('fieldConfig', 'update'), upsertCustomerOverride);
-router.delete('/:entity/customer/:customerId', checkPermission('fieldConfig', 'update'), deleteCustomerOverride);
+router.put('/:entity', checkPermission('tenant', 'update'), upsertFieldConfig);
+router.put('/:entity/customer/:customerId', checkPermission('tenant', 'update'), upsertCustomerOverride);
+router.delete('/:entity/customer/:customerId', checkPermission('tenant', 'update'), deleteCustomerOverride);
 
 export default router;
