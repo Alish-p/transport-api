@@ -44,7 +44,7 @@ router.get('/', authenticate, fetchSubtrips);
 router.post('/by-transporter', authenticate, fetchSubtripsByTransporter);
 
 // --- Subtrip CRUD (By ID) ---
-router.put('/:id', authenticate, checkPermission('subtrip', 'update'), updateSubtrip);
+router.put('/:id', authenticate, checkPermission('subtrip', 'update'), validateFieldConfig('subtrip'), updateSubtrip);
 router.delete('/:id', authenticate, checkPermission('subtrip', 'delete'), deleteSubtrip);
 
 // --- Subtrip Actions ---
@@ -52,7 +52,6 @@ router.put(
   '/:id/receive',
   authenticate,
   checkPermission('subtrip', 'update'),
-  // validateFieldConfig('subtrip'),
   receiveLR
 );
 router.put(

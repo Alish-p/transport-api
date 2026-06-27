@@ -87,6 +87,7 @@ const subtripSchema = new Schema({
   // Incase of any error
   hasError: { type: Boolean, default: false },
   errorRemarks: { type: String },
+  remarks: { type: String },
 
   // Billing details
   invoiceId: { type: String, ref: "Invoice" },

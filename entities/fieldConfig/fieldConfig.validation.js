@@ -34,7 +34,7 @@ export const mergeFieldConfigs = (baseFields, overrideFields) => {
  * Falls back to FIELD_CONFIG_DEFAULTS if no DB config exists.
  */
 const resolveFieldConfig = async (tenantId, entity, customerId) => {
-  const config = await FieldConfig.findOne({ tenant: tenantId, entity });
+  const config = await FieldConfig.findOne({ tenant: tenantId, entity }).lean();
 
   // Fall back to defaults if no config exists
   const defaults = FIELD_CONFIG_DEFAULTS[entity];
@@ -82,6 +82,28 @@ export const validateFieldConfig = (entity) => async (req, res, next) => {
 
     const errors = [];
 
+    // Because we need to validate whole object but update/receive only send few fields, 
+
+    let bodyToValidate = { ...req.body };
+    if (req.method === 'PUT' && req.params.id && entity === 'subtrip') {
+      const Subtrip = req.app.get('models')?.Subtrip || (await import('../subtrip/subtrip.model.js')).default;
+      const existing = await Subtrip.findOne({ _id: req.params.id, tenant: req.tenant }).lean();
+      if (existing) {
+        bodyToValidate = {
+          ...existing,
+          ...req.body,
+          freightDetails: {
+            ...existing.freightDetails,
+            ...req.body.freightDetails,
+          },
+          commissionDetails: {
+            ...existing.commissionDetails,
+            ...req.body.commissionDetails,
+          },
+        };
+      }
+    }
+
     // Validate each configured field
     for (const [fieldName, fieldConfig] of Object.entries(fields)) {
       const { visibility } = fieldConfig;
@@ -90,13 +112,13 @@ export const validateFieldConfig = (entity) => async (req, res, next) => {
         // Skip required validation for loaded-only fields on empty subtrips
         if (
           entity === 'subtrip' &&
-          req.body.isEmpty &&
+          bodyToValidate.isEmpty &&
           !['loadingPoint', 'unloadingPoint', 'remarks'].includes(fieldName)
         ) {
           continue;
         }
 
-        const value = req.body[fieldName];
+        const value = bodyToValidate[fieldName];
         if (value === undefined || value === null || value === '') {
           const label = fieldConfig.label || fieldName;
           errors.push(`${label} is required`);

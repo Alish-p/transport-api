@@ -306,6 +306,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     unloadingWeight,
     hasError,
     remarks,
+    errorRemarks,
     shortageWeight,
     shortageAmount,
     endDate,
@@ -358,6 +359,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     shortageAmount,
     subtripStatus: hasError ? SUBTRIP_STATUS.ERROR : SUBTRIP_STATUS.RECEIVED,
     remarks,
+    errorRemarks,
     commissionDetails,
     freightDetails,
     docs,
@@ -368,7 +370,7 @@ const receiveLR = asyncHandler(async (req, res) => {
     await recordSubtripEvent(
       subtrip._id,
       SUBTRIP_EVENT_TYPES.ERROR_REPORTED,
-      { remarks },
+      { remarks: errorRemarks },
       req.user,
       req.tenant
     );
