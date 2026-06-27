@@ -30,7 +30,6 @@ import lookupRouter from '../entities/lookup/gst.routes.js';
 import challanRouter from '../entities/challan/challan.routes.js';
 import superuserRouter from '../entities/superuser/superuser.routes.js';
 import maintenanceAndInventoryRouter from '../entities/maintenanceAndInventory/maintenanceAndInventory.routes.js';
-import optionRouter from '../entities/option/option.routes.js';
 import activityRouter from '../entities/activity/activity.routes.js';
 import tyreRouter from '../entities/tyre/tyre.routes.js';
 import transporterAdvanceRouter from '../entities/transporterAdvance/transporterAdvance.routes.js';
@@ -63,13 +62,12 @@ router.use('/ewaybill', ewayBillRouter);
 router.use('/challans', challanRouter);
 router.use('/public', publicRouter);
 router.use('/lookup', lookupRouter);
-router.use('/options', optionRouter);
 router.use('/activities', activityRouter);
 router.use('/tyre', tyreRouter);
 router.use('/transporter-advances', transporterAdvanceRouter);
 router.use('/field-configs', fieldConfigRouter);
 
-//Vehicle Maintenance & Inventory
+// Vehicle Maintenance & Inventory
 router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);
 
 // Customer Target
