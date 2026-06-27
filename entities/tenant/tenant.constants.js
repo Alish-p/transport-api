@@ -51,4 +51,33 @@ export default {
     { label: 'Over-Load Fees', value: 'over-load-fees' },
     { label: 'Other', value: 'other' },
   ],
+  vehicleTypes: [
+    { label: 'Body', value: 'body' },
+    { label: 'Trailer', value: 'trailer' },
+    { label: 'Bulker', value: 'bulker' },
+    { label: 'Tanker', value: 'tanker' },
+    { label: 'Canter', value: 'canter' },
+  ],
+  vehicleCompanies: [
+    { label: 'Bharat Benz', value: 'bharatBenz' },
+    { label: 'Ashok Leyland', value: 'ashokLeyland' },
+    { label: 'Tata', value: 'tata' },
+    { label: 'Ace', value: 'ace' },
+  ],
+  vehicleModels: [
+    { label: '3118', value: '3118' },
+    { label: '3718', value: '3718' },
+    { label: '4018', value: '4018' },
+    { label: '4220', value: '4220' },
+    { label: '4223', value: '4223' },
+    { label: '4825', value: '4825' },
+    { label: '1109', value: '1109' },
+    { label: '1512', value: '1512' },
+  ],
+  engineTypes: [
+    { label: 'BS-3', value: 'BS-3' },
+    { label: 'BS-4', value: 'BS-4' },
+    { label: 'BS-5', value: 'BS-5' },
+    { label: 'BS-6', value: 'BS-6' },
+  ],
 };

@@ -158,6 +158,22 @@ const tenantSchema = new Schema(
         type: [optionSchema],
         default: defaults.vehicleExpenseTypes,
       },
+      vehicleTypes: {
+        type: [optionSchema],
+        default: defaults.vehicleTypes,
+      },
+      vehicleCompanies: {
+        type: [optionSchema],
+        default: defaults.vehicleCompanies,
+      },
+      vehicleModels: {
+        type: [optionSchema],
+        default: defaults.vehicleModels,
+      },
+      engineTypes: {
+        type: [optionSchema],
+        default: defaults.engineTypes,
+      },
     },
     integrations: {
       type: integrationSchema,
