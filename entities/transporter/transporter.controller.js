@@ -285,9 +285,30 @@ const updateTransporter = asyncHandler(async (req, res) => {
 // Delete Transporter
 const deleteTransporter = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const tenant = req.tenant;
+
+  // Check if transporter has any associated references
+  const [vehicleCount, paymentCount, loanCount] = await Promise.all([
+    Vehicle.countDocuments({ transporter: id, tenant }),
+    TransporterPayment.countDocuments({ transporterId: id, tenant }),
+    Loan.countDocuments({ borrowerId: id, borrowerType: 'Transporter', tenant }),
+  ]);
+
+  if (vehicleCount > 0 || paymentCount > 0 || loanCount > 0) {
+    const references = [];
+    if (vehicleCount > 0) references.push(`${vehicleCount} vehicle(s)`);
+    if (paymentCount > 0) references.push(`${paymentCount} payment(s)`);
+    if (loanCount > 0) references.push(`${loanCount} loan(s)`);
+
+    res.status(400).json({
+      message: `Cannot delete transporter because they have associated ${references.join(', ')}. Please deactivate them instead.`
+    });
+    return;
+  }
+
   const transporter = await Transporter.findOneAndDelete({
     _id: id,
-    tenant: req.tenant,
+    tenant,
   });
 
   res.status(200).json(transporter);

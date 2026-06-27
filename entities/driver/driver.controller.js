@@ -182,9 +182,29 @@ const updateDriver = asyncHandler(async (req, res) => {
 });
 
 const deleteDriver = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const tenant = req.tenant;
+
+  // Check if driver has associated references in DriverSalary and Loan
+  const [salaryCount, loanCount] = await Promise.all([
+    DriverSalary.countDocuments({ driverId: id, tenant }),
+    Loan.countDocuments({ borrowerId: id, borrowerType: 'Driver', tenant }),
+  ]);
+
+  if (salaryCount > 0 || loanCount > 0) {
+    const references = [];
+    if (salaryCount > 0) references.push(`${salaryCount} salary receipt(s)`);
+    if (loanCount > 0) references.push(`${loanCount} loan(s)`);
+
+    res.status(400).json({
+      message: `Cannot delete driver because they have associated ${references.join(', ')}. Please deactivate them instead.`
+    });
+    return;
+  }
+
   const driver = await Driver.findOneAndDelete({
-    _id: req.params.id,
-    tenant: req.tenant,
+    _id: id,
+    tenant,
   });
   res.status(200).json(driver);
 });
