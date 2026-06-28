@@ -670,9 +670,9 @@ const fetchTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
 // Public: Fetch Single Transporter Payment Receipt by ID (no auth/tenant)
 const fetchTransporterPaymentReceiptPublic = asyncHandler(async (req, res) => {
-  const receipt = await TransporterPayment.findById(req.params.id).populate(
-    "transporterId"
-  );
+  const receipt = await TransporterPayment.findById(req.params.id)
+    .populate("transporterId")
+    .populate("tenant");
 
   if (!receipt) {
     res.status(404).json({ message: "Transporter Payment Receipt not found" });

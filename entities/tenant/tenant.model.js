@@ -176,6 +176,7 @@ const tenantSchema = new Schema(
       },
       defaultTdsPercentage: { type: Number, default: 2 },
       defaultPodCharges: { type: Number, default: 0 },
+      transporterPaymentTemplate: { type: String, default: 'standard' },
       defaultInvoiceDueInDays: { type: Number, default: 10 },
       defaultTaxRates: {
         cgst: { type: Number, default: 0 },
