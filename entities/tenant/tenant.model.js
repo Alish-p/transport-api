@@ -174,6 +174,15 @@ const tenantSchema = new Schema(
         type: [optionSchema],
         default: defaults.engineTypes,
       },
+      defaultTdsPercentage: { type: Number, default: 2 },
+      defaultPodCharges: { type: Number, default: 0 },
+      defaultInvoiceDueInDays: { type: Number, default: 10 },
+      defaultTaxRates: {
+        cgst: { type: Number, default: 0 },
+        sgst: { type: Number, default: 0 },
+        igst: { type: Number, default: 0 },
+      },
+      invoiceTermsAndConditions: { type: String, default: '' },
     },
     integrations: {
       type: integrationSchema,
