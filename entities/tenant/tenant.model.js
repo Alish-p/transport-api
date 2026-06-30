@@ -144,46 +144,58 @@ const tenantSchema = new Schema(
       updatedAt: Date,
     },
     config: {
-      marketVehicles: { type: Boolean, default: true },
-      pumps: { type: Boolean, default: true },
-      materialOptions: {
-        type: [optionSchema],
-        default: defaults.materialOptions,
+      vehicle: {
+        marketVehicles: { type: Boolean, default: true },
+        types: {
+          type: [optionSchema],
+          default: defaults.vehicle.types,
+        },
+        companies: {
+          type: [optionSchema],
+          default: defaults.vehicle.companies,
+        },
+        models: {
+          type: [optionSchema],
+          default: defaults.vehicle.models,
+        },
+        engineTypes: {
+          type: [optionSchema],
+          default: defaults.vehicle.engineTypes,
+        },
       },
-      subtripExpenseTypes: {
-        type: [optionSchema],
-        default: defaults.subtripExpenseTypes,
+      subtrip: {
+        materialOptions: {
+          type: [optionSchema],
+          default: defaults.subtrip.materialOptions,
+        },
       },
-      vehicleExpenseTypes: {
-        type: [optionSchema],
-        default: defaults.vehicleExpenseTypes,
+      expense: {
+        'subtrip-expense-types': {
+          type: [optionSchema],
+          default: defaults.expense['subtrip-expense-types'],
+        },
+        'vehicle-expense-types': {
+          type: [optionSchema],
+          default: defaults.expense['vehicle-expense-types'],
+        },
       },
-      vehicleTypes: {
-        type: [optionSchema],
-        default: defaults.vehicleTypes,
+      invoice: {
+        defaultDueInDays: { type: Number, default: 10 },
+        defaultTaxRates: {
+          cgst: { type: Number, default: 0 },
+          sgst: { type: Number, default: 0 },
+          igst: { type: Number, default: 0 },
+        },
+        termsAndConditions: { type: String, default: '' },
       },
-      vehicleCompanies: {
-        type: [optionSchema],
-        default: defaults.vehicleCompanies,
+      transporterPayment: {
+        defaultTdsPercentage: { type: Number, default: 2 },
+        defaultPodCharges: { type: Number, default: 0 },
+        template: { type: String, default: 'standard' },
       },
-      vehicleModels: {
-        type: [optionSchema],
-        default: defaults.vehicleModels,
+      pump: {
+        enabled: { type: Boolean, default: true },
       },
-      engineTypes: {
-        type: [optionSchema],
-        default: defaults.engineTypes,
-      },
-      defaultTdsPercentage: { type: Number, default: 2 },
-      defaultPodCharges: { type: Number, default: 0 },
-      transporterPaymentTemplate: { type: String, default: 'standard' },
-      defaultInvoiceDueInDays: { type: Number, default: 10 },
-      defaultTaxRates: {
-        cgst: { type: Number, default: 0 },
-        sgst: { type: Number, default: 0 },
-        igst: { type: Number, default: 0 },
-      },
-      invoiceTermsAndConditions: { type: String, default: '' },
     },
     integrations: {
       type: integrationSchema,
