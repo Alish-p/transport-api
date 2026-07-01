@@ -904,6 +904,15 @@ export const buildExportSubtripsPipeline = (query) => {
         as: 'expensesData',
       },
     },
+    // Lookup Advances
+    {
+      $lookup: {
+        from: 'transporteradvances',
+        localField: 'advances',
+        foreignField: '_id',
+        as: 'advancesData',
+      },
+    },
     // Project and Calculate
     {
       $project: {
@@ -936,8 +945,12 @@ export const buildExportSubtripsPipeline = (query) => {
         commissionRate: '$commissionDetails.commissionRate',
         subtripStatus: 1,
         transporterName: '$transporter.transportName',
+        isOwn: '$vehicle.isOwn',
+        commissionAmount: '$commissionDetails.commissionAmount',
         // Calculate Total Expenses
         totalExpenses: { $sum: '$expensesData.amount' },
+        // Calculate Total Advances
+        totalAdvances: { $sum: '$advancesData.amount' },
       },
     },
     {
@@ -949,7 +962,13 @@ export const buildExportSubtripsPipeline = (query) => {
     {
       $addFields: {
         // Calculate P&L
-        profitAndLoss: { $subtract: ['$calculatedFreight', '$totalExpenses'] },
+        profitAndLoss: {
+          $cond: {
+            if: { $eq: ['$isOwn', false] },
+            then: { $ifNull: ['$commissionAmount', 0] },
+            else: { $subtract: ['$calculatedFreight', '$totalExpenses'] },
+          },
+        },
         // Format route
         route: {
           $concat: [

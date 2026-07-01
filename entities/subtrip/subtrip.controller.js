@@ -824,6 +824,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     freightAmount: { header: 'Freight Amount', key: 'freightAmount', width: 15 },
     commissionRate: { header: 'Commission Rate', key: 'commissionRate', width: 15 },
     expenses: { header: 'Expenses', key: 'totalExpenses', width: 15 },
+    advances: { header: 'Advances', key: 'totalAdvances', width: 15 },
     profitAndLoss: { header: 'Profit & Loss', key: 'profitAndLoss', width: 15 },
     transport: { header: 'Transporter', key: 'transporterName', width: 20 },
     subtripStatus: { header: 'Job Status', key: 'subtripStatus', width: 15 },
@@ -868,6 +869,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
 
   let totalFreight = 0;
   let totalExpensesSum = 0;
+  let totalAdvancesSum = 0;
   let totalProfitSum = 0;
   let totalLoadingWeight = 0;
   let totalUnloadingWeight = 0;
@@ -878,11 +880,13 @@ const exportSubtrips = asyncHandler(async (req, res) => {
 
     const freight = doc.calculatedFreight || 0;
     const totalExpenses = doc.totalExpenses || 0;
+    const totalAdvances = doc.totalAdvances || 0;
     const profitAndLoss = doc.profitAndLoss || 0;
 
     // Accumulate totals
     totalFreight += freight;
     totalExpensesSum += totalExpenses;
+    totalAdvancesSum += totalAdvances;
     totalProfitSum += profitAndLoss;
     totalLoadingWeight += (doc.loadingWeight || 0);
     totalUnloadingWeight += (doc.unloadingWeight || 0);
@@ -892,7 +896,20 @@ const exportSubtrips = asyncHandler(async (req, res) => {
       const {key} = col;
 
       if (key === 'freightAmount') row[key] = Math.round(freight * 100) / 100;
-      else if (key === 'totalExpenses') row[key] = Math.round(totalExpenses * 100) / 100;
+      else if (key === 'totalExpenses') {
+        if (doc.isOwn === false) {
+          row[key] = 'N.A.';
+        } else {
+          row[key] = Math.round(totalExpenses * 100) / 100;
+        }
+      }
+      else if (key === 'totalAdvances') {
+        if (doc.isOwn === true) {
+          row[key] = 'N.A.';
+        } else {
+          row[key] = Math.round(totalAdvances * 100) / 100;
+        }
+      }
       else if (key === 'profitAndLoss') row[key] = Math.round(profitAndLoss * 100) / 100;
       else if (key === 'startDate' || key === 'endDate' || key === 'ewayExpiryDate') {
         row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
@@ -919,6 +936,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     if (key === 'subtripNo') totalRow[key] = 'TOTAL';
     else if (key === 'freightAmount') totalRow[key] = Math.round(totalFreight * 100) / 100;
     else if (key === 'totalExpenses') totalRow[key] = Math.round(totalExpensesSum * 100) / 100;
+    else if (key === 'totalAdvances') totalRow[key] = Math.round(totalAdvancesSum * 100) / 100;
     else if (key === 'profitAndLoss') totalRow[key] = Math.round(totalProfitSum * 100) / 100;
     else if (key === 'loadingWeight') totalRow[key] = Math.round(totalLoadingWeight * 100) / 100;
     else if (key === 'unloadingWeight') totalRow[key] = Math.round(totalUnloadingWeight * 100) / 100;
