@@ -58,6 +58,7 @@ const jobCreateSchema = z.object({
       orderNo: z.string().optional(),
       referenceSubtripNo: z.string().optional(),
       diNumber: z.string().optional(),
+      vehicleAssignment: z.enum(['schedule', 'adhock']).optional(),
 
       // Optional driver-advance inputs
       driverAdvance: z.number().optional(),

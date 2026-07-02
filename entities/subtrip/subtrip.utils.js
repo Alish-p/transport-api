@@ -663,6 +663,7 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
     startDate,
     loadingPoint,
     unloadingPoint,
+    vehicleAssignment: body.vehicleAssignment || 'schedule',
   };
 
   if (tripToUse?._id) {
