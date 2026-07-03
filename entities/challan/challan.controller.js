@@ -6,9 +6,6 @@ import Vehicle from '../vehicle/vehicle.model.js';
 import ChallanLookup from './challanLookup.model.js';
 import { fetchChallansForVehicle, normalizeProviderResponse } from '../../helpers/echallan.js';
 
-function escapeRegex(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 // GET /challans?vehicleNo=XX — DB only
 export const getChallansFromDB = asyncHandler(async (req, res) => {

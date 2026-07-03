@@ -6,8 +6,8 @@ function parseDateSafe(input) {
   const s = String(input).trim();
   if (!s) return null;
   // MM/YYYY
-  if (/^\d{1,2}[\/\-]\d{4}$/.test(s)) {
-    const [mm, yyyy] = s.split(/[\/\-]/).map((x) => parseInt(x, 10));
+  if (/^\d{1,2}[/-]\d{4}$/.test(s)) {
+    const [mm, yyyy] = s.split(/[/-]/).map((x) => parseInt(x, 10));
     if (!Number.isNaN(mm) && !Number.isNaN(yyyy)) {
       const d = new Date(Date.UTC(yyyy, mm - 1, 1));
       return d;
@@ -18,7 +18,7 @@ function parseDateSafe(input) {
     jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
     jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
   };
-  const m1 = s.match(/^(\d{1,2})[-\/](\w{3})[-\/]?(\d{4})$/i);
+  const m1 = s.match(/^(\d{1,2})[-/](\w{3})[-/]?(\d{4})$/i);
   if (m1) {
     const dd = parseInt(m1[1], 10);
     const mon = monthMap[m1[2].toLowerCase()];
@@ -27,7 +27,7 @@ function parseDateSafe(input) {
       return new Date(Date.UTC(yyyy, mon, dd));
     }
   }
-  const m2 = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/]?(\d{4})$/);
+  const m2 = s.match(/^(\d{1,2})[-/](\d{1,2})[-/]?(\d{4})$/);
   if (m2) {
     const dd = parseInt(m2[1], 10);
     const mm = parseInt(m2[2], 10) - 1;
@@ -45,7 +45,7 @@ function parseDateSafe(input) {
 
 function numFromArray(a) {
   if (!Array.isArray(a) || a.length === 0) return null;
-  const n = Number(String(a[0]).replace(/[^\d.\-]/g, ''));
+  const n = Number(String(a[0]).replace(/[^\d.-]/g, ''));
   return Number.isFinite(n) ? n : null;
 }
 

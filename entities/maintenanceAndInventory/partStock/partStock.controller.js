@@ -29,7 +29,7 @@ const adjustStock = asyncHandler(async (req, res) => {
     }
 
     const change = Number(quantityChange);
-    if (isNaN(change)) {
+    if (Number.isNaN(change)) {
         return res.status(400).json({ message: 'Invalid quantityChange' });
     }
 
@@ -67,7 +67,7 @@ const transferStock = asyncHandler(async (req, res) => {
     }
 
     const qty = Number(quantity);
-    if (isNaN(qty) || qty <= 0) {
+    if (Number.isNaN(qty) || qty <= 0) {
         return res.status(400).json({ message: 'Quantity must be a positive number' });
     }
 

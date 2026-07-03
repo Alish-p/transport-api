@@ -226,7 +226,6 @@ const createBulkParts = asyncHandler(async (req, res) => {
         measurementUnit,
         description,
         inventory = [],
-        rowNumber,
       } = partData;
 
       // 1. Create the Part

@@ -684,11 +684,11 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
       const qtyToReceive = Number(updateData.quantityToReceive);
       const actualUnitCost = Number(updateData.actualUnitCost);
 
-      if (isNaN(qtyToReceive) || qtyToReceive <= 0) {
+      if (Number.isNaN(qtyToReceive) || qtyToReceive <= 0) {
         continue;
       }
 
-      if (isNaN(actualUnitCost) || actualUnitCost < 0) {
+      if (Number.isNaN(actualUnitCost) || actualUnitCost < 0) {
         await session.abortTransaction();
         session.endSession();
         return res.status(400).json({

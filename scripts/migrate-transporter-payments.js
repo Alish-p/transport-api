@@ -57,7 +57,8 @@ async function run() {
 
     for (const payment of payments) {
       let isModified = false;
-      const updatedSnapshots = payment.subtripSnapshot.map((snapshot) => {
+      const updatedSnapshots = [];
+      for (const snapshot of payment.subtripSnapshot) {
         let snapshotModified = false;
         const newSnapshot = { ...snapshot };
 
@@ -66,7 +67,7 @@ async function run() {
           newSnapshot.freightDetails = {
             freightModel: 'per_ton',
             rate: newSnapshot.rate ?? 0,
-            freightAmount: newSnapshot.freightAmount ?? 0
+            freightAmount: newSnapshot.freightAmount ?? 0,
           };
           snapshotModified = true;
         }
@@ -77,18 +78,18 @@ async function run() {
           const weight = newSnapshot.loadingWeight ?? 0;
           newSnapshot.commissionDetails = {
             commissionRate: rate,
-            commissionAmount: rate * weight
+            commissionAmount: rate * weight,
           };
           snapshotModified = true;
         }
 
         if (snapshotModified) {
-          totalSnapshotsMigrated++;
+          totalSnapshotsMigrated += 1;
           isModified = true;
         }
 
-        return newSnapshot;
-      });
+        updatedSnapshots.push(newSnapshot);
+      }
 
       if (isModified) {
         bulkOps.push({

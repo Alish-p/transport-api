@@ -54,22 +54,24 @@ async function run() {
 
     for (const invoice of invoices) {
       let isModified = false;
-      const updatedSnapshots = invoice.subtripSnapshot.map((snapshot) => {
+      const updatedSnapshots = [];
+      for (const snapshot of invoice.subtripSnapshot) {
         // If snapshot is missing freightDetails, migrate it
         if (!snapshot.freightDetails) {
           isModified = true;
-          totalSnapshotsMigrated++;
-          return {
+          totalSnapshotsMigrated += 1;
+          updatedSnapshots.push({
             ...snapshot,
             freightDetails: {
               freightModel: 'per_ton',
               rate: snapshot.rate ?? 0,
-              freightAmount: snapshot.freightAmount ?? 0
-            }
-          };
+              freightAmount: snapshot.freightAmount ?? 0,
+            },
+          });
+        } else {
+          updatedSnapshots.push(snapshot);
         }
-        return snapshot;
-      });
+      }
 
       if (isModified) {
         bulkOps.push({

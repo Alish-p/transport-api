@@ -93,11 +93,12 @@ const generateEventMessage = (event) => {
     case SUBTRIP_EVENT_TYPES.STATUS_CHANGED:
       return `Status changed to ${details.newStatus} ${userInfo}`;
 
-    case SUBTRIP_EVENT_TYPES.UPDATED:
+    case SUBTRIP_EVENT_TYPES.UPDATED: {
       const changedFieldsList = Object.keys(details.changedFields || {}).join(
         ", "
       );
       return `Updated subtrip fields: ${changedFieldsList} ${userInfo}`;
+    }
 
     case SUBTRIP_EVENT_TYPES.ADVANCE_ADDED:
       return `Advance added: ${details.advanceType} - ₹${details.amount} ${userInfo}`;

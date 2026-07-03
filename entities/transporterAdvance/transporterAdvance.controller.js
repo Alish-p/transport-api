@@ -130,16 +130,16 @@ const fetchPaginatedAdvances = asyncHandler(async (req, res) => {
     countPending: 0,
   };
 
-  aggregationResult.forEach((res) => {
-    totals.totalGiven += res.totalAmount;
-    totals.countGiven += res.count;
-    if (res._id === 'Recovered') {
-      totals.totalRecovered = res.totalAmount;
-      totals.countRecovered = res.count;
+  aggregationResult.forEach((item) => {
+    totals.totalGiven += item.totalAmount;
+    totals.countGiven += item.count;
+    if (item._id === 'Recovered') {
+      totals.totalRecovered = item.totalAmount;
+      totals.countRecovered = item.count;
     }
-    if (res._id === 'Pending') {
-      totals.totalPending = res.totalAmount;
-      totals.countPending = res.count;
+    if (item._id === 'Pending') {
+      totals.totalPending = item.totalAmount;
+      totals.countPending = item.count;
     }
   });
 

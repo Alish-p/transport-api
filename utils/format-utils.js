@@ -45,7 +45,7 @@ const formatDateDDMonYYYY = (date) => {
 export { trimToDigits, formatCurrencyINR, formatPhoneE164ish, formatDateDDMonYYYY };
  
 // Format date+time as "DD Mon YYYY, HH:MM AM/PM"
-const formatDateTimeDDMonYYYY_HHMM = (date) => {
+const formatDateTimeDdMonYyyyHhmm = (date) => {
   try {
     const d = date ? new Date(date) : new Date();
     const dateStr = d.toLocaleDateString("en-GB", {
@@ -64,4 +64,4 @@ const formatDateTimeDDMonYYYY_HHMM = (date) => {
   }
 };
 
-export { formatDateTimeDDMonYYYY_HHMM };
+export { formatDateTimeDdMonYyyyHhmm };

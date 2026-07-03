@@ -494,7 +494,7 @@ const exportExpenses = asyncHandler(async (req, res) => {
   for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
     const row = {};
 
-    exportColumns.forEach((col) => {
+    for (const col of exportColumns) {
       const {key} = col;
 
       // Handle Date 
@@ -521,7 +521,7 @@ const exportExpenses = asyncHandler(async (req, res) => {
 
       // Handle Lookups
       else row[key] = doc[key] || '-';
-    });
+    }
 
     // Fix remark fallback if needed
     if (row.remark === '-' && doc.remarks) {

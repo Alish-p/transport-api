@@ -83,13 +83,13 @@ export const getTargets = async (req, res, next) => {
         targetMonth.setUTCHours(0, 0, 0, 0);
 
         // Calculate start and end date for the month in IST
-        const startOfMonth = getStartOfMonthIST(parseInt(year), targetMonth.getUTCMonth() + 1);
-        const endOfMonth = getNextMonthStartIST(parseInt(year), targetMonth.getUTCMonth() + 1);
+        const startOfMonth = getStartOfMonthIST(parseInt(year, 10), targetMonth.getUTCMonth() + 1);
+        const endOfMonth = getNextMonthStartIST(parseInt(year, 10), targetMonth.getUTCMonth() + 1);
 
         const targets = await CustomerTarget.find({
             tenant,
             month: targetMonth,
-            year: parseInt(year),
+            year: parseInt(year, 10),
         })
             .populate('customer', 'customerName')
             .lean();

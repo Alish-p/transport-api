@@ -19,6 +19,26 @@ const REF_FIELD_CONFIG = {
 };
 
 /**
+ * Look up the human-readable label for a given ID.
+ * Falls back to the raw ID string if the document is not found.
+ *
+ * @param {Model}  model       - Mongoose model
+ * @param {string} id          - ObjectId string (may be null/undefined)
+ * @param {string} labelField  - Field name to extract from the document
+ * @param {string} tenant      - Tenant scope for the query
+ * @returns {Promise<string|null>}
+ */
+const lookupLabel = async (model, id, labelField, tenant) => {
+  if (!id) return null;
+  try {
+    const doc = await model.findOne({ _id: id, tenant }).select(labelField).lean();
+    return doc?.[labelField] ?? id; // Fallback to raw id if not found
+  } catch {
+    return id; // Never throw – fallback to id
+  }
+};
+
+/**
  * Given a changedFields object (already serialized to primitives via buildChangedFields),
  * replace raw ObjectId strings for known ref fields with their human-readable labels,
  * and rename the key to the friendly display name.
@@ -55,26 +75,6 @@ const resolveChangedFieldLabels = async (changedFields, tenant) => {
   );
 
   return resolved;
-};
-
-/**
- * Look up the human-readable label for a given ID.
- * Falls back to the raw ID string if the document is not found.
- *
- * @param {Model}  model       - Mongoose model
- * @param {string} id          - ObjectId string (may be null/undefined)
- * @param {string} labelField  - Field name to extract from the document
- * @param {string} tenant      - Tenant scope for the query
- * @returns {Promise<string|null>}
- */
-const lookupLabel = async (model, id, labelField, tenant) => {
-  if (!id) return null;
-  try {
-    const doc = await model.findOne({ _id: id, tenant }).select(labelField).lean();
-    return doc?.[labelField] ?? id; // Fallback to raw id if not found
-  } catch {
-    return id; // Never throw – fallback to id
-  }
 };
 
 export { resolveChangedFieldLabels };

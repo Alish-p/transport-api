@@ -174,7 +174,6 @@ const getTyres = asyncHandler(async (req, res) => {
         ]);
 
         const mountedIdSet = new Set(currentlyMounted.map(t => t._id.toString()));
-        const inStockIdSet = new Set(currentlyInStock.map(t => t._id.toString()));
         const everMountedIdSet = new Set(attachmentAgg.map(item => item._id.toString()));
 
         if (attachmentStatus === 'neverAttached') {
@@ -817,7 +816,6 @@ const updateTyreHistory = asyncHandler(async (req, res) => {
             if (nextHistory) {
                 // Recalculate that unmount's distance
                 const unmountOdometer = nextHistory.odometer;
-                const oldMountOdometer = history.odometer; // Current value in DB before update
                 const oldDistance = nextHistory.distanceCovered;
 
                 // Update the metadata of the unmount event so it knows the new start point

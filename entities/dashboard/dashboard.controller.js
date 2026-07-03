@@ -2969,11 +2969,6 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
     ]);
 
     // Format helpers
-    const formatBucket = (aggData) => {
-      const output = {};
-      aggData.forEach(item => { if (item._id) output[item._id] = item.count; });
-      return output;
-    };
 
     const poStatusMap = {};
     const poAmountMap = {};

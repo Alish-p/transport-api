@@ -839,9 +839,9 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
         row[key] = vals.join(', ') || '-';
       } else if (key === 'issueAssignees') {
         const issues = rowData.issues || [];
-        const names = issues.flatMap((issue) => {
-          if (!issue || typeof issue !== 'object' || !Array.isArray(issue.assignedTo)) return [];
-          return issue.assignedTo.map(user => {
+        const names = issues.flatMap((issueItem) => {
+          if (!issueItem || typeof issueItem !== 'object' || !Array.isArray(issueItem.assignedTo)) return [];
+          return issueItem.assignedTo.map(user => {
             if (!user) return null;
             return user.name || user.customerName || null;
           }).filter(Boolean);

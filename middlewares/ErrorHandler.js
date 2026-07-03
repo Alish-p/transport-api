@@ -15,11 +15,13 @@ const handleDuplicateFieldsDB = (err) => {
         .join(', ')
     : null;
 
-  const message = err.message && !err.message.includes('E11000')
-    ? err.message
-    : duplicateFields
-      ? `Value already exists for ${duplicateFields}. Please use another value.`
-      : 'Value already exists. Please use another value.';
+  let message = 'Value already exists. Please use another value.';
+  const { message: errMessage } = err;
+  if (errMessage && !errMessage.includes('E11000')) {
+    message = errMessage;
+  } else if (duplicateFields) {
+    message = `Value already exists for ${duplicateFields}. Please use another value.`;
+  }
   const error = new Error(message);
   error.status = 400;
   return error;
@@ -44,16 +46,18 @@ const notFound = (req, res, next) => {
 
 // errorHandler
 
+// eslint-disable-next-line no-unused-vars
 const errorHandler = (err, req, res, next) => {
   console.log(err.message);
 
-  if (err.name === "CastError") err = handleCastErrorDB(err);
-  if (err.code === 11000) err = handleDuplicateFieldsDB(err);
-  if (err.name === "ValidationError") err = handleValidationErrorDB(err);
+  let error = err;
+  if (err.name === "CastError") error = handleCastErrorDB(err);
+  if (err.code === 11000) error = handleDuplicateFieldsDB(err);
+  if (err.name === "ValidationError") error = handleValidationErrorDB(err);
 
-  const { status, message } = err;
+  const { status, message } = error;
 
-  const stack = process.env.NODE_ENV === "production" ? null : err.stack;
+  const stack = process.env.NODE_ENV === "production" ? null : error.stack;
 
   res.status(status || 500).json({ message, stack, handled: true });
 };

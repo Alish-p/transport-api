@@ -15,7 +15,7 @@ function parseDateTime(input) {
 
 function toNumberSafe(v) {
   if (v === null || v === undefined) return undefined;
-  const n = Number(String(v).replace(/[^\d.\-]/g, ''));
+  const n = Number(String(v).replace(/[^\d.-]/g, ''));
   return Number.isFinite(n) ? n : undefined;
 }
 

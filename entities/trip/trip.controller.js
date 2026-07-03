@@ -57,7 +57,7 @@ const fetchTrips = asyncHandler(async (req, res) => {
     }
 
     if (numberOfSubtrips) {
-      const size = parseInt(numberOfSubtrips);
+      const size = parseInt(numberOfSubtrips, 10);
       if (query.subtrips) {
         query.subtrips = { $all: [query.subtrips], $size: size };
       } else {
@@ -429,9 +429,9 @@ const deleteTrip = asyncHandler(async (req, res) => {
   const blockingSubtrips = await Subtrip.find({
     _id: { $in: trip.subtrips },
     $or: [
-      { invoiceId: { $exists: true, $ne: null, $ne: "" } },
-      { driverSalaryId: { $exists: true, $ne: null, $ne: "" } },
-      { transporterPaymentReceiptId: { $exists: true, $ne: null, $ne: "" } },
+      { invoiceId: { $exists: true, $nin: [null, ""] } },
+      { driverSalaryId: { $exists: true, $nin: [null, ""] } },
+      { transporterPaymentReceiptId: { $exists: true, $nin: [null, ""] } },
     ],
   }).select("subtripNo invoiceId driverSalaryId transporterPaymentReceiptId");
 
@@ -752,7 +752,7 @@ const exportTrips = asyncHandler(async (req, res) => {
   }
 
   if (numberOfSubtrips) {
-    const size = parseInt(numberOfSubtrips);
+    const size = parseInt(numberOfSubtrips, 10);
     if (query.subtrips) {
       query.subtrips = { $all: [query.subtrips], $size: size };
     } else {

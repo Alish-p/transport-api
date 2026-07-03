@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 
 import Tenant from '../tenant/tenant.model.js';
@@ -9,9 +8,6 @@ import { REQUIRED_DOC_TYPES } from './vehicleDocument.constants.js';
 import { extractDocuments, fetchVehicleByNumber } from '../../helpers/webcorevision.js';
 import { generateUploadUrl, buildPublicFileUrl, deleteObjectFromS3, buildDatedFilename, createPresignedGetUrl } from '../../services/s3.service.js';
 
-function ensureObjectId(id) {
-  return new mongoose.Types.ObjectId(id);
-}
 
 // Generate presigned URL for direct upload to S3
 function sanitizeSegment(input, toLower = true) {
