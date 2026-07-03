@@ -1,15 +1,16 @@
 import { Router } from 'express';
+
 import { authenticate, requireSuperuser } from '../../middlewares/auth.js';
 import {
-  createUserForTenant,
   createTenant,
   fetchTenants,
   deleteTenant,
   updateTenantById,
   addTenantPayment,
+  fetchTenantDetails,
+  createUserForTenant,
   updateTenantPayment,
   deleteTenantPayment,
-  fetchTenantDetails,
 } from './superuser.controller.js';
 
 const router = Router();

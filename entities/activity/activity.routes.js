@@ -1,4 +1,5 @@
 import express from 'express';
+
 import { fetchActivity } from './activity.controller.js';
 import pagination from '../../middlewares/pagination.js';
 

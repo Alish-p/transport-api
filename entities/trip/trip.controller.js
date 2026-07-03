@@ -1,12 +1,13 @@
 import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
+
 import Trip from "./trip.model.js";
 import Vehicle from "../vehicle/vehicle.model.js";
 import Subtrip from "../subtrip/subtrip.model.js";
 import Expense from "../expense/expense.model.js";
 import { TRIP_STATUS } from "./trip.constants.js";
-import { SUBTRIP_STATUS } from "../subtrip/subtrip.constants.js";
 import { addTenantToQuery } from "../../utils/tenant-utils.js";
+import { SUBTRIP_STATUS } from "../subtrip/subtrip.constants.js";
 
 // Fetch Trips with pagination and search
 const fetchTrips = asyncHandler(async (req, res) => {
@@ -695,16 +696,16 @@ const fetchRouteAnalytics = asyncHandler(async (req, res) => {
 });
 
 export {
-  fetchTrips,
-  fetchTripsPreview,
-  fetchVehicleActiveTrip,
-  fetchActiveTripsMap,
   fetchTrip,
   closeTrip,
+  fetchTrips,
   updateTrip,
   deleteTrip,
   exportTrips,
+  fetchTripsPreview,
+  fetchActiveTripsMap,
   fetchRouteAnalytics,
+  fetchVehicleActiveTrip,
 };
 
 // Export Trips to Excel
@@ -852,7 +853,7 @@ const exportTrips = asyncHandler(async (req, res) => {
     .sort({ fromDate: -1 })
     .lean();
 
-  let sums = {
+  const sums = {
     cachedTotalIncome: 0,
     cachedTotalExpense: 0,
     profitAndLoss: 0,
@@ -864,7 +865,7 @@ const exportTrips = asyncHandler(async (req, res) => {
     const row = {};
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
 
       if (key === 'vehicleNo') {
         row[key] = trip.vehicleId?.vehicleNo || '-';

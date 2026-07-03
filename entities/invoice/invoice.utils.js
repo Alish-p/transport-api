@@ -165,6 +165,6 @@ const calculateInvoiceSummary = (invoice, customer, tenantState) => {
 };
 
 export {
-  calculateInvoiceSummary,
   calculateTaxBreakup,
+  calculateInvoiceSummary,
 };

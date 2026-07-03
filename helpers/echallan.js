@@ -73,8 +73,8 @@ async function fetchChallansForVehicle(vehicleNo) {
 }
 
 export {
+  parseDateTime,
   fetchChallansForVehicle,
   normalizeProviderResponse,
-  parseDateTime,
 };
 

@@ -1,12 +1,13 @@
 import { Router } from 'express';
-import {
-  createTransporterAdvance,
-  fetchPaginatedAdvances,
-  exportTransporterAdvances,
-  deleteTransporterAdvance,
-} from './transporterAdvance.controller.js';
+
 import { authenticate } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
+import {
+  fetchPaginatedAdvances,
+  createTransporterAdvance,
+  deleteTransporterAdvance,
+  exportTransporterAdvances,
+} from './transporterAdvance.controller.js';
 
 const router = Router();
 

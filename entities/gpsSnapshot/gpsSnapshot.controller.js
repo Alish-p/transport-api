@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+
 import GpsSnapshot from './gpsSnapshot.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 

@@ -1,15 +1,15 @@
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
-import PartStock from './partStock.model.js';
-import PartTransaction from '../partTransaction/partTransaction.model.js';
-import {
-    INVENTORY_ACTIVITY_TYPES,
-    SOURCE_DOCUMENT_TYPES,
-} from '../partTransaction/partTransaction.constants.js';
+import asyncHandler from 'express-async-handler';
+
 import Part from '../part/part.model.js';
 import PartLocation from '../partLocation/partLocation.model.js';
-import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
+import PartTransaction from '../partTransaction/partTransaction.model.js';
+import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
+import {
+    SOURCE_DOCUMENT_TYPES,
+    INVENTORY_ACTIVITY_TYPES,
+} from '../partTransaction/partTransaction.constants.js';
 
 const adjustStock = asyncHandler(async (req, res) => {
     const { partId, inventoryLocation, quantityChange, reason } = req.body;
@@ -39,7 +39,7 @@ const adjustStock = asyncHandler(async (req, res) => {
     try {
         const { partStock } = await recordInventoryActivity({
             tenant: req.tenant,
-            partId: partId,
+            partId,
             locationId: inventoryLocation,
             type: activityType,
             direction,
@@ -93,7 +93,7 @@ const transferStock = asyncHandler(async (req, res) => {
         await recordInventoryActivity(
             {
                 tenant: req.tenant,
-                partId: partId,
+                partId,
                 locationId: fromLocationId,
                 type: INVENTORY_ACTIVITY_TYPES.TRANSFER_OUT,
                 direction: 'OUT',
@@ -110,7 +110,7 @@ const transferStock = asyncHandler(async (req, res) => {
         await recordInventoryActivity(
             {
                 tenant: req.tenant,
-                partId: partId,
+                partId,
                 locationId: toLocationId,
                 type: INVENTORY_ACTIVITY_TYPES.TRANSFER_IN,
                 direction: 'IN',
@@ -335,7 +335,7 @@ const exportInventoryActivities = asyncHandler(async (req, res) => {
         const totalCost = doc.totalCost || Math.abs(doc.quantityChange) * avgUnitCost;
 
         exportColumns.forEach((col) => {
-            const key = col.key;
+            const {key} = col;
             if (key === 'activityDate') {
                 row[key] = doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : '-';
             } else if (key === 'part') {

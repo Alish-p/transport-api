@@ -1,6 +1,7 @@
-import { Schema, model } from 'mongoose';
-import { WORK_ORDER_STATUS, WORK_ORDER_PRIORITY } from './workOrder.constants.js';
+import { model, Schema } from 'mongoose';
+
 import CounterModel from '../../../model/Counter.js';
+import { WORK_ORDER_STATUS } from './workOrder.constants.js';
 
 const workOrderPartSchema = new Schema(
   {

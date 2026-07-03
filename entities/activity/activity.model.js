@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
 
 const activitySchema = new Schema({
     entity: { type: Schema.Types.ObjectId, required: true, refPath: 'entityType' },

@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
+
 import { FREIGHT_MODELS } from '../subtrip/subtrip.constants.js';
 
 const FREIGHT_MODEL_ENUM = Object.values(FREIGHT_MODELS);

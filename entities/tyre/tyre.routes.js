@@ -1,24 +1,25 @@
 import express from "express";
-import {
-    createTyre,
-    createBulkTyres,
-    getTyres,
-    exportTyres,
-    getTyreById,
-    updateTyre,
-    updateThreadDepth,
-    mountTyre,
-    unmountTyre,
-    getTyreHistory,
-    scrapTyre,
-    updateTyreHistory,
-    remoldTyre,
-    sellTyre,
-    deleteTyre,
-} from "./tyre.controller.js";
+
+import Tenant from "../tenant/tenant.model.js";
 import pagination from "../../middlewares/pagination.js";
 import { authenticate, checkPermission } from "../../middlewares/auth.js";
-import Tenant from "../tenant/tenant.model.js";
+import {
+    getTyres,
+    sellTyre,
+    mountTyre,
+    scrapTyre,
+    createTyre,
+    updateTyre,
+    remoldTyre,
+    deleteTyre,
+    exportTyres,
+    getTyreById,
+    unmountTyre,
+    getTyreHistory,
+    createBulkTyres,
+    updateThreadDepth,
+    updateTyreHistory,
+} from "./tyre.controller.js";
 
 const router = express.Router();
 

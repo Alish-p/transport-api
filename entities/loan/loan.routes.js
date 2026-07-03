@@ -1,15 +1,16 @@
 import { Router } from 'express';
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
+
 import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
+  repayLoan,
   createLoan,
   deleteLoan,
-  fetchPaginatedLoans,
-  fetchLoanById,
-  repayLoan,
   updateLoan,
-  fetchPendingLoans,
   exportLoans,
+  fetchLoanById,
+  fetchPendingLoans,
+  fetchPaginatedLoans,
 } from './loan.controller.js';
 
 const router = Router();

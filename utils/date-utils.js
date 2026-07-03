@@ -1,5 +1,5 @@
 const addMonths = (date, months) => {
-  let d = date.getDate();
+  const d = date.getDate();
   date.setMonth(date.getMonth() + +months);
   if (date.getDate() != d) {
     date.setDate(0);
@@ -12,9 +12,9 @@ const addMonths = (date, months) => {
 };
 
 const addDays = (date, days) => {
-  let result = new Date(date);
+  const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
 };
 
-export { addMonths, addDays };
+export { addDays, addMonths };

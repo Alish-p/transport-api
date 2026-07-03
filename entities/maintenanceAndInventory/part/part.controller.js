@@ -1,21 +1,22 @@
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
+
 import Part from './part.model.js';
-import PartLocation from '../partLocation/partLocation.model.js';
 import PartStock from '../partStock/partStock.model.js';
-import PartTransaction from '../partTransaction/partTransaction.model.js';
 import { PART_SEARCH_FIELDS } from './part.constants.js';
+import PartLocation from '../partLocation/partLocation.model.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 import { generateUploadUrl } from '../../../services/s3.service.js';
+import PartTransaction from '../partTransaction/partTransaction.model.js';
 
 // ─── PARTS CRUD ────────────────────────────────────────────────────────────────
 
-import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
-import { INVENTORY_ACTIVITY_TYPES, SOURCE_DOCUMENT_TYPES } from '../partTransaction/partTransaction.constants.js';
-import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
 import WorkOrder from '../workOrder/workOrder.model.js';
-import { PURCHASE_ORDER_STATUS } from '../purchaseOrder/purchaseOrder.constants.js';
+import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
 import { WORK_ORDER_STATUS } from '../workOrder/workOrder.constants.js';
+import { PURCHASE_ORDER_STATUS } from '../purchaseOrder/purchaseOrder.constants.js';
+import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
+import { SOURCE_DOCUMENT_TYPES, INVENTORY_ACTIVITY_TYPES } from '../partTransaction/partTransaction.constants.js';
 
 // ─── PARTS CRUD ────────────────────────────────────────────────────────────────
 
@@ -107,12 +108,12 @@ const createPart = asyncHandler(async (req, res) => {
         // but we also need to set the threshold which recordInventoryActivity doesn't do by default.
         // So let's create the record first.
 
-        let partStock = new PartStock({
+        const partStock = new PartStock({
           tenant: req.tenant,
           part: newPart._id,
           inventoryLocation: item.inventoryLocation,
           quantity: 0, // Start at 0, then add if needed
-          threshold: threshold,
+          threshold,
         });
         await partStock.save();
 
@@ -259,7 +260,7 @@ const createBulkParts = asyncHandler(async (req, res) => {
             tenant: req.tenant,
             part: newPart._id,
             inventoryLocation: item.inventoryLocation,
-            quantity: quantity, // Start at populated quantity directly
+            quantity, // Start at populated quantity directly
             threshold,
           }));
 
@@ -896,7 +897,7 @@ const exportParts = asyncHandler(async (req, res) => {
     grandTotalCost += totalCost;
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
       if (key === 'quantity') {
         row[key] = qty;
       } else if (key === 'totalCost') {
@@ -914,7 +915,7 @@ const exportParts = asyncHandler(async (req, res) => {
   // Footer Row
   const totalRow = {};
   exportColumns.forEach((col) => {
-    const key = col.key;
+    const {key} = col;
     if (key === 'name') totalRow[key] = 'TOTAL';
     else if (key === 'totalCost') totalRow[key] = Math.round(grandTotalCost * 100) / 100;
     else totalRow[key] = '';
@@ -930,12 +931,12 @@ const exportParts = asyncHandler(async (req, res) => {
 
 export {
   createPart,
-  createBulkParts,
   fetchParts,
-  exportParts,
-  fetchPartById,
   updatePart,
   deletePart,
-  getPartPriceHistory,
+  exportParts,
+  fetchPartById,
+  createBulkParts,
   getPhotoUploadUrl,
+  getPartPriceHistory,
 };

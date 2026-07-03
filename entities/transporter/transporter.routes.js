@@ -1,21 +1,20 @@
 import { Router } from 'express';
-import { transporterSchema } from './transporter.validation.js';
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
   createTransporter,
   fetchTransporters,
   deleteTransporter,
   updateTransporter,
+  exportTransporters,
+  cleanupTransporters,
   fetchTransporterById,
+  getDocumentUploadUrl,
+  fetchOrphanTransporters,
   fetchTransporterVehicles,
   fetchTransporterPayments,
-  fetchOrphanTransporters,
-  cleanupTransporters,
-  exportTransporters,
-  getDocumentUploadUrl,
 } from './transporter.controller.js';
-
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

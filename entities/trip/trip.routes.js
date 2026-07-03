@@ -1,18 +1,19 @@
 import { Router } from 'express';
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
-  fetchTrips,
-  fetchTripsPreview,
-  fetchVehicleActiveTrip,
-  fetchActiveTripsMap,
   fetchTrip,
+  closeTrip,
+  fetchTrips,
   updateTrip,
   deleteTrip,
-  closeTrip,
   exportTrips,
+  fetchTripsPreview,
+  fetchActiveTripsMap,
   fetchRouteAnalytics,
+  fetchVehicleActiveTrip,
 } from './trip.controller.js';
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

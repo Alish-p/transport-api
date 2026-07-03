@@ -1,29 +1,30 @@
 import { Router } from 'express';
+
 import { authenticate } from '../../middlewares/auth.js';
 import {
-  getCustomerMonthlyFreight,
-  getExpiringSubtrips,
   getTotalCounts,
+  getDailySummary,
+  getExpiringSubtrips,
+  getExpiringDocuments,
   getSubtripMonthlyData,
-  getMonthlySubtripExpenseSummary,
-  getMonthlyMaterialWeightSummary,
-  getMonthlyVehicleSubtripSummary,
   getMonthlyDriverSummary,
-  getMonthlyTransporterSummary,
   getSubtripStatusSummary,
   getFinancialMonthlyData,
   getInvoiceStatusSummary,
-  getTransporterPaymentSummary,
   getInvoiceAmountSummary,
-  getDailySummary,
-  getVehicleDocumentStatusSummary,
-  getExpiringDocuments,
-  getMonthlyDestinationSubtrips,
   getTyreDashboardSummary,
+  getMaintenanceDashboard,
+  getTyreDetailedDashboard,
+  getCustomerMonthlyFreight,
+  getMonthlyTransporterSummary,
+  getTransporterPaymentSummary,
   getInventoryDashboardSummary,
   getWorkOrderDashboardSummary,
-  getTyreDetailedDashboard,
-  getMaintenanceDashboard,
+  getMonthlyDestinationSubtrips,
+  getMonthlySubtripExpenseSummary,
+  getMonthlyMaterialWeightSummary,
+  getMonthlyVehicleSubtripSummary,
+  getVehicleDocumentStatusSummary,
 } from './dashboard.controller.js';
 
 const router = Router();

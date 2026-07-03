@@ -1,11 +1,12 @@
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
+
 import Tyre from './tyre.model.js';
 import TyreHistory from './tyre-history.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import { TYRE_STATUS, TYRE_TYPE, TYRE_HISTORY_ACTION } from './tyre.constants.js';
 import { TYRE_POSITIONS } from '../../constants/tyreLayouts.js';
+import { TYRE_TYPE, TYRE_STATUS, TYRE_HISTORY_ACTION } from './tyre.constants.js';
 
 
 
@@ -36,7 +37,7 @@ const createTyre = asyncHandler(async (req, res) => {
     const currentPosition = null;
 
     // "if type new = openingkm will be 0 disabled"
-    let currentKm = req.body.currentKm;
+    let {currentKm} = req.body;
     if (type === TYRE_TYPE.NEW) {
         currentKm = 0;
     }
@@ -101,7 +102,7 @@ const createBulkTyres = asyncHandler(async (req, res) => {
         const status = TYRE_STATUS.IN_STOCK;
 
         // "if type new = openingkm will be 0 disabled"
-        let currentKm = tyreData.currentKm;
+        let {currentKm} = tyreData;
         if (type === TYRE_TYPE.NEW) {
             currentKm = 0;
         }
@@ -561,7 +562,7 @@ const unmountTyre = asyncHandler(async (req, res) => {
     } else if (odometer && tyre.mountOdometer) {
         distanceCovered = odometer - tyre.mountOdometer;
         if (distanceCovered < 0) {
-            //give error
+            // give error
             res.status(400);
             throw new Error('Odometer reading is less than mount odometer reading');
         }
@@ -571,7 +572,7 @@ const unmountTyre = asyncHandler(async (req, res) => {
     // Keep track of where it was for history before clearing
     const vehicleId = tyre.currentVehicleId;
     const position = tyre.currentPosition;
-    const mountOdometer = tyre.mountOdometer;
+    const {mountOdometer} = tyre;
 
     tyre.status = TYRE_STATUS.IN_STOCK;
 
@@ -595,11 +596,11 @@ const unmountTyre = asyncHandler(async (req, res) => {
         vehicleId,
         position,
 
-        odometer: odometer,
+        odometer,
         distanceCovered,
         measuringDate: unmountDate || new Date(),
         metadata: {
-            mountOdometer: mountOdometer
+            mountOdometer
         }
     });
 
@@ -642,7 +643,7 @@ const scrapTyre = asyncHandler(async (req, res) => {
     // Store current state for history before clearing
     const vehicleId = tyre.currentVehicleId;
     const position = tyre.currentPosition;
-    const mountOdometer = tyre.mountOdometer;
+    const {mountOdometer} = tyre;
 
     if (tyre.status === TYRE_STATUS.MOUNTED) {
         if (!odometer) {
@@ -692,7 +693,7 @@ const scrapTyre = asyncHandler(async (req, res) => {
         historyData.odometer = odometer;
         historyData.distanceCovered = distanceCovered;
         historyData.metadata = {
-            mountOdometer: mountOdometer
+            mountOdometer
         };
     }
 
@@ -1113,7 +1114,7 @@ const exportTyres = asyncHandler(async (req, res) => {
         totalCost += (doc.cost || 0);
 
         exportColumns.forEach((col) => {
-            const key = col.key;
+            const {key} = col;
             if (key === 'vehicle') {
                 row[key] = doc.currentVehicleId?.vehicleNo || '-';
             } else if (key === 'remoldKm') {
@@ -1141,7 +1142,7 @@ const exportTyres = asyncHandler(async (req, res) => {
     // Footer Row
     const totalRow = {};
     exportColumns.forEach((col) => {
-        const key = col.key;
+        const {key} = col;
         if (key === 'serialNumber') totalRow[key] = 'TOTAL';
         else if (key === 'cost') totalRow[key] = Math.round(totalCost * 100) / 100;
         else totalRow[key] = '';
@@ -1237,4 +1238,4 @@ const sellTyre = asyncHandler(async (req, res) => {
     res.json(tyre);
 });
 
-export { createTyre, createBulkTyres, getTyres, exportTyres, getTyreById, updateTyre, updateThreadDepth, mountTyre, unmountTyre, getTyreHistory, scrapTyre, updateTyreHistory, remoldTyre, sellTyre, deleteTyre };
+export { getTyres, sellTyre, mountTyre, scrapTyre, createTyre, updateTyre, remoldTyre, deleteTyre, exportTyres, getTyreById, unmountTyre, getTyreHistory, createBulkTyres, updateThreadDepth, updateTyreHistory };

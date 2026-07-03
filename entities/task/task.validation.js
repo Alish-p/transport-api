@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { TASK_PRIORITIES, TASK_STATUSES } from './task.constants.js';
+
+import { TASK_STATUSES, TASK_PRIORITIES } from './task.constants.js';
 
 const taskSchema = z.object({
   body: z.object({

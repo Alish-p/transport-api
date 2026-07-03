@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
+
 import defaults from './tenant.constants.js';
 
 const paymentHistorySchema = new Schema({

@@ -1,8 +1,8 @@
 /* eslint-disable no-unused-vars */
 import "dotenv/config";
-import express from "express";
-import helmet from "helmet";
 import cors from "cors";
+import helmet from "helmet";
+import express from "express";
 import rateLimit from "express-rate-limit";
 
 import connectDB from "./config/db.js";

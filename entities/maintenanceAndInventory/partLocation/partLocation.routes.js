@@ -1,13 +1,14 @@
 import { Router } from 'express';
+
+import pagination from '../../../middlewares/pagination.js';
+import { checkPermission } from '../../../middlewares/auth.js';
 import {
   createPartLocation,
   fetchPartLocations,
-  fetchPartLocationById,
   updatePartLocation,
   deletePartLocation,
+  fetchPartLocationById,
 } from './partLocation.controller.js';
-import { checkPermission } from '../../../middlewares/auth.js';
-import pagination from '../../../middlewares/pagination.js';
 
 const router = Router();
 

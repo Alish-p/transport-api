@@ -1,11 +1,12 @@
 import express from 'express';
+
 import Tenant from '../tenant/tenant.model.js';
 import partRouter from './part/part.routes.js';
-import partLocationRouter from './partLocation/partLocation.routes.js';
-import partStockRouter from './partStock/partStock.routes.js';
-import purchaseOrderRouter from './purchaseOrder/purchaseOrder.routes.js';
 import vendorRouter from './vendor/vendor.routes.js';
+import partStockRouter from './partStock/partStock.routes.js';
 import workOrderRouter from './workOrder/workOrder.routes.js';
+import partLocationRouter from './partLocation/partLocation.routes.js';
+import purchaseOrderRouter from './purchaseOrder/purchaseOrder.routes.js';
 
 const router = express.Router();
 

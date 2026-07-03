@@ -1,20 +1,21 @@
+import dayjs from 'dayjs';
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
+
 import Customer from './customer.model.js';
+import Tenant from '../tenant/tenant.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import Tenant from '../tenant/tenant.model.js';
-import { fetchGstDetails, normalizeGstCanonical } from '../../helpers/gst.js';
 import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
-import dayjs from 'dayjs';
+import { fetchGstDetails, normalizeGstCanonical } from '../../helpers/gst.js';
 import {
-  getStartOfMonthIST,
-  getNextMonthStartIST,
-  getStartOfYearIST,
-  getNextYearStartIST,
   DEFAULT_TIMEZONE,
+  getStartOfYearIST,
+  getStartOfMonthIST,
+  getNextYearStartIST,
+  getNextMonthStartIST,
 } from '../../utils/time-utils.js';
 
 // Utility to escape RegExp special chars
@@ -520,16 +521,16 @@ const deleteCustomer = asyncHandler(async (req, res) => {
 
 
 export {
+  fetchCustomer,
   createCustomer,
   fetchCustomers,
-  fetchCustomersSummary,
-  getCustomerMonthlyMaterialWeight,
-  fetchCustomer,
   updateCustomer,
   deleteCustomer,
-  getCustomerInvoiceAmountSummary,
-  getCustomerSubtripMonthlyData,
   searchCustomer,
+  fetchCustomersSummary,
+  getCustomerSubtripMonthlyData,
+  getCustomerInvoiceAmountSummary,
+  getCustomerMonthlyMaterialWeight,
 };
 
 // Lookup company details by GSTIN via external provider

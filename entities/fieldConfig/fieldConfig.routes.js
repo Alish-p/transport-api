@@ -1,4 +1,5 @@
 import express from 'express';
+
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import { getFieldConfig, upsertFieldConfig, upsertCustomerOverride, deleteCustomerOverride } from './fieldConfig.controller.js';
 

@@ -1,11 +1,12 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
+
+import CounterModel from '../../../model/Counter.js';
+import activityLoggerPlugin from '../../../utils/plugins/activity-logger.plugin.js';
 import {
   PURCHASE_ORDER_STATUS,
-  PURCHASE_ORDER_DISCOUNT_TYPES,
   PURCHASE_ORDER_TAX_TYPES,
+  PURCHASE_ORDER_DISCOUNT_TYPES,
 } from './purchaseOrder.constants.js';
-import activityLoggerPlugin from '../../../utils/plugins/activity-logger.plugin.js';
-import CounterModel from '../../../model/Counter.js';
 
 const purchaseOrderLineSchema = new Schema(
   {

@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
+
 import FieldConfig from './fieldConfig.model.js';
-import { FIELD_CONFIG_DEFAULTS, VALID_ENTITIES } from './fieldConfig.defaults.js';
+import { VALID_ENTITIES, FIELD_CONFIG_DEFAULTS } from './fieldConfig.defaults.js';
 
 /**
  * Converts a stored FieldConfig document (with Mongoose Map) to a plain object

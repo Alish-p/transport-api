@@ -1,15 +1,16 @@
 import dayjs from 'dayjs';
 import { Types } from 'mongoose';
-import Vehicle from '../vehicle/vehicle.model.js';
+
 import Trip from '../trip/trip.model.js';
 import Subtrip from './subtrip.model.js';
+import Vehicle from '../vehicle/vehicle.model.js';
 import Expense from '../expense/expense.model.js';
-import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
-import { SUBTRIP_STATUS, FREIGHT_MODELS } from './subtrip.constants.js';
-import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
-import { FIELD_CONFIG_DEFAULTS } from '../fieldConfig/fieldConfig.defaults.js';
 import { getStartOfTodayIST } from '../../utils/time-utils.js';
+import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
+import { SUBTRIP_STATUS, FREIGHT_MODELS } from './subtrip.constants.js';
+import { FIELD_CONFIG_DEFAULTS } from '../fieldConfig/fieldConfig.defaults.js';
+import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 
 /**
  * Pure calculator function that calculates the gross freight amount of a subtrip.
@@ -538,7 +539,7 @@ export const resolveTripForJob = async ({ vehicle, body, session, tenant }) => {
   }
   const activeTrip = openTrips[0] || null;
 
-  let tripDecision = body.tripDecision;
+  let {tripDecision} = body;
   // Determine default decision when none is provided
   if (!tripDecision) {
     if (activeTrip) {
@@ -650,8 +651,8 @@ export const resolveTripForJob = async ({ vehicle, body, session, tenant }) => {
 export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVehicle, isLoaded }) => {
   const startDate = body.startDate ? new Date(body.startDate) : null;
   const ewayExpiryDate = body.ewayExpiryDate ? new Date(body.ewayExpiryDate) : null;
-  const loadingPoint = body.loadingPoint;
-  const unloadingPoint = body.unloadingPoint;
+  const {loadingPoint} = body;
+  const {unloadingPoint} = body;
   const freightDetails = body.freightDetails || {};
 
   const subtripFields = {
@@ -841,8 +842,7 @@ export const handleJobAdvancesAndExpenses = async ({ newSubtrip, body, vehicleId
 /**
  * Builds the aggregation pipeline for exporting subtrips to Excel.
  */
-export const buildExportSubtripsPipeline = (query) => {
-  return [
+export const buildExportSubtripsPipeline = (query) => [
     { $match: query },
     // Sort
     { $sort: { startDate: -1 } },
@@ -981,4 +981,3 @@ export const buildExportSubtripsPipeline = (query) => {
       },
     }
   ];
-};

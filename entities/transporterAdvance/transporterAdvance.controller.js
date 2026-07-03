@@ -1,7 +1,8 @@
 import asyncHandler from 'express-async-handler';
-import TransporterAdvance from './transporterAdvance.model.js';
+
 import Subtrip from '../subtrip/subtrip.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
+import TransporterAdvance from './transporterAdvance.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
@@ -332,7 +333,7 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
     const row = {};
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
 
       if (key === 'date') {
         row[key] = doc.date ? new Date(doc.date).toISOString().split('T')[0] : '';
@@ -386,8 +387,8 @@ const deleteTransporterAdvance = asyncHandler(async (req, res) => {
 });
 
 export {
-  createTransporterAdvance,
   fetchPaginatedAdvances,
-  exportTransporterAdvances,
+  createTransporterAdvance,
   deleteTransporterAdvance,
+  exportTransporterAdvances,
 };

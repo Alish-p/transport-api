@@ -1,16 +1,16 @@
 import { Router } from 'express';
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
-  createDriverSalary,
-  fetchDriverSalaries,
-  fetchPaginatedDriverSalaries,
   fetchDriverSalary,
+  createDriverSalary,
   updateDriverSalary,
   deleteDriverSalary,
+  fetchDriverSalaries,
   exportDriverSalaries,
+  fetchPaginatedDriverSalaries,
 } from './driverSalary.controller.js';
-
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

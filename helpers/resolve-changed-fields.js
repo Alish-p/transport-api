@@ -1,8 +1,8 @@
-import Driver from '../entities/driver/driver.model.js';
-import Customer from '../entities/customer/customer.model.js';
-import Vehicle from '../entities/vehicle/vehicle.model.js';
 import Pump from '../entities/pump/pump.model.js';
 import Trip from '../entities/trip/trip.model.js';
+import Driver from '../entities/driver/driver.model.js';
+import Vehicle from '../entities/vehicle/vehicle.model.js';
+import Customer from '../entities/customer/customer.model.js';
 
 /**
  * Maps subtrip field names that hold ObjectId refs to:

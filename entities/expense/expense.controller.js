@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
+
 import Expense from "./expense.model.js";
 import Subtrip from "../subtrip/subtrip.model.js";
 import Vehicle from "../vehicle/vehicle.model.js";
-import Pump from "../pump/pump.model.js";
 import { EXPENSE_CATEGORIES } from "./expense.constants.js";
-import { addTenantToQuery } from "../../utils/tenant-utils.js";
-import { recordSubtripEvent, SUBTRIP_EVENT_TYPES } from "../../helpers/subtrip-event-helper.js";
-import { recalculateTripFinancials } from "../trip/trip.service.js";
 import { buildSortObject } from '../../utils/query-utils.js';
+import { addTenantToQuery } from "../../utils/tenant-utils.js";
+import { recalculateTripFinancials } from "../trip/trip.service.js";
+import { recordSubtripEvent, SUBTRIP_EVENT_TYPES } from "../../helpers/subtrip-event-helper.js";
 
 // Create Expense
 const createExpense = asyncHandler(async (req, res) => {
@@ -282,8 +282,8 @@ export {
   createExpense,
   updateExpense,
   deleteExpense,
-  fetchPaginatedExpenses,
   exportExpenses,
+  fetchPaginatedExpenses,
 };
 
 // Export Expenses to Excel
@@ -495,7 +495,7 @@ const exportExpenses = asyncHandler(async (req, res) => {
     const row = {};
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
 
       // Handle Date 
       if (key === 'date') row[key] = doc.date ? new Date(doc.date).toISOString().split('T')[0] : '';

@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
+
 import { DOC_TYPES } from './vehicleDocument.constants.js';
 
 const vehicleDocumentSchema = new Schema(

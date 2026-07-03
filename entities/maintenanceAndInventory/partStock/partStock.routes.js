@@ -1,12 +1,13 @@
 import { Router } from 'express';
+
+import pagination from '../../../middlewares/pagination.js';
+import { checkPermission } from '../../../middlewares/auth.js';
 import {
     adjustStock,
     transferStock,
     fetchInventoryActivities,
     exportInventoryActivities,
 } from './partStock.controller.js';
-import { checkPermission } from '../../../middlewares/auth.js';
-import pagination from '../../../middlewares/pagination.js';
 
 const router = Router();
 

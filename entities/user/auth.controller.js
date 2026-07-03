@@ -1,9 +1,10 @@
+import { Resend } from 'resend';
 import asyncHandler from 'express-async-handler';
+
+import UserModel from './user.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import { generateToken } from '../../utils/generate-token.js';
-import UserModel from './user.model.js';
 import { getOtpEmailTemplate } from '../../utils/templates/otp-template.js';
-import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -11,7 +12,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   const user = await UserModel.findOne({
-    $or: [{ email: email }, { mobile: email }],
+    $or: [{ email }, { mobile: email }],
   });
   const matched = user ? await user.matchPassword(password) : false;
 
@@ -52,7 +53,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     return res.status(429).json({ message: `Please wait ${remainingSeconds} seconds before requesting another code.` });
   }
 
-  let otp = user.otp;
+  let {otp} = user;
   // Check if OTP exists and is still valid
   if (!otp || !user.otpExpiresAt || user.otpExpiresAt < new Date()) {
     // Generate new 6-digit OTP
@@ -99,4 +100,4 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Password updated successfully." });
 });
 
-export { loginUser, getUser, forgotPassword, resetPassword };
+export { getUser, loginUser, resetPassword, forgotPassword };

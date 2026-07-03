@@ -1,39 +1,40 @@
-import asyncHandler from 'express-async-handler';
 import dayjs from 'dayjs';
 import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
+
 import Loan from '../loan/loan.model.js';
+import Tyre from '../tyre/tyre.model.js';
 import Driver from '../driver/driver.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Expense from '../expense/expense.model.js';
-import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import Customer from '../customer/customer.model.js';
+import TyreHistory from '../tyre/tyre-history.model.js';
+import { TYRE_STATUS } from '../tyre/tyre.constants.js';
 import Transporter from '../transporter/transporter.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import DriverSalary from '../driverSalary/driverSalary.model.js';
 import { INVOICE_STATUS } from '../invoice/invoice.constants.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
-import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
-import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
-import { calculateTransporterPayment } from '../transporterPayment/transporterPayment.utils.js';
-import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
-import { REQUIRED_DOC_TYPES } from '../vehicleDocument/vehicleDocument.constants.js';
 import SubtripEvent from '../subtripEvent/subtripEvent.model.js';
-import { DEFAULT_TIMEZONE, getStartOfMonthIST, getNextMonthStartIST, getStartOfYearIST, getNextYearStartIST } from '../../utils/time-utils.js';
-import Tyre from '../tyre/tyre.model.js';
-import { TYRE_STATUS, TYRE_TYPE, TYRE_HISTORY_ACTION } from '../tyre/tyre.constants.js';
-import TyreHistory from '../tyre/tyre-history.model.js';
 import Part from '../maintenanceAndInventory/part/part.model.js';
-import PartStock from '../maintenanceAndInventory/partStock/partStock.model.js';
-import PartLocation from '../maintenanceAndInventory/partLocation/partLocation.model.js';
-import PartTransaction from '../maintenanceAndInventory/partTransaction/partTransaction.model.js';
-import { INVENTORY_ACTIVITY_TYPES } from '../maintenanceAndInventory/partTransaction/partTransaction.constants.js';
+import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import Vendor from '../maintenanceAndInventory/vendor/vendor.model.js';
+import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
+import PartStock from '../maintenanceAndInventory/partStock/partStock.model.js';
 import WorkOrder from '../maintenanceAndInventory/workOrder/workOrder.model.js';
-import { WORK_ORDER_STATUS } from '../maintenanceAndInventory/workOrder/workOrder.constants.js';
+import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
+import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
+import { REQUIRED_DOC_TYPES } from '../vehicleDocument/vehicleDocument.constants.js';
+import PartLocation from '../maintenanceAndInventory/partLocation/partLocation.model.js';
 import PurchaseOrder from '../maintenanceAndInventory/purchaseOrder/purchaseOrder.model.js';
+import { calculateTransporterPayment } from '../transporterPayment/transporterPayment.utils.js';
+import { WORK_ORDER_STATUS } from '../maintenanceAndInventory/workOrder/workOrder.constants.js';
+import PartTransaction from '../maintenanceAndInventory/partTransaction/partTransaction.model.js';
 import { PURCHASE_ORDER_STATUS } from '../maintenanceAndInventory/purchaseOrder/purchaseOrder.constants.js';
+import { INVENTORY_ACTIVITY_TYPES } from '../maintenanceAndInventory/partTransaction/partTransaction.constants.js';
+import { DEFAULT_TIMEZONE, getStartOfYearIST, getStartOfMonthIST, getNextYearStartIST, getNextMonthStartIST } from '../../utils/time-utils.js';
 
 // Get basic entity counts
 const getTotalCounts = asyncHandler(async (req, res) => {
@@ -811,9 +812,9 @@ const getExpiringDocuments = asyncHandler(async (req, res) => {
   res.status(200).json({
     results,
     total: results.length,
-    totalExpiring: totalExpiring,
-    totalExpired: totalExpired,
-    totalValid: totalValid,
+    totalExpiring,
+    totalExpired,
+    totalValid,
     // Add missing if needed, but maybe not required for "all data" list of alerts.
     // I'll skip missing for now as it's expensive to compute and might not be needed for this specific alert list.
   });
@@ -2202,30 +2203,30 @@ const getTyreDetailedDashboard = asyncHandler(async (req, res) => {
         total: tyres.length
       },
       agingSummary: {
-        lt6Months: ageMap['lt6Months'] || 0,
-        lt1Year: ageMap['lt1Year'] || 0,
-        lt2Years: ageMap['lt2Years'] || 0,
-        gt2Years: ageMap['gt2Years'] || 0
+        lt6Months: ageMap.lt6Months || 0,
+        lt1Year: ageMap.lt1Year || 0,
+        lt2Years: ageMap.lt2Years || 0,
+        gt2Years: ageMap.gt2Years || 0
       },
       threadHealthSummary: {
-        healthy: threadMap['healthy'] || 0,
-        warning: threadMap['warning'] || 0,
-        critical: threadMap['critical'] || 0,
-        unknown: threadMap['unknown'] || 0
+        healthy: threadMap.healthy || 0,
+        warning: threadMap.warning || 0,
+        critical: threadMap.critical || 0,
+        unknown: threadMap.unknown || 0
       },
       topStats: {
         totalValue: metrics.totalValue,
         avgKmPerTyre: metrics.avgKmPerTyre,
         remoldedCount: metrics.remoldedCount,
         avgRemoldCount: metrics.remoldedCount > 0 ? (metrics.totalRemholds / metrics.remoldedCount) : 0,
-        lowThreadAlerts: threadMap['critical'] || 0
+        lowThreadAlerts: threadMap.critical || 0
       },
       recentActivity: historyAgg.map(h => ({ action: h._id, count: h.count })),
       liveKmSummary: {
-        fresh: liveKmMap['fresh'] || 0,
-        warning: liveKmMap['warning'] || 0,
-        stale: liveKmMap['stale'] || 0,
-        unknown: liveKmMap['unknown'] || 0
+        fresh: liveKmMap.fresh || 0,
+        warning: liveKmMap.warning || 0,
+        stale: liveKmMap.stale || 0,
+        unknown: liveKmMap.unknown || 0
       }
     });
 
@@ -3140,26 +3141,26 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
 
 export {
   getTotalCounts,
+  getDailySummary,
   getExpiringSubtrips,
+  getExpiringDocuments,
   getSubtripMonthlyData,
   getFinancialMonthlyData,
   getInvoiceStatusSummary,
   getSubtripStatusSummary,
-  getCustomerMonthlyFreight,
-  getMonthlySubtripExpenseSummary,
-  getMonthlyMaterialWeightSummary,
-  getTransporterPaymentSummary,
   getInvoiceAmountSummary,
   getMonthlyDriverSummary,
-  getMonthlyTransporterSummary,
-  getMonthlyVehicleSubtripSummary,
-  getDailySummary,
-  getVehicleDocumentStatusSummary,
-  getExpiringDocuments,
-  getMonthlyDestinationSubtrips,
   getTyreDashboardSummary,
+  getMaintenanceDashboard,
   getTyreDetailedDashboard,
+  getCustomerMonthlyFreight,
+  getTransporterPaymentSummary,
+  getMonthlyTransporterSummary,
   getInventoryDashboardSummary,
   getWorkOrderDashboardSummary,
-  getMaintenanceDashboard,
+  getMonthlyDestinationSubtrips,
+  getMonthlySubtripExpenseSummary,
+  getMonthlyMaterialWeightSummary,
+  getMonthlyVehicleSubtripSummary,
+  getVehicleDocumentStatusSummary,
 };

@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
 
 // Transporter Schema
 const transporterSchema = new Schema({

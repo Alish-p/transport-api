@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
 
 const CounterSchema = Schema({
   model: { type: String, required: true },

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-import { TYRE_STATUS, TYRE_TYPE } from './tyre.constants.js';
+
+import { TYRE_TYPE, TYRE_STATUS } from './tyre.constants.js';
 
 
 const tyreSchema = new mongoose.Schema(

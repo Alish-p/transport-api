@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
 
 const subtripEventSchema = new Schema({
   subtripId: { type: Schema.Types.ObjectId, ref: "Subtrip", required: true, index: true },

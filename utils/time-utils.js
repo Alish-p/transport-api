@@ -1,9 +1,9 @@
 // date-utils.ts (or wherever you centralize your date helpers)
 import dayjs from 'dayjs';
-import duration from 'dayjs/plugin/duration.js';
-import relativeTime from 'dayjs/plugin/relativeTime.js';
 import utc from 'dayjs/plugin/utc.js';
+import duration from 'dayjs/plugin/duration.js';
 import timezone from 'dayjs/plugin/timezone.js';
+import relativeTime from 'dayjs/plugin/relativeTime.js';
 
 // ----------------------------------------------------------------------
 
@@ -156,29 +156,17 @@ export function fSub({
   return result;
 }
 
-export const getFirstDayOfCurrentMonth = () => {
-  return dayjs().tz(DEFAULT_TIMEZONE).startOf('month').toDate();
-};
+export const getFirstDayOfCurrentMonth = () => dayjs().tz(DEFAULT_TIMEZONE).startOf('month').toDate();
 
-export const getStartOfTodayIST = () => {
-  return dayjs().tz(DEFAULT_TIMEZONE).startOf('day').toDate();
-};
+export const getStartOfTodayIST = () => dayjs().tz(DEFAULT_TIMEZONE).startOf('day').toDate();
 
-export const getStartOfMonthIST = (year, monthNum) => {
-  return dayjs().tz(DEFAULT_TIMEZONE).year(year).month(monthNum - 1).startOf('month').toDate();
-};
+export const getStartOfMonthIST = (year, monthNum) => dayjs().tz(DEFAULT_TIMEZONE).year(year).month(monthNum - 1).startOf('month').toDate();
 
-export const getNextMonthStartIST = (year, monthNum) => {
-  return dayjs().tz(DEFAULT_TIMEZONE).year(year).month(monthNum - 1).startOf('month').add(1, 'month').toDate();
-};
+export const getNextMonthStartIST = (year, monthNum) => dayjs().tz(DEFAULT_TIMEZONE).year(year).month(monthNum - 1).startOf('month').add(1, 'month').toDate();
 
-export const getStartOfYearIST = (year) => {
-  return dayjs().tz(DEFAULT_TIMEZONE).year(year).startOf('year').toDate();
-};
+export const getStartOfYearIST = (year) => dayjs().tz(DEFAULT_TIMEZONE).year(year).startOf('year').toDate();
 
-export const getNextYearStartIST = (year) => {
-  return dayjs().tz(DEFAULT_TIMEZONE).year(year).startOf('year').add(1, 'year').toDate();
-};
+export const getNextYearStartIST = (year) => dayjs().tz(DEFAULT_TIMEZONE).year(year).startOf('year').add(1, 'year').toDate();
 
 export function fDaysDuration(startDate, endDate) {
   if (!startDate || !endDate) return null;

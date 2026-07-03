@@ -1,20 +1,20 @@
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import path from 'path';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import { fileURLToPath } from 'url';
+
+// Import Models
+import Expense from '../entities/expense/expense.model.js';
+import Subtrip from '../entities/subtrip/subtrip.model.js';
+import Vehicle from '../entities/vehicle/vehicle.model.js';
+import TransporterAdvance from '../entities/transporterAdvance/transporterAdvance.model.js';
 
 // Resolve the root directory of the backend to load .env
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-// Import Models
-import Expense from '../entities/expense/expense.model.js';
-import Subtrip from '../entities/subtrip/subtrip.model.js';
-import TransporterAdvance from '../entities/transporterAdvance/transporterAdvance.model.js';
-import Vehicle from '../entities/vehicle/vehicle.model.js';
-
-const MONGO_URI = process.env.MONGO_URI;
+const {MONGO_URI} = process.env;
 
 /**
  * Migration Script: Migrate Market Vehicle Subtrip Expenses to Transporter Advances

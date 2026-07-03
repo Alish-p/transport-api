@@ -1,4 +1,5 @@
-import { Schema, model } from "mongoose";
+import { model, Schema } from "mongoose";
+
 import { FUEL_TYPES } from "./pump.constants.js";
 
 const fuelPriceSchema = new Schema(

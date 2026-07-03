@@ -1,21 +1,20 @@
 import { Router } from 'express';
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
   createPump,
   fetchPumps,
   deletePump,
-  fetchPumpById,
   updatePump,
+  fetchPumpById,
   createFuelPrice,
-  fetchFuelPricesByPump,
-  fetchCurrentFuelPrice,
-  fetchFuelPriceById,
   updateFuelPrice,
   deleteFuelPrice,
+  fetchFuelPriceById,
+  fetchFuelPricesByPump,
+  fetchCurrentFuelPrice,
 } from './pump.controller.js';
-import { pumpSchema } from './pump.validation.js';
-import { fuelPriceSchema } from './fuelPrice.validation.js';
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

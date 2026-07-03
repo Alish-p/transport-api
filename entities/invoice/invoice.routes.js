@@ -1,16 +1,15 @@
 import { Router } from 'express';
-import { invoiceSchema } from './invoice.validation.js';
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
+  payInvoice,
+  fetchInvoice,
   createInvoice,
   fetchInvoices,
-  fetchInvoice,
   cancelInvoice,
-  payInvoice,
   exportInvoices,
 } from './invoice.controller.js';
-
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

@@ -1,18 +1,18 @@
 import { Router } from 'express';
+
+import pagination from '../../../middlewares/pagination.js';
+import { checkPermission } from '../../../middlewares/auth.js';
 import {
   createPart,
-  createBulkParts,
   fetchParts,
-  exportParts,
-  fetchPartById,
   updatePart,
   deletePart,
-  getPartPriceHistory,
+  exportParts,
+  fetchPartById,
+  createBulkParts,
   getPhotoUploadUrl,
+  getPartPriceHistory,
 } from './part.controller.js';
-
-import { checkPermission } from '../../../middlewares/auth.js';
-import pagination from '../../../middlewares/pagination.js';
 
 const router = Router();
 

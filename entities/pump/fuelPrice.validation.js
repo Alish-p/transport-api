@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { FUEL_TYPES } from './pump.constants.js';
 
 const fuelPriceSchema = z.object({

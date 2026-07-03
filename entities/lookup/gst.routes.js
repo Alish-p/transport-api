@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { authenticate } from '../../middlewares/auth.js';
+
 import { gstLookupGeneric } from './gst.controller.js';
+import { authenticate } from '../../middlewares/auth.js';
 
 const router = Router();
 

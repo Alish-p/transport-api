@@ -1,18 +1,19 @@
 import { Router } from 'express';
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
   createDriver,
   fetchDrivers,
   deleteDriver,
   updateDriver,
-  fetchDriverById,
-  fetchDriversSummary,
-  fetchOrphanDrivers,
-  cleanupDrivers,
-  getPhotoUploadUrl,
   exportDrivers,
+  cleanupDrivers,
+  fetchDriverById,
+  getPhotoUploadUrl,
+  fetchOrphanDrivers,
+  fetchDriversSummary,
 } from './driver.controller.js';
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

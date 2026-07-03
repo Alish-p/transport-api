@@ -1,9 +1,10 @@
 import _ from 'lodash';
+
 import Activity from '../../entities/activity/activity.model.js';
 
 const activityLoggerPlugin = (schema, options = {}) => {
     // Store original document state on load to compare later
-    schema.post('init', function (doc) {
+    schema.post('init', (doc) => {
         doc._original = doc.toObject({ depopulate: true, transform: false });
     });
 
@@ -15,7 +16,7 @@ const activityLoggerPlugin = (schema, options = {}) => {
         next();
     });
 
-    schema.post('save', async function (doc) {
+    schema.post('save', async (doc) => {
         try {
             // We expect the controller to attach `_user` to the document before saving
             // e.g. doc._user = req.user;
@@ -27,7 +28,7 @@ const activityLoggerPlugin = (schema, options = {}) => {
             const action = doc._wasNew ? 'CREATE' : 'UPDATE';
             const entityType = options.entityType || doc.constructor.modelName;
 
-            let changes = [];
+            const changes = [];
 
             if (action === 'UPDATE' && doc._original) {
                 const modifiedPaths = doc._modifiedPaths || [];

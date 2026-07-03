@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+
 import { TYRE_HISTORY_ACTION } from './tyre.constants.js';
 
 const tyreHistorySchema = new mongoose.Schema(

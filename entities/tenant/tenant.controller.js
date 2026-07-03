@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
+
 import Tenant from './tenant.model.js';
-import { buildPublicFileUrl, deleteObjectFromS3, generateUploadUrl, buildDatedFilename } from '../../services/s3.service.js';
+import { generateUploadUrl, buildPublicFileUrl, deleteObjectFromS3, buildDatedFilename } from '../../services/s3.service.js';
 
 function sanitizeSegment(input, toLower = true) {
   const str = String(input || '')
@@ -127,10 +128,10 @@ const setTenantLogo = asyncHandler(async (req, res) => {
 
 
 export {
-  fetchTenantById,
   updateTenant,
-  getLogoUploadUrl,
   setTenantLogo,
+  fetchTenantById,
+  getLogoUploadUrl,
 };
 
 // Superuser-only fetch by id moved to superuser controller

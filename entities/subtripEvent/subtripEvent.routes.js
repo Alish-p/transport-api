@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { fetchSubtripEvents } from './subtripEvent.controller.js';
+
 import { authenticate } from '../../middlewares/auth.js';
+import { fetchSubtripEvents } from './subtripEvent.controller.js';
 
 const router = Router();
 

@@ -1,12 +1,13 @@
-import asyncHandler from 'express-async-handler';
-import Driver from './driver.model.js';
-import Subtrip from '../subtrip/subtrip.model.js';
-import Trip from '../trip/trip.model.js';
-import DriverSalary from '../driverSalary/driverSalary.model.js';
-import Loan from '../loan/loan.model.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import { generateUploadUrl } from '../../services/s3.service.js';
 import dayjs from 'dayjs';
+import asyncHandler from 'express-async-handler';
+
+import Driver from './driver.model.js';
+import Trip from '../trip/trip.model.js';
+import Loan from '../loan/loan.model.js';
+import Subtrip from '../subtrip/subtrip.model.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
+import DriverSalary from '../driverSalary/driverSalary.model.js';
+import { generateUploadUrl } from '../../services/s3.service.js';
 
 const createDriver = asyncHandler(async (req, res) => {
   const { driverName, driverCellNo } = req.body;
@@ -183,7 +184,7 @@ const updateDriver = asyncHandler(async (req, res) => {
 
 const deleteDriver = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   // Check if driver has associated references in DriverSalary and Loan
   const [salaryCount, loanCount] = await Promise.all([
@@ -213,7 +214,7 @@ const deleteDriver = asyncHandler(async (req, res) => {
  * Fetch all orphan drivers - drivers not referenced in any subtrip, trip, salary, or loan
  */
 const fetchOrphanDrivers = asyncHandler(async (req, res) => {
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   // Get all driver IDs that ARE referenced in related collections
   const [subtripDriverIds, tripDriverIds, salaryDriverIds, loanDriverIds] = await Promise.all([
@@ -251,7 +252,7 @@ const fetchOrphanDrivers = asyncHandler(async (req, res) => {
  */
 const cleanupDrivers = asyncHandler(async (req, res) => {
   const { driverIds } = req.body;
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   if (!driverIds || !Array.isArray(driverIds) || driverIds.length === 0) {
     res.status(400).json({ message: 'driverIds array is required' });
@@ -416,7 +417,7 @@ export const exportDrivers = asyncHandler(async (req, res) => {
     const lastJobAt = subtripStatsMap[doc._id.toString()]?.lastJobAt;
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
       
       if (key === 'status') {
          const licDate = doc.licenseTo ? new Date(doc.licenseTo) : null;
@@ -448,11 +449,11 @@ export const exportDrivers = asyncHandler(async (req, res) => {
 export {
   createDriver,
   fetchDrivers,
-  fetchDriversSummary,
-  fetchDriverById,
   updateDriver,
   deleteDriver,
-  fetchOrphanDrivers,
   cleanupDrivers,
+  fetchDriverById,
   getPhotoUploadUrl,
+  fetchOrphanDrivers,
+  fetchDriversSummary,
 };

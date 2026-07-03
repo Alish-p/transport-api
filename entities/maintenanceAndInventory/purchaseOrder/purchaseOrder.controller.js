@@ -1,24 +1,25 @@
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
-import PurchaseOrder from './purchaseOrder.model.js';
-import Vendor from '../vendor/vendor.model.js';
-import PartLocation from '../partLocation/partLocation.model.js';
-import PartStock from '../partStock/partStock.model.js';
+import asyncHandler from 'express-async-handler';
+
 import Part from '../part/part.model.js';
 import Tyre from '../../tyre/tyre.model.js';
+import Vendor from '../vendor/vendor.model.js';
+import PurchaseOrder from './purchaseOrder.model.js';
+import PartStock from '../partStock/partStock.model.js';
 import { TYRE_STATUS } from '../../tyre/tyre.constants.js';
-import {
-  PURCHASE_ORDER_STATUS,
-  PURCHASE_ORDER_DISCOUNT_TYPES,
-  PURCHASE_ORDER_TAX_TYPES,
-} from './purchaseOrder.constants.js';
+import { buildSortObject } from '../../../utils/query-utils.js';
+import PartLocation from '../partLocation/partLocation.model.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
 import {
-  INVENTORY_ACTIVITY_TYPES,
   SOURCE_DOCUMENT_TYPES,
+  INVENTORY_ACTIVITY_TYPES,
 } from '../partTransaction/partTransaction.constants.js';
-import { buildSortObject } from '../../../utils/query-utils.js';
+import {
+  PURCHASE_ORDER_STATUS,
+  PURCHASE_ORDER_TAX_TYPES,
+  PURCHASE_ORDER_DISCOUNT_TYPES,
+} from './purchaseOrder.constants.js';
 
 const { ObjectId } = mongoose.Types;
 
@@ -704,7 +705,7 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
 
       if (isTyrePart) {
         // Validate tyreDetails array
-        const tyreDetails = updateData.tyreDetails;
+        const {tyreDetails} = updateData;
         if (!Array.isArray(tyreDetails) || tyreDetails.length !== qtyToReceive) {
           await session.abortTransaction();
           session.endSession();
@@ -1090,7 +1091,7 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
     grandTotalCost += rowData.total || 0;
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
       if (key === 'vendor') {
         row[key] = rowData.vendorSnapshot?.name || rowData.vendor?.name || '-';
       } else if (key === 'partLocation') {
@@ -1111,7 +1112,7 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
   // Footer Row
   const totalRow = {};
   exportColumns.forEach((col) => {
-    const key = col.key;
+    const {key} = col;
     if (key === 'purchaseOrderNo') totalRow[key] = 'TOTAL';
     else if (key === 'total') totalRow[key] = Math.round(grandTotalCost * 100) / 100;
     else totalRow[key] = '';
@@ -1126,16 +1127,16 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
 });
 
 export {
+  payPurchaseOrder,
+  closePurchaseOrder,
   createPurchaseOrder,
   fetchPurchaseOrders,
-  fetchPurchaseOrderById,
   updatePurchaseOrder,
-  approvePurchaseOrder,
   rejectPurchaseOrder,
-  payPurchaseOrder,
-  receivePurchaseOrder,
-  closePurchaseOrder,
-  exportPurchaseOrders,
   deletePurchaseOrder,
+  approvePurchaseOrder,
+  receivePurchaseOrder,
+  exportPurchaseOrders,
+  fetchPurchaseOrderById,
 };
 

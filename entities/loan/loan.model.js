@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+
 import CounterModel from '../../model/Counter.js';
 
 const { Schema, model, Types } = mongoose;

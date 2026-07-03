@@ -1,5 +1,5 @@
-import { Schema, model } from 'mongoose';
-import { ADVANCE_TYPES } from './transporterAdvance.constants.js';
+import { model, Schema } from 'mongoose';
+
 
 const transporterAdvanceSchema = new Schema(
   {

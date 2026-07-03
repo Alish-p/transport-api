@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { fetchGpsSnapshots } from './gpsSnapshot.controller.js';
+
 import { authenticate } from '../../middlewares/auth.js';
+import { fetchGpsSnapshots } from './gpsSnapshot.controller.js';
 
 const router = Router();
 

@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
 
 const gpsSnapshotSchema = new Schema({
   vehicleNo: { type: String, required: true, index: true },

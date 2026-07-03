@@ -1,4 +1,5 @@
 import { Router } from 'express';
+
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import { getChallansFromDB, syncChallansFromProvider } from './challan.controller.js';
 

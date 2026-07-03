@@ -1,14 +1,15 @@
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
-import PartLocation from './partLocation.model.js';
+import asyncHandler from 'express-async-handler';
+
 import Part from '../part/part.model.js';
+import PartLocation from './partLocation.model.js';
 import PartStock from '../partStock/partStock.model.js';
-import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
 import WorkOrder from '../workOrder/workOrder.model.js';
-import { PURCHASE_ORDER_STATUS } from '../purchaseOrder/purchaseOrder.constants.js';
+import { addTenantToQuery } from '../../../utils/tenant-utils.js';
+import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
 import { WORK_ORDER_STATUS } from '../workOrder/workOrder.constants.js';
 import { PART_LOCATION_SEARCH_FIELDS } from '../part/part.constants.js';
-import { addTenantToQuery } from '../../../utils/tenant-utils.js';
+import { PURCHASE_ORDER_STATUS } from '../purchaseOrder/purchaseOrder.constants.js';
 
 // ─── PART LOCATIONS CRUD ──────────────────────────────────────────────────────
 
@@ -191,7 +192,7 @@ const deletePartLocation = asyncHandler(async (req, res) => {
 export {
     createPartLocation,
     fetchPartLocations,
-    fetchPartLocationById,
     updatePartLocation,
     deletePartLocation,
+    fetchPartLocationById,
 };

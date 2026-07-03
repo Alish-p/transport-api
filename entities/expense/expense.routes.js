@@ -1,16 +1,15 @@
 import { Router } from 'express';
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
-  createExpense,
-  fetchPaginatedExpenses,
-  exportExpenses,
   fetchExpense,
+  createExpense,
   updateExpense,
   deleteExpense,
+  exportExpenses,
+  fetchPaginatedExpenses,
 } from './expense.controller.js';
-
-import { expenseSchema } from './expense.validation.js';
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

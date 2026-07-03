@@ -1,8 +1,8 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
 
 import {
-    INVENTORY_ACTIVITY_TYPES,
     SOURCE_DOCUMENT_TYPES,
+    INVENTORY_ACTIVITY_TYPES,
 } from './partTransaction.constants.js';
 
 const inventoryActivitySchema = new Schema(

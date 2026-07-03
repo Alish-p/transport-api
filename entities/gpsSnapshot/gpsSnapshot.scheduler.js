@@ -1,10 +1,10 @@
+import '../vehicle/vehicle.model.js';
 import Trip from '../trip/trip.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import GpsSnapshot from './gpsSnapshot.model.js';
-import '../vehicle/vehicle.model.js';
-import { getAllFleetxVehicleData } from '../../helpers/fleetx.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { GPS_PROVIDERS } from '../gps/gps.constants.js';
+import { getAllFleetxVehicleData } from '../../helpers/fleetx.js';
 
 
 /**

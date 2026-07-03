@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { fetchSubtripPublic, submitEpod, getEpodUploadUrlPublic } from '../entities/subtrip/subtrip.controller.js';
+
+import { submitEpod, fetchSubtripPublic, getEpodUploadUrlPublic } from '../entities/subtrip/subtrip.controller.js';
 import { fetchTransporterPaymentReceiptPublic } from '../entities/transporterPayment/transporterPayment.controller.js';
 
 const router = Router();

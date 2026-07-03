@@ -1,6 +1,7 @@
-import asyncHandler from 'express-async-handler';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
+
 import UserModel from '../entities/user/user.model.js';
 
 // check if token exists
@@ -75,4 +76,4 @@ const requireSuperuser = (req, res, next) => {
   err.status = 403;
   return next(err);
 };
-export { authenticate, admin, checkPermission, requireSuperuser };
+export { admin, authenticate, checkPermission, requireSuperuser };

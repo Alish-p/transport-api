@@ -1,7 +1,7 @@
+import { sendTemplateMessage } from "../api.js";
+import { fDate } from "../../../utils/time-utils.js";
 import Driver from "../../../entities/driver/driver.model.js";
 import Tenant from "../../../entities/tenant/tenant.model.js";
-import { fDate } from "../../../utils/time-utils.js";
-import { sendTemplateMessage } from "../api.js";
 
 /**
  * Send WhatsApp notification to driver when a job is assigned.

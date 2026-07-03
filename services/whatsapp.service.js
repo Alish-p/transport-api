@@ -3,9 +3,9 @@
 
 export {
   GRAPH_API_VERSION,
-  getTenantWhatsAppConfig,
   sendTemplateMessage,
-  sendTransporterPaymentNotification,
+  getTenantWhatsAppConfig,
   sendLRGenerationNotification,
   sendDriverJobAssignedNotification,
+  sendTransporterPaymentNotification,
 } from "./whatsapp/index.js";

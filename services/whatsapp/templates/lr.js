@@ -1,6 +1,6 @@
-import Tenant from "../../../entities/tenant/tenant.model.js";
-import { fDateTime } from "../../../utils/time-utils.js";
 import { sendTemplateMessage } from "../api.js";
+import { fDateTime } from "../../../utils/time-utils.js";
+import Tenant from "../../../entities/tenant/tenant.model.js";
 
 // LR generation notification to Transporter (Market vehicles)
 async function sendLRGenerationNotification({ tenantId, transporter, vehicle, subtrip, createdBy }) {

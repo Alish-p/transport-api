@@ -1,17 +1,18 @@
 import asyncHandler from 'express-async-handler';
+
 import Vehicle from './vehicle.model.js';
-import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
-import VehicleLookup from '../vehicleLookup/vehicleLookup.model.js';
-import Tenant from '../tenant/tenant.model.js';
-import { normalizeVehicleDetails, extractDocuments, fetchVehicleByNumber } from '../../helpers/webcorevision.js';
-import Subtrip from '../subtrip/subtrip.model.js';
 import Trip from '../trip/trip.model.js';
-import Expense from '../expense/expense.model.js';
 import Tyre from '../tyre/tyre.model.js';
+import Tenant from '../tenant/tenant.model.js';
+import Subtrip from '../subtrip/subtrip.model.js';
+import Expense from '../expense/expense.model.js';
+import { TYRE_LAYOUTS } from '../../constants/tyreLayouts.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { deleteObjectFromS3 } from '../../services/s3.service.js';
-import { TYRE_LAYOUTS } from '../../constants/tyreLayouts.js';
 import { getAllFleetxVehicleData } from '../../helpers/fleetx.js';
+import VehicleLookup from '../vehicleLookup/vehicleLookup.model.js';
+import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
+import { extractDocuments, fetchVehicleByNumber, normalizeVehicleDetails } from '../../helpers/webcorevision.js';
 
 // Get Tyre Layouts
 const getTyreLayouts = async (req, res) => {
@@ -266,18 +267,18 @@ const deleteVehicle = asyncHandler(async (req, res) => {
 
 export {
   createVehicle,
-  quickCreateVehicle,
   fetchVehicles,
-  fetchVehiclesSummary,
-  fetchVehicleById,
   updateVehicle,
   deleteVehicle,
   getTyreLayouts,
-  fetchOrphanVehicles,
-  cleanupVehicles,
-  getVehicleKmTemplate,
-  bulkUpdateVehicleKm,
   exportVehicles,
+  cleanupVehicles,
+  fetchVehicleById,
+  quickCreateVehicle,
+  fetchOrphanVehicles,
+  bulkUpdateVehicleKm,
+  fetchVehiclesSummary,
+  getVehicleKmTemplate,
   getVehicleMonthlyAnalytics,
 };
 
@@ -285,7 +286,7 @@ export {
  * Fetch all orphan vehicles - vehicles not referenced in any subtrip, trip, expense, tyre, or document
  */
 const fetchOrphanVehicles = asyncHandler(async (req, res) => {
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   // Get all vehicle IDs that ARE referenced in related collections
   const [subtripVehicleIds, tripVehicleIds, expenseVehicleIds, tyreVehicleIds, documentVehicleIds] = await Promise.all([
@@ -325,7 +326,7 @@ const fetchOrphanVehicles = asyncHandler(async (req, res) => {
  */
 const cleanupVehicles = asyncHandler(async (req, res) => {
   const { vehicleIds } = req.body;
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   if (!vehicleIds || !Array.isArray(vehicleIds) || vehicleIds.length === 0) {
     res.status(400).json({ message: 'vehicleIds array is required' });
@@ -386,7 +387,7 @@ const getVehicleKmTemplate = asyncHandler(async (req, res) => {
  */
 const bulkUpdateVehicleKm = asyncHandler(async (req, res) => {
   const { vehicles } = req.body;
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   if (!vehicles || !Array.isArray(vehicles) || vehicles.length === 0) {
     return res.status(400).json({ message: 'vehicles array is required' });
@@ -422,7 +423,7 @@ const bulkUpdateVehicleKm = asyncHandler(async (req, res) => {
 const getVehicleMonthlyAnalytics = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { year } = req.query;
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   if (!year) {
     return res.status(400).json({ message: 'year is required' });
@@ -682,7 +683,7 @@ const exportVehicles = asyncHandler(async (req, res) => {
     const row = {};
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
 
       if (key === 'isOwn') {
         row[key] = doc.isOwn ? 'Own' : 'Market';

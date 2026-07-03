@@ -1,7 +1,8 @@
 import asyncHandler from 'express-async-handler';
+
+import Challan from './challan.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
-import Challan from './challan.model.js';
 import ChallanLookup from './challanLookup.model.js';
 import { fetchChallansForVehicle, normalizeProviderResponse } from '../../helpers/echallan.js';
 

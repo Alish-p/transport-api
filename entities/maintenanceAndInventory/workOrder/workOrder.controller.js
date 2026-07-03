@@ -1,21 +1,22 @@
-import asyncHandler from 'express-async-handler';
 import dayjs from 'dayjs';
+import mongoose from 'mongoose';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
-import mongoose from 'mongoose';
-import WorkOrder from './workOrder.model.js';
+import asyncHandler from 'express-async-handler';
+
 import Part from '../part/part.model.js';
+import WorkOrder from './workOrder.model.js';
 import Vehicle from '../../vehicle/vehicle.model.js';
 import Expense from '../../expense/expense.model.js';
-import { addTenantToQuery } from '../../../utils/tenant-utils.js';
 import { WORK_ORDER_STATUS } from './workOrder.constants.js';
-import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
-import {
-  INVENTORY_ACTIVITY_TYPES,
-  SOURCE_DOCUMENT_TYPES,
-} from '../partTransaction/partTransaction.constants.js';
 import { DEFAULT_TIMEZONE } from '../../../utils/time-utils.js';
 import { buildSortObject } from '../../../utils/query-utils.js';
+import { addTenantToQuery } from '../../../utils/tenant-utils.js';
+import { recordInventoryActivity } from '../partTransaction/partTransaction.utils.js';
+import {
+  SOURCE_DOCUMENT_TYPES,
+  INVENTORY_ACTIVITY_TYPES,
+} from '../partTransaction/partTransaction.constants.js';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -820,7 +821,7 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     grandTotalCost += rowData.totalCost || 0;
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
       if (key === 'vehicle') {
         row[key] = rowData.vehicle?.vehicleNo || '-';
       } else if (key === 'timeTaken') {
@@ -876,7 +877,7 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
   // Footer Row
   const totalRow = {};
   exportColumns.forEach((col) => {
-    const key = col.key;
+    const {key} = col;
     if (key === 'workOrderNo') totalRow[key] = 'TOTAL';
     else if (key === 'totalCost') totalRow[key] = Math.round(grandTotalCost * 100) / 100;
     else totalRow[key] = '';
@@ -958,12 +959,12 @@ const addWorkOrderExpense = asyncHandler(async (req, res) => {
 });
 
 export {
+  closeWorkOrder,
   createWorkOrder,
   fetchWorkOrders,
-  fetchWorkOrderById,
   updateWorkOrder,
-  closeWorkOrder,
-  exportWorkOrders,
   deleteWorkOrder,
+  exportWorkOrders,
+  fetchWorkOrderById,
   addWorkOrderExpense,
 };

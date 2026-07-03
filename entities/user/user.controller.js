@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+
 import UserModel from './user.model.js';
 
 // Create User
@@ -63,12 +64,12 @@ const updateUser = asyncHandler(async (req, res) => {
 });
 
 export {
+  fetchUser,
   createUser,
   fetchUsers,
-  fetchUsersLastSeen,
-  fetchUser,
   deleteUser,
   updateUser,
+  fetchUsersLastSeen,
 };
 
 

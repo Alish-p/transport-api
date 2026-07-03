@@ -169,7 +169,7 @@ const calculateTransporterPaymentSummary = (
 };
 
 export {
-  calculateTransporterPayment,
   calculateTaxBreakup,
+  calculateTransporterPayment,
   calculateTransporterPaymentSummary,
 };

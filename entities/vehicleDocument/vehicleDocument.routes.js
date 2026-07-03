@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
+
 import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
   getUploadUrl,
   createDocument,

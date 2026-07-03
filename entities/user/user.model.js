@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+
 import { toTitleCase } from '../../utils/format-string.js';
 
 const userSchema = new mongoose.Schema(

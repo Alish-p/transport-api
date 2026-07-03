@@ -1,14 +1,13 @@
 import { Router } from 'express';
-import {
-  fetchTenantById,
-  updateTenant,
-  getLogoUploadUrl,
-  setTenantLogo,
-} from './tenant.controller.js';
+
 // Superuser-only tenant actions have moved under /api/super routes.
-import { tenantSchema } from './tenant.validation.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
+import {
+  updateTenant,
+  setTenantLogo,
+  fetchTenantById,
+  getLogoUploadUrl,
+} from './tenant.controller.js';
 
 const router = Router();
 

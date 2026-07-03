@@ -42,7 +42,7 @@ const formatDateDDMonYYYY = (date) => {
   }
 };
 
-export { trimToDigits, formatPhoneE164ish, formatCurrencyINR, formatDateDDMonYYYY };
+export { trimToDigits, formatCurrencyINR, formatPhoneE164ish, formatDateDDMonYYYY };
  
 // Format date+time as "DD Mon YYYY, HH:MM AM/PM"
 const formatDateTimeDDMonYYYY_HHMM = (date) => {

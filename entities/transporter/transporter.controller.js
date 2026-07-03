@@ -1,11 +1,12 @@
 import asyncHandler from 'express-async-handler';
+
+import Loan from '../loan/loan.model.js';
 import Transporter from './transporter.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
-import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
-import Loan from '../loan/loan.model.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { buildSortObject } from '../../utils/query-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { generateUploadUrl } from '../../services/s3.service.js';
+import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 
 // Create Transporter
 const createTransporter = asyncHandler(async (req, res) => {
@@ -285,7 +286,7 @@ const updateTransporter = asyncHandler(async (req, res) => {
 // Delete Transporter
 const deleteTransporter = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   // Check if transporter has any associated references
   const [vehicleCount, paymentCount, loanCount] = await Promise.all([
@@ -318,7 +319,7 @@ const deleteTransporter = asyncHandler(async (req, res) => {
  * Fetch all orphan transporters - transporters not referenced in any vehicle, payment, or loan
  */
 const fetchOrphanTransporters = asyncHandler(async (req, res) => {
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   // Get all transporter IDs that ARE referenced in related collections
   const [vehicleTransporterIds, paymentTransporterIds, loanTransporterIds] = await Promise.all([
@@ -354,7 +355,7 @@ const fetchOrphanTransporters = asyncHandler(async (req, res) => {
  */
 const cleanupTransporters = asyncHandler(async (req, res) => {
   const { transporterIds } = req.body;
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   if (!transporterIds || !Array.isArray(transporterIds) || transporterIds.length === 0) {
     res.status(400).json({ message: 'transporterIds array is required' });
@@ -580,7 +581,7 @@ const exportTransporters = asyncHandler(async (req, res) => {
     const row = {};
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
       if (key === 'gstEnabled') {
         row[key] = doc[key] ? 'Yes' : 'No';
       } else if (key === 'lastSubtripDate') {
@@ -630,14 +631,14 @@ const getDocumentUploadUrl = asyncHandler(async (req, res) => {
 export {
   createTransporter,
   fetchTransporters,
-  fetchTransporterById,
-  fetchTransporterVehicles,
-  fetchTransporterPayments,
   updateTransporter,
   deleteTransporter,
-  fetchOrphanTransporters,
-  cleanupTransporters,
   exportTransporters,
+  cleanupTransporters,
+  fetchTransporterById,
   getDocumentUploadUrl,
+  fetchOrphanTransporters,
+  fetchTransporterVehicles,
+  fetchTransporterPayments,
 };
 

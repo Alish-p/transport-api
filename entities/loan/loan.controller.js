@@ -1,9 +1,10 @@
 // controllers/loanController.js
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
+
 import Loan from './loan.model.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { buildSortObject } from '../../utils/query-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 
 /**
  * @route   GET /api/loans
@@ -380,7 +381,7 @@ const exportLoans = asyncHandler(async (req, res) => {
     totalOutstanding += doc.outstandingBalance;
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
       if (key === 'createdAt') {
         row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
       } else if (typeof doc[key] === 'number') {
@@ -395,7 +396,7 @@ const exportLoans = asyncHandler(async (req, res) => {
 
   const totalRow = {};
   exportColumns.forEach((col) => {
-    const key = col.key;
+    const {key} = col;
     if (key === 'loanNo') totalRow[key] = 'TOTAL';
     else if (key === 'principalAmount') totalRow[key] = Math.round(totalPrincipal * 100) / 100;
     else if (key === 'outstandingBalance') totalRow[key] = Math.round(totalOutstanding * 100) / 100;
@@ -411,12 +412,12 @@ const exportLoans = asyncHandler(async (req, res) => {
 });
 
 export {
-  fetchPaginatedLoans,
-  fetchLoanById,
+  repayLoan,
   createLoan,
   updateLoan,
   deleteLoan,
-  repayLoan,
-  fetchPendingLoans,
   exportLoans,
+  fetchLoanById,
+  fetchPendingLoans,
+  fetchPaginatedLoans,
 };

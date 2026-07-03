@@ -1,23 +1,24 @@
 import { Router } from 'express';
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
   createVehicle,
-  quickCreateVehicle,
   fetchVehicles,
-  fetchVehiclesSummary,
-  fetchVehicleById,
   updateVehicle,
   deleteVehicle,
-  lookupVehicleDetails,
   getTyreLayouts,
-  fetchOrphanVehicles,
-  cleanupVehicles,
-  getVehicleKmTemplate,
-  bulkUpdateVehicleKm,
   exportVehicles,
+  cleanupVehicles,
+  fetchVehicleById,
+  quickCreateVehicle,
+  fetchOrphanVehicles,
+  bulkUpdateVehicleKm,
+  fetchVehiclesSummary,
+  lookupVehicleDetails,
+  getVehicleKmTemplate,
   getVehicleMonthlyAnalytics,
 } from './vehicle.controller.js';
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

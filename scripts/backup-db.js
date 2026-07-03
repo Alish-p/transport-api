@@ -1,7 +1,7 @@
-import 'dotenv/config';
-import mongoose from 'mongoose';
 import fs from 'fs';
+import 'dotenv/config';
 import path from 'path';
+import mongoose from 'mongoose';
 
 function pad(n) {
   return n.toString().padStart(2, '0');
@@ -36,7 +36,7 @@ async function main() {
     process.exit(1);
   }
 
-  const db = mongoose.connection.db;
+  const {db} = mongoose.connection;
   const dbName = db.databaseName || 'database';
 
   const backupsRoot = path.resolve(process.cwd(), 'backups');

@@ -1,21 +1,19 @@
 import { Router } from 'express';
-import { customerSchema } from './customer.validation.js';
-import {
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
+import { gstLookup ,
+  fetchCustomer,
   createCustomer,
   fetchCustomers,
-  fetchCustomer,
   updateCustomer,
   deleteCustomer,
+  searchCustomer,
   fetchCustomersSummary,
-  getCustomerMonthlyMaterialWeight,
   getCustomerSubtripMonthlyData,
   getCustomerInvoiceAmountSummary,
-  searchCustomer,
+  getCustomerMonthlyMaterialWeight,
 } from './customer.controller.js';
-
-import { authenticate, checkPermission } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
-import { gstLookup } from './customer.controller.js';
 
 const router = Router();
 

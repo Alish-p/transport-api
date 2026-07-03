@@ -197,10 +197,10 @@ async function fetchVehicleByNumber(vehicleNo) {
 }
 
 export {
-  fetchVehicleByNumber,
-  normalizeVehicleDetails,
-  extractDocuments,
   axlesToTyres,
   mapEngineType,
+  extractDocuments,
   mapVehicleCompany,
+  fetchVehicleByNumber,
+  normalizeVehicleDetails,
 };

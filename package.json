@@ -9,6 +9,7 @@
     "server": "nodemon server.js",
     "lint": "eslint .",
     "backup:db": "node scripts/backup-db.js",
+    "lint:fix": "eslint --fix \"**/*.{js,jsx,ts,tsx}\"",
     "cron:driver-expiry": "node scripts/cron/driver-expiry.js",
     "cron:task-archive": "node scripts/cron/task-archive.js",
     "cron:gps-snapshot": "node scripts/cron/gps-snapshot.js"

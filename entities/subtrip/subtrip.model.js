@@ -1,6 +1,7 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
+
 import CounterModel from '../../model/Counter.js';
-import { DRIVER_ADVANCE_GIVEN_BY_OPTIONS, FREIGHT_MODELS } from './subtrip.constants.js';
+import { FREIGHT_MODELS, DRIVER_ADVANCE_GIVEN_BY_OPTIONS } from './subtrip.constants.js';
 
 // subtrip Schema
 const subtripSchema = new Schema({

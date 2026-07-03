@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
+
 import { toTitleCase } from '../../utils/format-string.js';
 
 // Define the customer schema

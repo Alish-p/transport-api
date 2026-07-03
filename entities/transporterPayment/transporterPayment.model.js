@@ -1,4 +1,5 @@
-import { Schema, model } from 'mongoose';
+import { model, Schema } from 'mongoose';
+
 import CounterModel from '../../model/Counter.js';
 import { TRANSPORTER_PAYMENT_STATUS } from './transporterPayment.constants.js';
 

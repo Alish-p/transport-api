@@ -1,19 +1,20 @@
 /* eslint-disable no-await-in-loop */
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
+
 import Invoice from './invoice.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
 import Customer from '../customer/customer.model.js';
-import { calculateInvoiceSummary } from './invoice.utils.js';
-import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { INVOICE_STATUS } from './invoice.constants.js';
+import { calculateInvoiceSummary } from './invoice.utils.js';
+import { buildSortObject } from '../../utils/query-utils.js';
+import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,
 } from '../../helpers/subtrip-event-helper.js';
-import { buildSortObject } from '../../utils/query-utils.js';
 
 const createInvoice = asyncHandler(async (req, res) => {
   const {
@@ -431,11 +432,11 @@ const payInvoice = asyncHandler(async (req, res) => {
 });
 
 export {
+  payInvoice,
+  fetchInvoice,
   createInvoice,
   fetchInvoices,
-  fetchInvoice,
   cancelInvoice,
-  payInvoice,
   exportInvoices,
 };
 
@@ -641,7 +642,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
     totalIgst += (doc.igst || 0);
 
     exportColumns.forEach((col) => {
-      const key = col.key;
+      const {key} = col;
       if (key === 'issueDate' || key === 'dueDate') {
         row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
       } else if (key === 'balanceAmount') {
@@ -661,7 +662,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
   // Footer Row
   const totalRow = {};
   exportColumns.forEach((col) => {
-    const key = col.key;
+    const {key} = col;
     if (key === 'invoiceNo') totalRow[key] = 'TOTAL';
     else if (key === 'totalAmountBeforeTax') totalRow[key] = Math.round(totalTaxable * 100) / 100;
     else if (key === 'taxAmount') totalRow[key] = Math.round(totalTax * 100) / 100;

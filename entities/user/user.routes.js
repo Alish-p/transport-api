@@ -1,12 +1,13 @@
 import { Router } from 'express';
-import { authenticate, checkPermission, requireSuperuser } from '../../middlewares/auth.js';
+
+import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
+  fetchUser,
   createUser,
   fetchUsers,
-  fetchUsersLastSeen,
   deleteUser,
   updateUser,
-  fetchUser,
+  fetchUsersLastSeen,
 } from './user.controller.js';
 
 const router = Router();

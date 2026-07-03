@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { createTarget, getTargets, updateTarget, deleteTarget } from './customerTarget.controller.js';
+
 import { authenticate } from '../../middlewares/auth.js';
+import { getTargets, createTarget, updateTarget, deleteTarget } from './customerTarget.controller.js';
 
 const router = Router();
 

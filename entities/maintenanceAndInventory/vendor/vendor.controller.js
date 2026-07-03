@@ -1,9 +1,10 @@
 import asyncHandler from 'express-async-handler';
+
 import Vendor from './vendor.model.js';
-import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
-import { PURCHASE_ORDER_STATUS } from '../purchaseOrder/purchaseOrder.constants.js';
 import { VENDOR_SEARCH_FIELDS } from './vendor.constants.js';
 import { addTenantToQuery } from '../../../utils/tenant-utils.js';
+import PurchaseOrder from '../purchaseOrder/purchaseOrder.model.js';
+import { PURCHASE_ORDER_STATUS } from '../purchaseOrder/purchaseOrder.constants.js';
 
 // Create Vendor
 const createVendor = asyncHandler(async (req, res) => {
@@ -115,8 +116,8 @@ const deleteVendor = asyncHandler(async (req, res) => {
 export {
   createVendor,
   fetchVendors,
-  fetchVendorById,
   updateVendor,
   deleteVendor,
+  fetchVendorById,
 };
 

@@ -1,17 +1,17 @@
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import path from 'path';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import { fileURLToPath } from 'url';
+
+// Import Models
+import Subtrip from '../entities/subtrip/subtrip.model.js';
 
 // Resolve the root directory of the backend to load .env
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-// Import Models
-import Subtrip from '../entities/subtrip/subtrip.model.js';
-
-const MONGO_URI = process.env.MONGO_URI;
+const {MONGO_URI} = process.env;
 
 async function run() {
   if (!MONGO_URI) {

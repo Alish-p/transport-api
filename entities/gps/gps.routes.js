@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { getVehicleGpsData, getAllVehicleGpsData } from './gps.controller.js';
+
 import { authenticate } from '../../middlewares/auth.js';
+import { getVehicleGpsData, getAllVehicleGpsData } from './gps.controller.js';
 
 const router = Router();
 

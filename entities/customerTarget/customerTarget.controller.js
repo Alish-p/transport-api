@@ -1,13 +1,14 @@
-import CustomerTarget from './customerTarget.model.js';
-import Subtrip from '../subtrip/subtrip.model.js';
 import mongoose from 'mongoose';
+
+import Subtrip from '../subtrip/subtrip.model.js';
+import CustomerTarget from './customerTarget.model.js';
 import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import { getStartOfMonthIST, getNextMonthStartIST } from '../../utils/time-utils.js';
 
 export const createTarget = async (req, res, next) => {
     try {
         const { customer, materialTarget, month, year } = req.body;
-        const tenant = req.user.tenant;
+        const {tenant} = req.user;
 
         // Ensure month is stored as the first day of the month in UTC
         const targetMonth = new Date(month);
@@ -42,7 +43,7 @@ export const updateTarget = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { materialTarget, month, year } = req.body;
-        const tenant = req.user.tenant;
+        const {tenant} = req.user;
 
         const targetMonth = new Date(month);
         targetMonth.setUTCDate(1);
@@ -70,7 +71,7 @@ export const updateTarget = async (req, res, next) => {
 
 export const getTargets = async (req, res, next) => {
     try {
-        const tenant = req.user.tenant;
+        const {tenant} = req.user;
         const { month, year } = req.query;
 
         if (!month || !year) {
@@ -141,7 +142,7 @@ export const getTargets = async (req, res, next) => {
 export const deleteTarget = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const tenant = req.user.tenant;
+        const {tenant} = req.user;
 
         const target = await CustomerTarget.findOneAndDelete({ _id: id, tenant });
 

@@ -1,12 +1,13 @@
 import asyncHandler from 'express-async-handler';
+
 import UserModel from '../user/user.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import Driver from '../driver/driver.model.js';
-import Customer from '../customer/customer.model.js';
 import Subtrip from '../subtrip/subtrip.model.js';
+import Invoice from '../invoice/invoice.model.js';
+import Customer from '../customer/customer.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
-import Invoice from '../invoice/invoice.model.js';
 
 // Build a permissions object with every boolean permission set to true
 function buildFullPermissionsFromSchema() {
@@ -292,9 +293,9 @@ export {
   createTenant,
   fetchTenants,
   deleteTenant,
-  addTenantPayment, createUserForTenant,
+  addTenantPayment, updateTenantById,
+  fetchTenantDetails,
+  createUserForTenant,
   updateTenantPayment,
   deleteTenantPayment,
-  fetchTenantDetails,
-  updateTenantById,
 };

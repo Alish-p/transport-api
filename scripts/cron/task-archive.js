@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
+
 import connectDB from '../../config/db.js';
 import { autoArchiveTasks } from '../../entities/task/task.scheduler.js';
 

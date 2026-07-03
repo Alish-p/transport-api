@@ -1,18 +1,19 @@
 import { Router } from 'express';
+
+import { authenticate } from '../../middlewares/auth.js';
 import {
+  getTask,
   createTask,
   updateTask,
-  getTask,
   deleteTask,
+  addSubtask,
+  reorderTasks,
+  fetchAllTasks,
+  deleteSubtask,
   addActivityToTask,
   fetchTasksByStatus,
-  fetchAllTasks,
-  addSubtask,
   toggleSubtaskComplete,
-  deleteSubtask,
-  reorderTasks,
 } from './task.controller.js';
-import { authenticate } from '../../middlewares/auth.js';
 
 const router = Router();
 

@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+
 import Pump from './pump.model.js';
 import FuelPrice from './fuelPrice.model.js';
 import { PUMP_SEARCH_FIELDS } from './pump.constants.js';
@@ -271,13 +272,13 @@ const deleteFuelPrice = asyncHandler(async (req, res) => {
 export {
   createPump,
   fetchPumps,
-  fetchPumpById,
   updatePump,
   deletePump,
+  fetchPumpById,
   createFuelPrice,
-  fetchFuelPricesByPump,
-  fetchCurrentFuelPrice,
-  fetchFuelPriceById,
   updateFuelPrice,
   deleteFuelPrice,
+  fetchFuelPriceById,
+  fetchFuelPricesByPump,
+  fetchCurrentFuelPrice,
 };

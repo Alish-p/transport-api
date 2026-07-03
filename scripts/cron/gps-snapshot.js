@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
+
 import connectDB from '../../config/db.js';
 import { recordGpsSnapshots } from '../../entities/gpsSnapshot/gpsSnapshot.scheduler.js';
 

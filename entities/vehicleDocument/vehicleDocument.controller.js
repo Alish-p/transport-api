@@ -1,12 +1,13 @@
-import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
+import asyncHandler from 'express-async-handler';
+
+import Tenant from '../tenant/tenant.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import VehicleDocument from './vehicleDocument.model.js';
-import { REQUIRED_DOC_TYPES } from './vehicleDocument.constants.js';
-import Tenant from '../tenant/tenant.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import { buildPublicFileUrl, createPresignedGetUrl, deleteObjectFromS3, generateUploadUrl, buildDatedFilename } from '../../services/s3.service.js';
-import { fetchVehicleByNumber, extractDocuments } from '../../helpers/webcorevision.js';
+import { REQUIRED_DOC_TYPES } from './vehicleDocument.constants.js';
+import { extractDocuments, fetchVehicleByNumber } from '../../helpers/webcorevision.js';
+import { generateUploadUrl, buildPublicFileUrl, deleteObjectFromS3, buildDatedFilename, createPresignedGetUrl } from '../../services/s3.service.js';
 
 function ensureObjectId(id) {
   return new mongoose.Types.ObjectId(id);
@@ -408,7 +409,7 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
     return res.status(200).json({
       results: paged,
       total: synthetic.length,
-      totalMissing: totalMissing,
+      totalMissing,
       totalExpiring: expiringCount,
       totalExpired: expiredCount,
       totalValid: validCount,
@@ -453,7 +454,7 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
   return res.status(200).json({
     results,
     total: docsTotal,
-    totalMissing: totalMissing,
+    totalMissing,
     totalExpiring: expiringCount,
     totalExpired: expiredCount,
     totalValid: validCount,

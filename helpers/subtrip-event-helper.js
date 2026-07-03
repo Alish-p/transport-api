@@ -112,6 +112,6 @@ const generateEventMessage = (event) => {
 
 export {
   recordSubtripEvent,
-  generateEventMessage,
   SUBTRIP_EVENT_TYPES,
+  generateEventMessage,
 };

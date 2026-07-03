@@ -1,7 +1,8 @@
 import { z } from 'zod';
+
 import {
-  WORK_ORDER_PRIORITY,
   WORK_ORDER_STATUS,
+  WORK_ORDER_PRIORITY,
 } from './workOrder.constants.js';
 
 const partLineSchema = z.object({

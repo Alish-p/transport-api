@@ -1,15 +1,16 @@
 import { Router } from 'express';
+
+import { vendorSchema } from './vendor.validation.js';
+import validate from '../../../middlewares/validate.js';
+import pagination from '../../../middlewares/pagination.js';
+import { checkPermission } from '../../../middlewares/auth.js';
 import {
   createVendor,
   fetchVendors,
-  fetchVendorById,
   updateVendor,
   deleteVendor,
+  fetchVendorById,
 } from './vendor.controller.js';
-import { vendorSchema } from './vendor.validation.js';
-import { checkPermission } from '../../../middlewares/auth.js';
-import pagination from '../../../middlewares/pagination.js';
-import validate from '../../../middlewares/validate.js';
 
 const router = Router();
 
