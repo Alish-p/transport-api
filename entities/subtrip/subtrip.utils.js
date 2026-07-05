@@ -8,8 +8,7 @@ import Expense from '../expense/expense.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { getStartOfTodayIST } from '../../utils/time-utils.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
-import { SUBTRIP_STATUS, FREIGHT_MODELS } from './subtrip.constants.js';
-import { FIELD_CONFIG_DEFAULTS } from '../fieldConfig/fieldConfig.defaults.js';
+import { SUBTRIP_STATUS, FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
 import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 
 /**

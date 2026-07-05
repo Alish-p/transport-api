@@ -25,7 +25,6 @@ import dashboardRouter from '../entities/dashboard/dashboard.routes.js';
 import superuserRouter from '../entities/superuser/superuser.routes.js';
 import gpsSnapshotRouter from '../entities/gpsSnapshot/gpsSnapshot.routes.js';
 import transporterRouter from '../entities/transporter/transporter.routes.js';
-import fieldConfigRouter from '../entities/fieldConfig/fieldConfig.routes.js';
 import driverSalaryRouter from '../entities/driverSalary/driverSalary.routes.js';
 import subtripEventRouter from '../entities/subtripEvent/subtripEvent.routes.js';
 import customerTargetRouter from '../entities/customerTarget/customerTarget.routes.js';
@@ -64,7 +63,6 @@ router.use('/lookup', lookupRouter);
 router.use('/activities', activityRouter);
 router.use('/tyre', tyreRouter);
 router.use('/transporter-advances', transporterAdvanceRouter);
-router.use('/field-configs', fieldConfigRouter);
 
 // Vehicle Maintenance & Inventory
 router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);

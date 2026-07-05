@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
-import { FREIGHT_MODELS } from './subtrip.constants.js';
+import { FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
 import { getStartOfTodayIST } from '../../utils/time-utils.js';
+import Tenant from '../tenant/tenant.model.js';
+import Subtrip from './subtrip.model.js';
 
 const subtripSchema = z.object({
   body: z.object({
@@ -101,3 +103,96 @@ const jobCreateSchema = z.object({
 });
 
 export { subtripSchema, jobCreateSchema };
+
+/**
+ * Express middleware factory for subtrip dynamic field config validation.
+ * Validates required fields, strips hidden fields, and checks freight model based on Tenant config.
+ */
+export const validateSubtripConfig = async (req, res, next) => {
+  try {
+    // req.tenant is just an ObjectId from auth middleware
+    const tenantDoc = await Tenant.findById(req.tenant).lean();
+    
+    if (!tenantDoc) {
+      const error = new Error('Tenant not found');
+      error.status = 404;
+      return next(error);
+    }
+
+    const config = tenantDoc.config?.subtrip || {};
+    const defaults = FIELD_CONFIG_DEFAULTS.subtrip;
+    
+    let fields = config.fields || defaults.fields;
+    if (fields instanceof Map) {
+      fields = Object.fromEntries(fields);
+    }
+    
+    const allowedModels = config.allowedFreightModels?.length ? config.allowedFreightModels : defaults.allowedFreightModels;
+    
+    const errors = [];
+
+    let bodyToValidate = { ...req.body };
+    if (req.method === 'PUT' && req.params.id) {
+      const existing = await Subtrip.findOne({ _id: req.params.id, tenant: req.tenant._id }).lean();
+      if (existing) {
+        bodyToValidate = {
+          ...existing,
+          ...req.body,
+          freightDetails: {
+            ...existing.freightDetails,
+            ...req.body.freightDetails,
+          },
+          commissionDetails: {
+            ...existing.commissionDetails,
+            ...req.body.commissionDetails,
+          },
+        };
+      }
+    }
+
+    for (const [fieldName, fieldConfig] of Object.entries(fields)) {
+      const { visibility } = fieldConfig;
+
+      if (visibility === 'required') {
+        if (
+          bodyToValidate.isEmpty &&
+          !['loadingPoint', 'unloadingPoint', 'remarks'].includes(fieldName)
+        ) {
+          continue;
+        }
+
+        const value = bodyToValidate[fieldName];
+        if (value === undefined || value === null || value === '') {
+          const label = fieldConfig.label || fieldName;
+          errors.push(`${label} is required`);
+        }
+      }
+
+      if (visibility === 'hidden') {
+        delete req.body[fieldName];
+      }
+    }
+
+    if (allowedModels?.length) {
+      const freightModel =
+        req.body.freightDetails?.freightModel || req.body.freightModel;
+
+      if (freightModel && !allowedModels.includes(freightModel)) {
+        errors.push(
+          `Freight model "${freightModel}" is not allowed. Allowed: ${allowedModels.join(', ')}`
+        );
+      }
+    }
+
+    if (errors.length) {
+      const error = new Error(errors.join(', '));
+      error.status = 400;
+      return next(error);
+    }
+
+    req.fieldConfig = { fields, allowedFreightModels: allowedModels };
+    next();
+  } catch (err) {
+    next(err);
+  }
+};

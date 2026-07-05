@@ -1,6 +1,22 @@
 import { model, Schema } from 'mongoose';
 
 import defaults from './tenant.constants.js';
+import { FREIGHT_MODELS } from '../subtrip/subtrip.constants.js';
+
+const FREIGHT_MODEL_ENUM = Object.values(FREIGHT_MODELS);
+const VISIBILITY_ENUM = ['required', 'optional', 'hidden'];
+
+const fieldConfigEntrySchema = new Schema(
+  {
+    visibility: {
+      type: String,
+      enum: VISIBILITY_ENUM,
+      default: 'optional',
+    },
+    label: { type: String },
+  },
+  { _id: false }
+);
 
 const paymentHistorySchema = new Schema({
   amount: { type: Number, required: true, min: 0 },
@@ -169,6 +185,9 @@ const tenantSchema = new Schema(
           type: [optionSchema],
           default: defaults.subtrip.materialOptions,
         },
+        defaultFreightModel: { type: String, enum: FREIGHT_MODEL_ENUM, default: 'per_ton' },
+        allowedFreightModels: [{ type: String, enum: FREIGHT_MODEL_ENUM }],
+        fields: { type: Map, of: fieldConfigEntrySchema, default: {} },
       },
       expense: {
         'subtrip-expense-types': {

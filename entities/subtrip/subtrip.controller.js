@@ -14,7 +14,7 @@ import { generateUploadUrl } from '../../services/s3.service.js';
 import { recalculateTripFinancials } from '../trip/trip.service.js';
 import { buildChangedFields } from '../../utils/serialize-field-value.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
-import { FIELD_CONFIG_DEFAULTS } from '../fieldConfig/fieldConfig.defaults.js';
+import { FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
 import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import { resolveChangedFieldLabels } from '../../helpers/resolve-changed-fields.js';
