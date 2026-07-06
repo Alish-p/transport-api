@@ -341,7 +341,7 @@ const exportExpenses = asyncHandler(async (req, res) => {
     dieselLtr: { header: 'Diesel (Ltr)', key: 'dieselLtr', width: 15 },
     paidThrough: { header: 'Paid Through', key: 'paidThrough', width: 20 },
     expenseCategory: { header: 'Expense Category', key: 'expenseCategory', width: 20 },
-    pumpCd: { header: 'Pump Code', key: 'pumpCode', width: 20 }, // Changed key to match pump.name alias if needed, or stick to map
+    pumpCd: { header: 'Pump', key: 'pumpCode', width: 20 }, // Changed key to match pump.name alias if needed, or stick to map
     transporter: { header: 'Transporter', key: 'transporter', width: 20 },
     slipNo: { header: 'Slip No', key: 'slipNo', width: 20 },
     authorisedBy: { header: 'Authorised By', key: 'authorisedBy', width: 20 },
@@ -495,7 +495,7 @@ const exportExpenses = asyncHandler(async (req, res) => {
     const row = {};
 
     for (const col of exportColumns) {
-      const {key} = col;
+      const { key } = col;
 
       // Handle Date 
       if (key === 'date') row[key] = doc.date ? new Date(doc.date).toISOString().split('T')[0] : '';
