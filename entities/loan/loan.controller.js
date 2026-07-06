@@ -55,6 +55,7 @@ const fetchPaginatedLoans = asyncHandler(async (req, res) => {
       Loan.find(query)
         .populate('borrowerId')
         .sort(sortObj)
+        .collation({ locale: 'en', numericOrdering: true })
         .skip(skip)
         .limit(limit),
       Loan.countDocuments(query),
@@ -369,7 +370,7 @@ const exportLoans = asyncHandler(async (req, res) => {
     }
   ];
 
-  const cursor = Loan.aggregate(pipeline).cursor();
+  const cursor = Loan.aggregate(pipeline).collation({ locale: 'en', numericOrdering: true }).cursor();
 
   let totalPrincipal = 0;
   let totalOutstanding = 0;
