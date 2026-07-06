@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import { FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
-import { getStartOfTodayIST } from '../../utils/time-utils.js';
-import Tenant from '../tenant/tenant.model.js';
 import Subtrip from './subtrip.model.js';
+import Tenant from '../tenant/tenant.model.js';
+import { getStartOfTodayIST } from '../../utils/time-utils.js';
+import { FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
 
 const subtripSchema = z.object({
   body: z.object({

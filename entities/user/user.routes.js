@@ -5,11 +5,11 @@ import { authenticate, checkPermission } from '../../middlewares/auth.js';
 import {
   fetchUser,
   createUser,
-  fetchUsers,
   deleteUser,
+  fetchUsers,
   updateUser,
-  fetchUsersLastSeen,
   exportUsers,
+  fetchUsersLastSeen,
 } from './user.controller.js';
 
 const router = Router();

@@ -17,6 +17,32 @@ const createUser = asyncHandler(async (req, res) => {
   res.status(201).json(newUser);
 });
 
+// Helper to build permission query condition
+const buildPermissionQueryCondition = (permission) => {
+  if (!permission) return null;
+  const searchTerms = permission
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (searchTerms.length === 0) return null;
+
+  const andConditions = [];
+  searchTerms.forEach((term) => {
+    if (term.includes('.')) {
+      andConditions.push({ [`permissions.${term}`]: true });
+    } else {
+      andConditions.push({
+        $or: ['create', 'view', 'update', 'delete', 'approve'].map((act) => ({
+          [`permissions.${term}.${act}`]: true,
+        })),
+      });
+    }
+  });
+
+  return andConditions.length > 0 ? { $and: andConditions } : null;
+};
+
 // Fetch Users
 const fetchUsers = asyncHandler(async (req, res) => {
   const { name, designation, permission, orderBy, order } = req.query;
@@ -32,28 +58,9 @@ const fetchUsers = asyncHandler(async (req, res) => {
     query.designation = { $regex: designation, $options: 'i' };
   }
 
-  if (permission) {
-    const searchTerms = permission
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (searchTerms.length > 0) {
-      const andConditions = [];
-      searchTerms.forEach((term) => {
-        if (term.includes('.')) {
-          andConditions.push({ [`permissions.${term}`]: true });
-        } else {
-          andConditions.push({
-            $or: ['create', 'view', 'update', 'delete', 'approve'].map((act) => ({
-              [`permissions.${term}.${act}`]: true,
-            })),
-          });
-        }
-      });
-      if (andConditions.length > 0) {
-        query.$and = andConditions;
-      }
-    }
+  const permCondition = buildPermissionQueryCondition(permission);
+  if (permCondition) {
+    query.$and = permCondition.$and;
   }
 
   const sortObj = buildSortObject(orderBy, order, { name: 1 });
@@ -87,32 +94,14 @@ const exportUsers = asyncHandler(async (req, res) => {
     query.designation = { $regex: designation, $options: 'i' };
   }
 
-  if (permission) {
-    const searchTerms = permission
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (searchTerms.length > 0) {
-      const andConditions = [];
-      searchTerms.forEach((term) => {
-        if (term.includes('.')) {
-          andConditions.push({ [`permissions.${term}`]: true });
-        } else {
-          andConditions.push({
-            $or: ['create', 'view', 'update', 'delete', 'approve'].map((act) => ({
-              [`permissions.${term}.${act}`]: true,
-            })),
-          });
-        }
-      });
-      if (andConditions.length > 0) {
-        query.$and = andConditions;
-      }
-    }
+  const permCondition = buildPermissionQueryCondition(permission);
+  if (permCondition) {
+    query.$and = permCondition.$and;
   }
 
   const COLUMN_MAPPING = {
     name: { header: 'Name', key: 'name', width: 25 },
+    email: { header: 'Email', key: 'email', width: 25 },
     mobile: { header: 'Mobile', key: 'mobile', width: 15 },
     address: { header: 'Address', key: 'address', width: 30 },
     designation: { header: 'Designation', key: 'designation', width: 20 },
@@ -204,11 +193,11 @@ const updateUser = asyncHandler(async (req, res) => {
 export {
   fetchUser,
   createUser,
-  fetchUsers,
   deleteUser,
+  fetchUsers,
   updateUser,
-  fetchUsersLastSeen,
   exportUsers,
+  fetchUsersLastSeen,
 };
 
 

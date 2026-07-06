@@ -2,8 +2,8 @@ import { Router } from 'express';
 
 import validate from '../../middlewares/validate.js';
 import pagination from '../../middlewares/pagination.js';
-import { jobCreateSchema, validateSubtripConfig } from './subtrip.validation.js';
 import { authenticate, checkPermission } from '../../middlewares/auth.js';
+import { jobCreateSchema, validateSubtripConfig } from './subtrip.validation.js';
 import {
   receiveLR,
   resolveLR,
