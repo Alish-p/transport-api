@@ -45,8 +45,31 @@ const fetchPumps = asyncHandler(async (req, res) => {
       Pump.countDocuments(query),
     ]);
 
+    // Fetch live fuel prices for these pumps
+    const pumpIds = pumps.map((p) => p._id);
+    const today = new Date();
+    const currentPrices = await FuelPrice.find({
+      pump: { $in: pumpIds },
+      tenant: req.tenant,
+      fromDate: { $lte: today },
+      toDate: { $gte: today },
+    }).lean();
+
+    const pumpsWithPrices = pumps.map((pump) => {
+      const pricesObj = {};
+      currentPrices
+        .filter((price) => price.pump.toString() === pump._id.toString())
+        .forEach((price) => {
+          pricesObj[price.fuelType] = price.price;
+        });
+      return {
+        ...pump.toObject(),
+        currentPrices: pricesObj,
+      };
+    });
+
     res.status(200).json({
-      pumps,
+      pumps: pumpsWithPrices,
       total,
       startRange: skip + 1,
       endRange: skip + pumps.length,
