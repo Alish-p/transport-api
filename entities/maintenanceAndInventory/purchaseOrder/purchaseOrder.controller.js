@@ -240,6 +240,7 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
         .populate('partLocation', 'name address')
         .populate('createdBy approvedBy purchasedBy', 'name')
         .sort(sortObj)
+        .collation({ locale: 'en', numericOrdering: true })
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -1043,6 +1044,7 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
     .populate('partLocation', 'name')
     .populate('createdBy approvedBy purchasedBy', 'name')
     .sort(sortObj)
+    .collation({ locale: 'en', numericOrdering: true })
     .lean();
 
   const COLUMN_MAPPING = {
