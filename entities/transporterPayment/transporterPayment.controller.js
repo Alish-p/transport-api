@@ -438,6 +438,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       issueToDate,
       status,
       hasTds,
+      hasGst,
       paymentId,
       vehicleId,
       order,
@@ -496,6 +497,21 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
     if (typeof hasTds !== "undefined") {
       const boolVal = hasTds === true || hasTds === "true" || hasTds === "1";
       query["taxBreakup.tds.amount"] = boolVal ? { $gt: 0 } : { $lte: 0 };
+    }
+
+    if (typeof hasGst !== "undefined") {
+      const boolVal = hasGst === true || hasGst === "true" || hasGst === "1";
+      if (boolVal) {
+        query.$or = [
+          { "taxBreakup.cgst.amount": { $gt: 0 } },
+          { "taxBreakup.sgst.amount": { $gt: 0 } },
+          { "taxBreakup.igst.amount": { $gt: 0 } },
+        ];
+      } else {
+        query["taxBreakup.cgst.amount"] = { $lte: 0 };
+        query["taxBreakup.sgst.amount"] = { $lte: 0 };
+        query["taxBreakup.igst.amount"] = { $lte: 0 };
+      }
     }
 
     const aggMatch = { ...query };
@@ -903,6 +919,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
     issueToDate,
     status,
     hasTds,
+    hasGst,
     paymentId,
     vehicleId,
     columns,
@@ -959,6 +976,21 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
   if (typeof hasTds !== "undefined") {
     const boolVal = hasTds === true || hasTds === "true" || hasTds === "1";
     query["taxBreakup.tds.amount"] = boolVal ? { $gt: 0 } : { $lte: 0 };
+  }
+
+  if (typeof hasGst !== "undefined") {
+    const boolVal = hasGst === true || hasGst === "true" || hasGst === "1";
+    if (boolVal) {
+      query.$or = [
+        { "taxBreakup.cgst.amount": { $gt: 0 } },
+        { "taxBreakup.sgst.amount": { $gt: 0 } },
+        { "taxBreakup.igst.amount": { $gt: 0 } },
+      ];
+    } else {
+      query["taxBreakup.cgst.amount"] = { $lte: 0 };
+      query["taxBreakup.sgst.amount"] = { $lte: 0 };
+      query["taxBreakup.igst.amount"] = { $lte: 0 };
+    }
   }
 
   const aggMatch = { ...query };
