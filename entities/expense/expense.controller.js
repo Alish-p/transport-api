@@ -37,6 +37,7 @@ const createExpense = asyncHandler(async (req, res) => {
       tripId: subtrip?.tripId,
       vehicleId: subtrip?.vehicleId?._id || subtrip?.vehicleId,
       tenant: req.tenant,
+      createdBy: req.user?._id || req.user,
     });
 
     const newExpense = await expense.save();
@@ -72,6 +73,7 @@ const createExpense = asyncHandler(async (req, res) => {
     const expense = new Expense({
       ...req.body,
       tenant: req.tenant,
+      createdBy: req.user?._id || req.user,
     });
     const newExpense = await expense.save();
 
@@ -89,7 +91,6 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
   try {
     const {
       vehicleId,
-      transporterId,
       subtripId,
       pumpId,
       tripId,
@@ -123,10 +124,9 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       if (endDate) query.date.$lte = new Date(endDate);
     }
 
-    if (vehicleId || transporterId || vehicleType) {
+    if (vehicleId || vehicleType) {
       const vehicleQuery = {};
       if (vehicleId) vehicleQuery._id = vehicleId;
-      if (transporterId) vehicleQuery.transporter = transporterId;
       if (vehicleType === "Market") vehicleQuery.isOwn = false;
       if (vehicleType === "Own") vehicleQuery.isOwn = true;
 
@@ -163,6 +163,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
         })
         .populate({ path: "pumpCd", select: "name" })
         .populate({ path: "subtripId", select: "subtripNo" })
+        .populate({ path: "createdBy", select: "name" })
         .sort(buildSortObject(orderBy === 'dieselRate' ? 'dieselPrice' : orderBy, order, { date: -1 }))
         .skip(skip)
         .limit(limit),
@@ -290,7 +291,6 @@ export {
 const exportExpenses = asyncHandler(async (req, res) => {
   const {
     vehicleId,
-    transporterId,
     subtripId,
     pumpId,
     tripId,
@@ -342,9 +342,7 @@ const exportExpenses = asyncHandler(async (req, res) => {
     paidThrough: { header: 'Paid Through', key: 'paidThrough', width: 20 },
     expenseCategory: { header: 'Expense Category', key: 'expenseCategory', width: 20 },
     pumpCd: { header: 'Pump', key: 'pumpCode', width: 20 }, // Changed key to match pump.name alias if needed, or stick to map
-    transporter: { header: 'Transporter', key: 'transporter', width: 20 },
-    slipNo: { header: 'Slip No', key: 'slipNo', width: 20 },
-    authorisedBy: { header: 'Authorised By', key: 'authorisedBy', width: 20 },
+    createdBy: { header: 'Created By', key: 'createdBy', width: 20 },
     amount: { header: 'Amount', key: 'amount', width: 15 },
     paymentMode: { header: 'Payment Mode', key: 'paymentMode', width: 15 }, // Extra backend field
     refNo: { header: 'Reference', key: 'refNo', width: 20 }, // Extra backend field
@@ -372,10 +370,9 @@ const exportExpenses = asyncHandler(async (req, res) => {
     ];
   }
 
-  if (vehicleId || transporterId || vehicleType) {
+  if (vehicleId || vehicleType) {
     const vehicleQuery = {};
     if (vehicleId) vehicleQuery._id = await toObjectId(vehicleId);
-    if (transporterId) vehicleQuery.transporter = await toObjectId(transporterId);
     if (vehicleType === "Market") vehicleQuery.isOwn = false;
     if (vehicleType === "Own") vehicleQuery.isOwn = true;
 
@@ -462,6 +459,16 @@ const exportExpenses = asyncHandler(async (req, res) => {
       },
     },
     { $unwind: { path: '$subtrip', preserveNullAndEmptyArrays: true } },
+    // Lookup Created By
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'createdBy',
+        foreignField: '_id',
+        as: 'creator',
+      },
+    },
+    { $unwind: { path: '$creator', preserveNullAndEmptyArrays: true } },
     // Project fields needed for Export
     {
       $project: {
@@ -473,13 +480,11 @@ const exportExpenses = asyncHandler(async (req, res) => {
         remarks: 1,
         paidThrough: 1,
         expenseCategory: 1,
-        slipNo: 1,
-        authorisedBy: 1,
         paymentMode: 1,
         refNo: 1,
         // Joined fields
         vehicleNo: '$vehicle.vehicleNo',
-        transporter: '$transporter.transportName',
+        createdBy: '$creator.name',
         pumpCode: '$pump.name',
         subtripId: '$subtrip.subtripNo',
       },

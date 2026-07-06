@@ -28,6 +28,7 @@ const expenseSchema = new Schema({
   performanceSalary: { type: Number },
   adblueLiters: { type: Number },
   adbluePrice: { type: Number },
+  createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
 }, {
   toJSON: { getters: true },
