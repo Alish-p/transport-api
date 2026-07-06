@@ -158,7 +158,7 @@ const fetchPaginatedExpenses = asyncHandler(async (req, res) => {
       Expense.find(query)
         .populate({
           path: "vehicleId",
-          select: "vehicleNo transporter",
+          select: "vehicleNo transporter isOwn",
           populate: { path: "transporter", select: "transportName" },
         })
         .populate({ path: "pumpCd", select: "name" })

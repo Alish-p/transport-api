@@ -153,7 +153,7 @@ const fetchPaginatedAdvances = asyncHandler(async (req, res) => {
     TransporterAdvance.find(finalQuery)
       .populate({
         path: 'vehicleId',
-        select: 'vehicleNo transporter',
+        select: 'vehicleNo transporter isOwn',
         populate: { path: 'transporter', select: 'transportName' },
       })
       .populate({ path: 'pumpCd', select: 'name' })
