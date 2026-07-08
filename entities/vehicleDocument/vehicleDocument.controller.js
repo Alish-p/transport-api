@@ -466,6 +466,8 @@ export const syncDocumentsFromProvider = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'vehicleNo is required' });
   }
 
+  const now = new Date();
+
   // Ensure Vehicle API integration is enabled for this tenant
   const tenant = await Tenant.findById(req.tenant).select('integrations');
   const enabled = tenant?.integrations?.vehicleApi?.enabled;
@@ -517,6 +519,13 @@ export const syncDocumentsFromProvider = asyncHandler(async (req, res) => {
   for (const d of uniqueByType.values()) {
     const existing = activeDocsMap.get(d.docType);
     if (existing) {
+      const isExistingExpired = existing.expiryDate ? new Date(existing.expiryDate) < now : false;
+      const isNewExpired = d.expiryDate ? new Date(d.expiryDate) < now : false;
+
+      if (!isExistingExpired && isNewExpired) {
+        continue;
+      }
+
       let changed = false;
       const newNum = String(d.docNumber || '').trim().toLowerCase();
       const oldNum = String(existing.docNumber || '').trim().toLowerCase();
