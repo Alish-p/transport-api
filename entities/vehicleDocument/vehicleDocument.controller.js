@@ -233,6 +233,7 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
     docNumber,
     issuer,
     days, // expiring window
+    hasAttachment,
   } = req.query;
 
   const { limit, skip } = req.pagination || { limit: 10, skip: 0 };
@@ -274,6 +275,16 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
     baseQuery.expiryDate = baseQuery.expiryDate || {};
     if (expiryFrom) baseQuery.expiryDate.$gte = new Date(expiryFrom);
     if (expiryTo) baseQuery.expiryDate.$lte = new Date(expiryTo);
+  }
+
+  if (hasAttachment === 'yes') {
+    baseQuery.$or = [
+      { fileKey: { $ne: null, $gt: '' } },
+      { fileUrl: { $ne: null, $gt: '' } }
+    ];
+  } else if (hasAttachment === 'no') {
+    baseQuery.fileKey = { $in: [null, ''] };
+    baseQuery.fileUrl = { $in: [null, ''] };
   }
 
   // Helper: add status filter to a query (expired/expiring/valid)
