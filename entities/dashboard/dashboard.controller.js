@@ -2357,9 +2357,9 @@ const getWorkOrderDashboardSummary = asyncHandler(async (req, res) => {
               $cond: [{ $eq: ['$status', WORK_ORDER_STATUS.OPEN] }, 1, 0],
             },
           },
-          pendingWorkOrders: {
+          inprogressWorkOrders: {
             $sum: {
-              $cond: [{ $eq: ['$status', WORK_ORDER_STATUS.PENDING] }, 1, 0],
+              $cond: [{ $eq: ['$status', WORK_ORDER_STATUS.INPROGRESS] }, 1, 0],
             },
           },
           completedWorkOrders: {
@@ -2376,7 +2376,7 @@ const getWorkOrderDashboardSummary = asyncHandler(async (req, res) => {
     const totals = result[0] || {
       totalWorkOrders: 0,
       openWorkOrders: 0,
-      pendingWorkOrders: 0,
+      inprogressWorkOrders: 0,
       completedWorkOrders: 0,
     };
 
@@ -3039,7 +3039,7 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
         total: totalWOs,
         statusBreakdown: {
           open: woStatusMap[WORK_ORDER_STATUS.OPEN] || 0,
-          pending: woStatusMap[WORK_ORDER_STATUS.PENDING] || 0,
+          inprogress: woStatusMap[WORK_ORDER_STATUS.INPROGRESS] || 0,
           completed: woStatusMap[WORK_ORDER_STATUS.COMPLETED] || 0,
         },
         totalMaintenanceCost: Object.values(woCostMap).reduce((a, b) => a + b, 0),

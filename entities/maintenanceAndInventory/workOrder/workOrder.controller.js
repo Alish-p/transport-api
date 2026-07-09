@@ -300,7 +300,7 @@ const fetchWorkOrders = asyncHandler(async (req, res) => {
     const totals = {
       all: { count: total },
       open: { count: 0 },
-      pending: { count: 0 },
+      inprogress: { count: 0 },
       completed: { count: 0 },
     };
 
@@ -625,7 +625,7 @@ const deleteWorkOrder = asyncHandler(async (req, res) => {
     );
   }
 
-  // OPEN and PENDING WOs have no inventory transactions (parts are only
+  // OPEN and INPROGRESS WOs have no inventory transactions (parts are only
   // consumed when closeWorkOrder is called), so safe to hard delete.
   await WorkOrder.findOneAndDelete({ _id: id, tenant: req.tenant });
 

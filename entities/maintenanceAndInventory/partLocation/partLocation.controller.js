@@ -166,7 +166,7 @@ const deletePartLocation = asyncHandler(async (req, res) => {
     const activeWO = await WorkOrder.findOne({
         tenant: req.tenant,
         'parts.partLocation': id,
-        status: { $in: [WORK_ORDER_STATUS.OPEN, WORK_ORDER_STATUS.PENDING] },
+        status: { $in: [WORK_ORDER_STATUS.OPEN, WORK_ORDER_STATUS.INPROGRESS] },
     });
 
     if (activeWO) {

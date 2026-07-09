@@ -1,6 +1,6 @@
 export const WORK_ORDER_STATUS = {
   OPEN: 'open',
-  PENDING: 'pending',
+  INPROGRESS: 'inprogress',
   COMPLETED: 'completed',
 };
 

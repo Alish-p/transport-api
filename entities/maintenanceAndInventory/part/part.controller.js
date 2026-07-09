@@ -519,7 +519,7 @@ const fetchPartById = asyncHandler(async (req, res) => {
       $match: {
         tenant: req.tenant,
         status: {
-          $in: [WORK_ORDER_STATUS.OPEN, WORK_ORDER_STATUS.PENDING],
+          $in: [WORK_ORDER_STATUS.OPEN, WORK_ORDER_STATUS.INPROGRESS],
         },
       },
     },
@@ -633,7 +633,7 @@ const deletePart = asyncHandler(async (req, res) => {
     'parts.part': id,
     status: {
       $nin: [WORK_ORDER_STATUS.COMPLETED],
-      // The user said: "work order can be in open status if it is not completed (i.e either in open / pending)"
+      // The user said: "work order can be in open status if it is not completed (i.e either in open / inprogress)"
     },
   });
 
