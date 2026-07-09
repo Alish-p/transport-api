@@ -4,13 +4,11 @@ import validate from '../../../middlewares/validate.js';
 import pagination from '../../../middlewares/pagination.js';
 import { authenticate, checkPermission } from '../../../middlewares/auth.js';
 import {
-  purchaseOrderPaySchema,
   purchaseOrderCloseSchema,
   purchaseOrderCreateSchema,
   purchaseOrderReceiveSchema,
 } from './purchaseOrder.validation.js';
 import {
-  payPurchaseOrder,
   closePurchaseOrder,
   createPurchaseOrder,
   fetchPurchaseOrders,
@@ -64,14 +62,7 @@ router.put(
   rejectPurchaseOrder,
 );
 
-// Mark as paid (Purchased)
-router.put(
-  '/:id/pay',
-  authenticate,
-  checkPermission('purchaseOrder', 'update'),
-  validate(purchaseOrderPaySchema),
-  payPurchaseOrder,
-);
+
 
 // Receive items and update stock
 router.put(

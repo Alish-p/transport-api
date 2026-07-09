@@ -226,9 +226,6 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
     if (req.query.approvedBy) {
       query.approvedBy = new ObjectId(req.query.approvedBy);
     }
-    if (req.query.purchasedBy) {
-      query.purchasedBy = new ObjectId(req.query.purchasedBy);
-    }
 
     const aggQuery = { ...query };
 
@@ -238,7 +235,7 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
       PurchaseOrder.find(query)
         .populate('vendor', 'name phone address')
         .populate('partLocation', 'name address')
-        .populate('createdBy approvedBy purchasedBy', 'name')
+        .populate('createdBy approvedBy', 'name')
         .sort(sortObj)
         .collation({ locale: 'en', numericOrdering: true })
         .skip(skip)
@@ -274,7 +271,6 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
       all: { count: 0, amount: 0 },
       pendingApproval: { count: 0, amount: 0 },
       approved: { count: 0, amount: 0 },
-      purchased: { count: 0, amount: 0 },
       rejected: { count: 0, amount: 0 },
       received: { count: 0, amount: 0 },
       partialReceived: { count: 0, amount: 0 },
@@ -283,7 +279,6 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
     const statusMap = {
       [PURCHASE_ORDER_STATUS.PENDING_APPROVAL]: 'pendingApproval',
       [PURCHASE_ORDER_STATUS.APPROVED]: 'approved',
-      [PURCHASE_ORDER_STATUS.PURCHASED]: 'purchased',
       [PURCHASE_ORDER_STATUS.REJECTED]: 'rejected',
       [PURCHASE_ORDER_STATUS.RECEIVED]: 'received',
       [PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED]: 'partialReceived',
@@ -337,7 +332,7 @@ const fetchPurchaseOrderById = asyncHandler(async (req, res) => {
   })
     .populate('vendor', 'name phone address bankDetails')
     .populate('partLocation', 'name address')
-    .populate('createdBy approvedBy purchasedBy closedBy', 'name')
+    .populate('createdBy approvedBy closedBy', 'name')
     .populate('lines.part', 'partNumber name manufacturer measurementUnit')
     .populate('receipts.receivedBy', 'name');
 
@@ -569,39 +564,7 @@ const rejectPurchaseOrder = asyncHandler(async (req, res) => {
   res.status(200).json(updated);
 });
 
-// ─── MARK AS PAID (PURCHASED) ────────────────────────────────────────────────
 
-const payPurchaseOrder = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { paymentReference, paymentDate } = req.body || {};
-
-  const order = await PurchaseOrder.findOne({
-    _id: id,
-    tenant: req.tenant,
-  });
-
-  if (!order) {
-    return res.status(404).json({ message: 'Purchase order not found' });
-  }
-
-  if (order.status !== PURCHASE_ORDER_STATUS.APPROVED) {
-    return res.status(400).json({
-      message:
-        'Only approved purchase orders can be marked as purchased/paid',
-    });
-  }
-
-  order.status = PURCHASE_ORDER_STATUS.PURCHASED;
-  order.purchasedBy = req.user?._id;
-  order.purchasedAt = paymentDate ? new Date(paymentDate) : new Date();
-  if (paymentReference) {
-    order.paymentReference = paymentReference;
-  }
-
-  order._user = req.user;
-  const updated = await order.save();
-  res.status(200).json(updated);
-});
 
 // ─── RECEIVE ITEMS (INCREMENT STOCK) ─────────────────────────────────────────
 
@@ -643,7 +606,6 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
     if (
       ![
         PURCHASE_ORDER_STATUS.APPROVED,
-        PURCHASE_ORDER_STATUS.PURCHASED,
         PURCHASE_ORDER_STATUS.RECEIVED,
         PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED,
       ].includes(order.status)
@@ -1033,16 +995,13 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
   if (req.query.approvedBy) {
     query.approvedBy = new ObjectId(req.query.approvedBy);
   }
-  if (req.query.purchasedBy) {
-    query.purchasedBy = new ObjectId(req.query.purchasedBy);
-  }
 
   const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
 
   const orders = await PurchaseOrder.find(query)
     .populate('vendor', 'name')
     .populate('partLocation', 'name')
-    .populate('createdBy approvedBy purchasedBy', 'name')
+    .populate('createdBy approvedBy', 'name')
     .sort(sortObj)
     .collation({ locale: 'en', numericOrdering: true })
     .lean();
@@ -1129,7 +1088,6 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
 });
 
 export {
-  payPurchaseOrder,
   closePurchaseOrder,
   createPurchaseOrder,
   fetchPurchaseOrders,

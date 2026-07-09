@@ -1,7 +1,6 @@
 export const PURCHASE_ORDER_STATUS = {
   PENDING_APPROVAL: 'pending-approval',
   APPROVED: 'approved',
-  PURCHASED: 'purchased',
   REJECTED: 'rejected',
   RECEIVED: 'received',
   PARTIAL_RECEIVED: 'partial-received',

@@ -27,8 +27,7 @@ Fields:
 - `status` (`String`, required, enum):
   - Underlying values (from `PURCHASE_ORDER_STATUS`):
     - `"pending-approval"` — Newly created PO awaiting approval.
-    - `"approved"` — Approved by an authorized user; not yet marked as paid.
-    - `"purchased"` — Marked as paid / purchased (payment initiated or completed).
+    - `"approved"` — Approved by an authorized user.
     - `"rejected"` — Rejected during approval.
     - `"received"` — All ordered quantities have been received into stock.
 - `lines` (`Array` of line items, required):
@@ -68,12 +67,9 @@ Financial fields:
 Audit fields:
 - `createdBy` (`ObjectId`, required, ref: `User`): User who created the PO.
 - `approvedBy` (`ObjectId`, ref: `User`): User who approved / rejected the PO.
-- `purchasedBy` (`ObjectId`, ref: `User`): User who marked the PO as paid / purchased.
 - `approvedAt` (`Date`, optional): Timestamp of approval / rejection.
-- `purchasedAt` (`Date`, optional): Timestamp when marked as purchased.
 - `receivedAt` (`Date`, optional): Timestamp when all items were fully received.
 - `rejectionReason` (`String`, optional): Optional reason when PO is rejected.
-- `paymentReference` (`String`, optional): Reference number / note for payment.
 - `tenant` (`ObjectId`, required, ref: `Tenant`): Tenant context.
 
 Indexes:
@@ -89,7 +85,6 @@ File: `entities/purchaseOrder/purchaseOrder.constants.js`
 - `PURCHASE_ORDER_STATUS`
   - `PENDING_APPROVAL: "pending-approval"`
   - `APPROVED: "approved"`
-  - `PURCHASED: "purchased"`
   - `REJECTED: "rejected"`
   - `RECEIVED: "received"`
 
@@ -120,14 +115,8 @@ Typical lifecycle:
    - Reject:
      - `status` → `"rejected"`.
      - Sets `approvedBy`, `approvedAt`, and optional `rejectionReason`.
-3. **Mark as Paid / Purchased**
-   - Only POs in `"approved"` state can be marked as paid.
-   - On success:
-     - `status` → `"purchased"`.
-     - Sets `purchasedBy` and `purchasedAt`.
-     - Optional `paymentReference`.
-4. **Receive Items**
-   - Only POs in `"approved"` or `"purchased"` can be received.
+3. **Receive Items**
+   - Only POs in `"approved"` can be received.
    - Body carries per-line `quantityReceived` updates (cumulative).
    - For each line:
      - Cannot reduce `quantityReceived`.
@@ -140,7 +129,7 @@ Typical lifecycle:
 Edit restrictions:
 - Header/line edit (`PUT /:id`):
   - Not allowed when `status` is `"received"` or `"rejected"`.
-  - Not allowed if any line already has `quantityReceived > 0` (even if status is still `"approved"` or `"purchased"`).
+  - Not allowed if any line already has `quantityReceived > 0` (even if status is still `"approved"`).
 - Delete:
   - Not implemented to preserve audit trail; use `reject` to cancel instead of deleting.
 
@@ -250,7 +239,7 @@ Notes:
 - **Permissions**: none (only authentication)
 - **Query Parameters**:
   - `vendor` (optional, string or array): Filter by vendor id(s).
-  - `status` (optional, string or array): Filter by one or more statuses (`"pending-approval"`, `"approved"`, `"purchased"`, `"rejected"`, `"received"`).
+  - `status` (optional, string or array): Filter by one or more statuses (`"pending-approval"`, `"approved"`, `"rejected"`, `"received"`).
   - `fromDate` (optional, ISO string): Filter by `createdAt >= fromDate`.
   - `toDate` (optional, ISO string): Filter by `createdAt <= toDate`.
   - Pagination:
@@ -367,38 +356,7 @@ Responses:
 
 ---
 
-### 7. Mark as Paid / Purchased
-
-- **Method**: `PUT`
-- **URL**: `/api/purchase-orders/:id/pay`
-- **Auth**: `authenticate`
-- **Permissions**: `checkPermission('purchaseOrder', 'update')`
-- **Validation**: `purchaseOrderPaySchema`
-
-Body:
-
-```json
-{
-  "paymentReference": "NEFT-123456",
-  "paymentDate": "2025-01-01T10:00:00.000Z"
-}
-```
-
-Behavior:
-- Only allowed when `status = "approved"`.
-- Sets:
-  - `status = "purchased"`.
-  - `purchasedBy`, `purchasedAt` (uses `paymentDate` or `now`).
-  - `paymentReference` (optional).
-
-Responses:
-- `200 OK`: Updated PO.
-- `400 Bad Request`: If PO is not in `"approved"` state.
-- `404 Not Found`: If PO not found for tenant.
-
----
-
-### 8. Receive Items (Ordered vs Actual)
+### 7. Receive Items (Ordered vs Actual)
 
 - **Method**: `PUT`
 - **URL**: `/api/purchase-orders/:id/receive`
@@ -420,7 +378,7 @@ Body:
 ```
 
 Behavior:
-- Only allowed when `status` is `"approved"` or `"purchased"`.
+- Only allowed when `status` is `"approved"`.
 - For each line:
   - Cannot reduce previously received quantity.
   - Cannot exceed `quantityOrdered`.
@@ -441,7 +399,7 @@ Responses:
 
 This completes the Purchase Order module with:
 - Tenant-scoped POs
-- Clear status workflow (Pending → Approved → Purchased → Received / Rejected)
+- Clear status workflow (Pending → Approved → Received / Rejected)
 - Stock integration via Part quantities
 - Strict edit rules after receiving
 

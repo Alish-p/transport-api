@@ -52,13 +52,6 @@ const purchaseOrderReceiveSchema = z.object({
   }),
 });
 
-const purchaseOrderPaySchema = z.object({
-  body: z.object({
-    paymentReference: z.string().optional(),
-    paymentDate: z.coerce.date().optional(),
-  }),
-});
-
 const purchaseOrderCloseSchema = z.object({
   body: z.object({
     closeReason: z.string().optional(),
@@ -66,7 +59,6 @@ const purchaseOrderCloseSchema = z.object({
 });
 
 export {
-  purchaseOrderPaySchema,
   purchaseOrderCloseSchema,
   purchaseOrderCreateSchema,
   purchaseOrderReceiveSchema,

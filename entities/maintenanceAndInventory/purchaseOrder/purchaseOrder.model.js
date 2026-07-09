@@ -136,14 +136,11 @@ const purchaseOrderSchema = new Schema(
 
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    purchasedBy: { type: Schema.Types.ObjectId, ref: 'User' },
 
     approvedAt: { type: Date },
-    purchasedAt: { type: Date },
     receivedAt: { type: Date },
 
     rejectionReason: { type: String },
-    paymentReference: { type: String },
 
     // GRN receipt history — each receive action appends an entry
     receipts: [grnEntrySchema],
@@ -196,7 +193,6 @@ purchaseOrderSchema.pre('validate', async function (next) {
 purchaseOrderSchema.pre('findOneAndDelete', async function (next) {
   const doc = await this.model.findOne(this.getQuery());
   const restrictedStatuses = [
-    PURCHASE_ORDER_STATUS.PURCHASED,
     PURCHASE_ORDER_STATUS.PARTIAL_RECEIVED,
     PURCHASE_ORDER_STATUS.RECEIVED,
     PURCHASE_ORDER_STATUS.CLOSED,
@@ -204,7 +200,7 @@ purchaseOrderSchema.pre('findOneAndDelete', async function (next) {
   if (doc && restrictedStatuses.includes(doc.status)) {
     return next(
       new Error(
-        'Cannot delete a purchase order that is purchased, partially received, received, or closed.',
+        'Cannot delete a purchase order that is partially received, received, or closed.',
       ),
     );
   }
