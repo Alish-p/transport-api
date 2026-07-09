@@ -107,6 +107,15 @@ const subtripSchema = new Schema({
 subtripSchema.index({ tenant: 1, subtripNo: 1 }, { unique: true });
 subtripSchema.index({ vehicleId: 1, startDate: -1 });
 
+// Remove freightDetails and commissionDetails from empty subtrips before saving
+subtripSchema.pre("save", function (next) {
+  if (this.isEmpty) {
+    this.freightDetails = undefined;
+    this.commissionDetails = undefined;
+  }
+  next();
+});
+
 // for creating incremental id
 subtripSchema.pre("validate", async function (next) {
   if (!this.isNew) {

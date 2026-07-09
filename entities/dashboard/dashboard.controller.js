@@ -2260,6 +2260,7 @@ const getInventoryDashboardSummary = asyncHandler(async (req, res) => {
         $group: {
           _id: '$_id',
           unitCost: { $first: '$unitCost' },
+          averageUnitCost: { $first: '$averageUnitCost' },
           totalQuantity: {
             $sum: { $ifNull: ['$inventories.quantity', 0] },
           },
@@ -2942,8 +2943,13 @@ const getMaintenanceDashboard = asyncHandler(async (req, res) => {
             partName: '$partDoc.name',
             partNumber: '$partDoc.partNumber',
             totalQuantity: 1,
-            unitCost: '$partDoc.unitCost',
-            capitalTiedUp: { $multiply: ['$totalQuantity', '$partDoc.unitCost'] },
+            unitCost: { $cond: [{ $gt: ['$partDoc.averageUnitCost', 0] }, '$partDoc.averageUnitCost', { $ifNull: ['$partDoc.unitCost', 0] }] },
+            capitalTiedUp: {
+              $multiply: [
+                '$totalQuantity',
+                { $cond: [{ $gt: ['$partDoc.averageUnitCost', 0] }, '$partDoc.averageUnitCost', { $ifNull: ['$partDoc.unitCost', 0] }] },
+              ],
+            },
             lastIssueDate: { $ifNull: ['$lastIssue.createdAt', null] },
             daysSinceLastIssue: 1,
           },

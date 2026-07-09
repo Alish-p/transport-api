@@ -461,18 +461,12 @@ const updateSubtrip = asyncHandler(async (req, res) => {
   req.body.freightDetails = freightDetails;
   req.body.commissionDetails = commissionDetails;
 
-  // Find and update the subtrip
-  const updatedSubtrip = await Subtrip.findOneAndUpdate(
-    { _id: id, tenant: req.tenant },
-    req.body,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
-
   // Record the update event with changed fields
   const rawChangedFields = buildChangedFields(existingSubtrip, req.body);
+
+  // Apply updates and save (triggers schema pre-save hook for cleaning empty subtrips)
+  existingSubtrip.set(req.body);
+  const updatedSubtrip = await existingSubtrip.save();
   // Resolve ref IDs → human-readable labels (driver name, customer name, etc.)
   const changedFields = await resolveChangedFieldLabels(rawChangedFields, req.tenant);
 
