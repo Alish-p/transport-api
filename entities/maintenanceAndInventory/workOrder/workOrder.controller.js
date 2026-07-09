@@ -493,12 +493,12 @@ const closeWorkOrder = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: 'Work order not found' });
     }
 
-    if (workOrder.status === WORK_ORDER_STATUS.COMPLETED) {
+    if (workOrder.status !== WORK_ORDER_STATUS.INPROGRESS) {
       await session.abortTransaction();
       session.endSession();
       return res
         .status(400)
-        .json({ message: 'Work order is already completed' });
+        .json({ message: 'Please start the work order before closing it' });
     }
 
     // Process parts consumption
@@ -575,7 +575,7 @@ const closeWorkOrder = asyncHandler(async (req, res) => {
 
     // Handle Optional Expense Creation
     if (req.body.createExpense) {
-    // Validation is done earlier now
+      // Validation is done earlier now
       const expense = new Expense({
         vehicleId: workOrder.vehicle,
         date: workOrder.completedDate || new Date(),
@@ -821,7 +821,7 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
     grandTotalCost += rowData.totalCost || 0;
 
     exportColumns.forEach((col) => {
-      const {key} = col;
+      const { key } = col;
       if (key === 'vehicle') {
         row[key] = rowData.vehicle?.vehicleNo || '-';
       } else if (key === 'timeTaken') {
@@ -877,7 +877,7 @@ const exportWorkOrders = asyncHandler(async (req, res) => {
   // Footer Row
   const totalRow = {};
   exportColumns.forEach((col) => {
-    const {key} = col;
+    const { key } = col;
     if (key === 'workOrderNo') totalRow[key] = 'TOTAL';
     else if (key === 'totalCost') totalRow[key] = Math.round(grandTotalCost * 100) / 100;
     else totalRow[key] = '';
