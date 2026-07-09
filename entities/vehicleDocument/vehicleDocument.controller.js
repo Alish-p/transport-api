@@ -580,3 +580,21 @@ export const syncDocumentsFromProvider = asyncHandler(async (req, res) => {
 
   return res.status(200).json({ addedCount: 0 });
 });
+
+export const getDocumentDetail = asyncHandler(async (req, res) => {
+  const { docId } = req.params;
+
+  const doc = await VehicleDocument.findOne({
+    _id: docId,
+    tenant: req.tenant,
+  })
+    .populate('vehicle', 'vehicleNo _id')
+    .populate('createdBy', 'name')
+    .lean();
+
+  if (!doc) {
+    return res.status(404).json({ message: 'Document not found' });
+  }
+
+  return res.status(200).json(doc);
+});

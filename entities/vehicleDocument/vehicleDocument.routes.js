@@ -10,6 +10,7 @@ import {
   deleteDocument,
   fetchDocumentsList,
   syncDocumentsFromProvider,
+  getDocumentDetail,
 } from './vehicleDocument.controller.js';
 
 const router = Router({ mergeParams: true });
@@ -69,6 +70,14 @@ router.get(
   checkPermission('vehicle', 'view'),
   pagination,
   fetchDocumentsList
+);
+
+// Get single document detail
+router.get(
+  '/:docId',
+  authenticate,
+  checkPermission('vehicle', 'view'),
+  getDocumentDetail
 );
 
 export default router;
