@@ -461,7 +461,7 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
 
 // Sync documents from external provider by vehicle number
 export const syncDocumentsFromProvider = asyncHandler(async (req, res) => {
-  const { vehicleNo } = req.body || {};
+  const { vehicleNo, docType } = req.body || {};
   if (!vehicleNo) {
     return res.status(400).json({ message: 'vehicleNo is required' });
   }
@@ -489,7 +489,11 @@ export const syncDocumentsFromProvider = asyncHandler(async (req, res) => {
     return res.status(502).json({ message: 'Failed to fetch from provider', error: err.message });
   }
 
-  const docs = extractDocuments(raw) || [];
+  let docs = extractDocuments(raw) || [];
+  if (docType) {
+    docs = docs.filter((d) => d.docType?.toLowerCase() === docType.toLowerCase());
+  }
+
   if (!Array.isArray(docs) || docs.length === 0) {
     return res.status(200).json({ addedCount: 0 });
   }
