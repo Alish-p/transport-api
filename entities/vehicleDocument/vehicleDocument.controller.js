@@ -234,6 +234,8 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
     issuer,
     days, // expiring window
     hasAttachment,
+    orderBy,
+    order,
   } = req.query;
 
   const { limit, skip } = req.pagination || { limit: 10, skip: 0 };
@@ -428,11 +430,18 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
   // Otherwise list actual documents, optionally filtered by status
   const docQuery = statusFilter ? withStatusFilter(baseQuery, statusFilter) : baseQuery;
 
+  const sortOptions = {};
+  if (orderBy) {
+    sortOptions[orderBy] = order === 'asc' ? 1 : -1;
+  } else {
+    sortOptions.expiryDate = -1;
+  }
+
   const [docs, docsTotal] = await Promise.all([
     VehicleDocument.find(docQuery)
       .populate({ path: 'vehicle', select: 'vehicleNo' })
       .populate({ path: 'createdBy', select: 'name' })
-      .sort({ updatedAt: -1 })
+      .sort(sortOptions)
       .skip(skip)
       .limit(limit)
       .lean(),
