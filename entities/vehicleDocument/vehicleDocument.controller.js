@@ -367,8 +367,23 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
   // When listing results
   const statusFilter = typeof status === 'string' ? status.toLowerCase() : undefined;
 
-  if (statusFilter === 'missing') {
-    // Build missing rows (synthetic) and paginate in-memory
+  // 1. Build synthetic missing docs if status is 'all' or 'missing'
+  const synthetic = [];
+  const matchesMissingFilters =
+    !docNumber &&
+    !issuer &&
+    !issueFrom &&
+    !issueTo &&
+    !expiryFrom &&
+    !expiryTo &&
+    hasAttachment !== 'yes';
+
+  if (
+    matchesMissingFilters &&
+    (!statusFilter || statusFilter === 'all' || statusFilter === 'missing') &&
+    vehicleIds.length > 0 &&
+    requiredTypesScope.length > 0
+  ) {
     const activeRequiredDocs = await VehicleDocument.find({
       tenant: req.tenant,
       isActive: true,
@@ -385,20 +400,18 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
       presentByVehicle.get(key).add(d.docType);
     }
 
-    // Preload vehicle numbers for mapping
     const vehiclesForMap = await Vehicle.find(addTenantToQuery(req, { _id: { $in: vehicleIds } }))
       .select('_id vehicleNo')
       .lean();
     const vMap = new Map(vehiclesForMap.map((v) => [String(v._id), v.vehicleNo]));
 
-    const synthetic = [];
     for (const vid of vehicleIds) {
       const present = presentByVehicle.get(String(vid)) || new Set();
       for (const t of requiredTypesScope) {
         if (!present.has(t)) {
           synthetic.push({
             _id: null,
-            vehicle: vid,
+            vehicle: { _id: vid, vehicleNo: vMap.get(String(vid)) || null },
             vehicleNo: vMap.get(String(vid)) || null,
             docType: t,
             docNumber: null,
@@ -413,69 +426,98 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
         }
       }
     }
+  }
 
-    const paged = synthetic.slice(skip, skip + limit);
-    return res.status(200).json({
-      results: paged,
-      total: synthetic.length,
-      totalMissing,
-      totalExpiring: expiringCount,
-      totalExpired: expiredCount,
-      totalValid: validCount,
-      startRange: synthetic.length ? skip + 1 : 0,
-      endRange: skip + paged.length,
+  // 2. Fetch and decorate DB docs if status is NOT 'missing'
+  let results = [];
+  if (statusFilter !== 'missing') {
+    const docQuery = statusFilter ? withStatusFilter(baseQuery, statusFilter) : baseQuery;
+    const docs = await VehicleDocument.find(docQuery)
+      .populate({ path: 'vehicle', select: 'vehicleNo' })
+      .populate({ path: 'createdBy', select: 'name' })
+      .lean();
+
+    results = docs.map((d) => {
+      const exp = d.expiryDate ? new Date(d.expiryDate) : null;
+      let st = 'valid';
+      if (exp) {
+        if (exp < now) st = 'expired';
+        else if (exp <= expiringEnd) st = 'expiring';
+        else st = 'valid';
+      } else {
+        st = 'valid';
+      }
+      return {
+        ...d,
+        status: st,
+        vehicleNo: d.vehicle && typeof d.vehicle === 'object' ? d.vehicle.vehicleNo : undefined,
+        createdByName: d.createdBy && typeof d.createdBy === 'object' ? d.createdBy.name : undefined,
+      };
     });
   }
 
-  // Otherwise list actual documents, optionally filtered by status
-  const docQuery = statusFilter ? withStatusFilter(baseQuery, statusFilter) : baseQuery;
-
-  const sortOptions = {};
-  if (orderBy) {
-    sortOptions[orderBy] = order === 'asc' ? 1 : -1;
+  // 3. Combine synthetic and DB docs
+  let combined = [];
+  if (statusFilter === 'missing') {
+    combined = synthetic;
+  } else if (!statusFilter || statusFilter === 'all') {
+    combined = [...results, ...synthetic];
   } else {
-    sortOptions.expiryDate = -1;
+    combined = results;
   }
 
-  const [docs, docsTotal] = await Promise.all([
-    VehicleDocument.find(docQuery)
-      .populate({ path: 'vehicle', select: 'vehicleNo' })
-      .populate({ path: 'createdBy', select: 'name' })
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    VehicleDocument.countDocuments(docQuery),
-  ]);
+  // 4. Sort combined results in-memory
+  if (orderBy) {
+    combined.sort((a, b) => {
+      let valA = a[orderBy];
+      let valB = b[orderBy];
 
-  // Decorate each result with computed status
-  const results = docs.map((d) => {
-    const exp = d.expiryDate ? new Date(d.expiryDate) : null;
-    let st = 'valid';
-    if (exp) {
-      if (exp < now) st = 'expired';
-      else if (exp <= expiringEnd) st = 'expiring';
-      else st = 'valid';
-    } else {
-      st = 'valid';
-    }
-    return {
-      ...d,
-      status: st,
-      vehicleNo: d.vehicle && typeof d.vehicle === 'object' ? d.vehicle.vehicleNo : undefined,
-      createdByName: d.createdBy && typeof d.createdBy === 'object' ? d.createdBy.name : undefined,
-    };
-  });
+      if (orderBy === 'vehicle') {
+        valA = a.vehicleNo || (a.vehicle && a.vehicle.vehicleNo) || '';
+        valB = b.vehicleNo || (b.vehicle && b.vehicle.vehicleNo) || '';
+      } else if (orderBy === 'createdBy') {
+        valA = a.createdByName || '';
+        valB = b.createdByName || '';
+      }
+
+      if (valA === null || valA === undefined) return 1;
+      if (valB === null || valB === undefined) return -1;
+
+      if (valA instanceof Date || (!Number.isNaN(Date.parse(valA)) && typeof valA === 'string' && valA.includes('-'))) {
+        const dateA = new Date(valA);
+        const dateB = new Date(valB);
+        return order === 'desc' ? dateB - dateA : dateA - dateB;
+      }
+
+      if (typeof valA === 'string') {
+        return order === 'desc' ? valB.localeCompare(valA) : valA.localeCompare(valB);
+      }
+
+      return order === 'desc' ? valB - valA : valA - valB;
+    });
+  } else {
+    combined.sort((a, b) => {
+      const expA = a.expiryDate ? new Date(a.expiryDate) : null;
+      const expB = b.expiryDate ? new Date(b.expiryDate) : null;
+      if (!expA && !expB) return 0;
+      if (!expA) return 1;
+      if (!expB) return -1;
+      return expB - expA;
+    });
+  }
+
+  // 5. Paginate in-memory
+  const paged = combined.slice(skip, skip + limit);
 
   return res.status(200).json({
-    results,
-    total: docsTotal,
+    results: paged,
+    total: combined.length,
     totalMissing,
     totalExpiring: expiringCount,
     totalExpired: expiredCount,
     totalValid: validCount,
-    startRange: docsTotal ? skip + 1 : 0,
-    endRange: skip + results.length,
+    startRange: combined.length ? skip + 1 : 0,
+    endRange: skip + paged.length,
   });
 });
 
