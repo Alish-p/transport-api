@@ -615,7 +615,8 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
             transportName: r.transporterId.transportName,
             cellNo: r.transporterId.cellNo,
             gstNo: r.transporterId.gstNo,
-            panNo: r.transporterId.panNo
+            panNo: r.transporterId.panNo,
+            bankDetails: r.transporterId.bankDetails
           };
         }
         return r;
@@ -623,7 +624,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
     } else {
       const sortObj = buildSortObject(sortMapping[orderBy] || orderBy, order, { issueDate: -1 });
       receipts = await TransporterPayment.find(query)
-        .populate("transporterId", "transportName cellNo gstNo panNo")
+        .populate("transporterId", "transportName cellNo gstNo panNo bankDetails")
         .sort(sortObj)
         .skip(skip)
         .limit(limit);
@@ -1008,6 +1009,9 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
     transporterId: { header: 'Transporter', key: 'transporterName', width: 25 },
     transporterGSTNo: { header: 'Transporter GST No', key: 'gstNo', width: 20 },
     transporterPANNo: { header: 'Transporter PAN No', key: 'panNo', width: 20 },
+    transporterBankName: { header: 'Transporter Bank Name', key: 'bankName', width: 25 },
+    transporterAccNo: { header: 'Transporter Account Number', key: 'accNo', width: 25 },
+    transporterIFSC: { header: 'Transporter IFSC Code', key: 'ifsc', width: 20 },
     subtrips: { header: 'Jobs', key: 'subtripNos', width: 30 },
     status: { header: 'Status', key: 'status', width: 15 },
     issueDate: { header: 'Issue Date', key: 'issueDate', width: 15 },
@@ -1146,6 +1150,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
         transporterName: '$transporter.transportName',
         gstNo: '$transporter.gstNo',
         panNo: '$transporter.panNo',
+        bankDetails: '$transporter.bankDetails',
         status: 1,
         issueDate: 1,
         subtripSnapshot: 1, // Needed for complex calculations
@@ -1184,6 +1189,9 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
       transporterName: doc.transporterName,
       gstNo: doc.gstNo,
       panNo: doc.panNo,
+      bankName: doc.bankDetails?.name || '-',
+      accNo: doc.bankDetails?.accNo || '-',
+      ifsc: doc.bankDetails?.ifsc || '-',
       status: doc.status,
       issueDate: doc.issueDate ? new Date(doc.issueDate).toISOString().split('T')[0] : '-',
       subtripNos: (doc.subtripSnapshot || []).map((st) => st.subtripNo).join(', '),
