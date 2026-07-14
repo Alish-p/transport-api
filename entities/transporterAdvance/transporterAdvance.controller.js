@@ -154,7 +154,7 @@ const fetchPaginatedAdvances = asyncHandler(async (req, res) => {
       .populate({
         path: 'vehicleId',
         select: 'vehicleNo transporter isOwn',
-        populate: { path: 'transporter', select: 'transportName' },
+        populate: { path: 'transporter', select: 'transportName bankDetails' },
       })
       .populate({ path: 'pumpCd', select: 'name' })
       .populate({
@@ -191,6 +191,9 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
     status: { header: 'Status', key: 'status', width: 15 },
     vehicleNo: { header: 'Vehicle No', key: 'vehicleNo', width: 20 },
     transporter: { header: 'Transporter', key: 'transporterName', width: 25 },
+    transporterBankName: { header: 'Transporter Bank Name', key: 'bankName', width: 25 },
+    transporterAccNo: { header: 'Transporter Account Number', key: 'accNo', width: 25 },
+    transporterIFSC: { header: 'Transporter IFSC Code', key: 'ifsc', width: 20 },
     advanceType: { header: 'Advance Type', key: 'advanceType', width: 20 },
     date: { header: 'Date', key: 'date', width: 20 },
     remarks: { header: 'Remarks', key: 'remarks', width: 30 },
@@ -320,6 +323,7 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
         remarks: 1,
         vehicleNo: '$vehicle.vehicleNo',
         transporterName: '$transporter.transportName',
+        bankDetails: '$transporter.bankDetails',
         name: '$pump.name',
         subtripNo: '$subtrip.subtripNo',
         paymentId: '$paymentReceipt.paymentId',
@@ -339,6 +343,12 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
         row[key] = doc.date ? new Date(doc.date).toISOString().split('T')[0] : '';
       } else if (['amount', 'dieselLtr', 'dieselPrice'].includes(key)) {
         row[key] = typeof doc[key] === 'number' ? Math.round(doc[key] * 100) / 100 : '-';
+      } else if (key === 'bankName') {
+        row[key] = doc.bankDetails?.name || '-';
+      } else if (key === 'accNo') {
+        row[key] = doc.bankDetails?.accNo || '-';
+      } else if (key === 'ifsc') {
+        row[key] = doc.bankDetails?.ifsc || '-';
       } else {
         row[key] = doc[key] || '-';
       }
