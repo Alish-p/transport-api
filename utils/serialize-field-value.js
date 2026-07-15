@@ -49,8 +49,64 @@ export const serializeFieldValue = (val, isDateField = false) => {
 };
 
 /**
+ * Returns true for plain JS / Mongoose subdocument objects that should be
+ * recursed into for leaf-level diffs.
+ * Excludes ObjectIds, Dates, Arrays, and null.
+ */
+const isPlainObject = (val) =>
+  val !== null &&
+  typeof val === 'object' &&
+  !Array.isArray(val) &&
+  !(val instanceof Date) &&
+  val.constructor?.name !== 'ObjectId';
+
+/**
+ * Recursively collect changed leaf values from two objects, emitting
+ * flat dot-notation keys into the `out` map.
+ *
+ * @param {Object}  oldObj  - The "before" object (or Mongoose doc)
+ * @param {Object}  newObj  - The "after" object (from req.body)
+ * @param {Object}  out     - Accumulator: { [dotKey]: { from, to } }
+ * @param {string}  prefix  - Current dot-notation path prefix
+ */
+const collectLeafDiffs = (oldObj, newObj, out, prefix = '') => {
+  const keys = new Set([
+    ...Object.keys(oldObj ?? {}),
+    ...Object.keys(newObj ?? {}),
+  ]);
+
+  for (const key of keys) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    const oldVal = oldObj?.[key];
+    const newVal = newObj?.[key];
+
+    if (isPlainObject(oldVal) || isPlainObject(newVal)) {
+      // Recurse one level deeper
+      collectLeafDiffs(
+        isPlainObject(oldVal) ? oldVal : {},
+        isPlainObject(newVal) ? newVal : {},
+        out,
+        path
+      );
+    } else {
+      const isDateField = DATE_FIELDS.has(key);
+      const serializedOld = serializeFieldValue(oldVal, isDateField);
+      const serializedNew = serializeFieldValue(newVal, isDateField);
+
+      if (String(serializedOld) !== String(serializedNew)) {
+        out[path] = { from: serializedOld, to: serializedNew };
+      }
+    }
+  }
+};
+
+/**
  * Build a changedFields map suitable for storing in a SubtripEvent details object.
- * Compares values loosely (via String coercion) to handle ObjectId vs string mismatches.
+ *
+ * - Primitive fields are compared directly.
+ * - Plain object fields (e.g. freightDetails, commissionDetails) are recursed
+ *   into, emitting one dot-notation entry per changed leaf value.
+ * - ObjectId, Date, and Array fields are serialized and compared as primitives.
  *
  * @param {Object}   existingDoc - The Mongoose document before the update
  * @param {Object}   incoming    - The plain object from req.body (or any patch)
@@ -66,15 +122,24 @@ export const buildChangedFields = (existingDoc, incoming, skip = []) => {
     const oldVal = existingDoc[key];
     const newVal = incoming[key];
 
-    if (String(oldVal) !== String(newVal)) {
+    if (isPlainObject(oldVal) || isPlainObject(newVal)) {
+      // Recurse into nested objects for leaf-level diffs
+      collectLeafDiffs(
+        isPlainObject(oldVal) ? oldVal : {},
+        isPlainObject(newVal) ? newVal : {},
+        changedFields,
+        key
+      );
+    } else {
       const isDateField = DATE_FIELDS.has(key);
-      changedFields[key] = {
-        from: serializeFieldValue(oldVal, isDateField),
-        to:   serializeFieldValue(newVal, isDateField),
-      };
+      const serializedOld = serializeFieldValue(oldVal, isDateField);
+      const serializedNew = serializeFieldValue(newVal, isDateField);
+
+      if (String(serializedOld) !== String(serializedNew)) {
+        changedFields[key] = { from: serializedOld, to: serializedNew };
+      }
     }
   });
 
   return changedFields;
 };
-

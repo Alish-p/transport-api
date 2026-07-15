@@ -374,7 +374,14 @@ const receiveLR = asyncHandler(async (req, res) => {
     await recordSubtripEvent(
       subtrip._id,
       SUBTRIP_EVENT_TYPES.RECEIVED,
-      { unloadingWeight },
+      {
+        unloadingWeight,
+        endDate,
+        shortageWeight: shortageWeight || 0,
+        shortageAmount: shortageAmount || 0,
+        freightAmount: freightDetails?.freightAmount,
+        commissionAmount: commissionDetails?.commissionAmount,
+      },
       req.user,
       req.tenant
     );
@@ -488,17 +495,19 @@ const updateSubtrip = asyncHandler(async (req, res) => {
     );
   }
 
-  // Record general update event
-  await recordSubtripEvent(
-    updatedSubtrip._id,
-    SUBTRIP_EVENT_TYPES.UPDATED,
-    {
-      changedFields,
-      message: "Subtrip details updated",
-    },
-    req.user,
-    req.tenant
-  );
+  // Record general update event — skip if nothing actually changed
+  if (Object.keys(changedFields).length > 0) {
+    await recordSubtripEvent(
+      updatedSubtrip._id,
+      SUBTRIP_EVENT_TYPES.UPDATED,
+      {
+        changedFields,
+        message: "Subtrip details updated",
+      },
+      req.user,
+      req.tenant
+    );
+  }
 
   // Update Trip Financials if it belongs to a Trip
   if (updatedSubtrip.tripId) {
