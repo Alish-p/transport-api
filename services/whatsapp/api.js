@@ -1,8 +1,20 @@
 import { formatPhoneE164ish } from "../../utils/format-utils.js";
 import { GRAPH_API_VERSION, getTenantWhatsAppConfig } from "./config.js";
 
-async function sendTemplateMessage({ tenantId, to, templateName, languageCode, components = [] }) {
-  const cfg = await getTenantWhatsAppConfig(tenantId);
+async function sendTemplateMessage({ tenantId, to, templateName, languageCode, components = [], forceGlobalFallback = false }) {
+  // When forceGlobalFallback is true (e.g. login OTP), skip tenant lookup and use global credentials directly
+  let cfg;
+  if (forceGlobalFallback) {
+    cfg = {
+      enabled: true,
+      accessToken: process.env.WA_ACCESS_TOKEN,
+      phoneNumberId: process.env.WA_PHONE_NUMBER_ID,
+      languageCode: process.env.WA_LANG || "en",
+    };
+  } else {
+    cfg = await getTenantWhatsAppConfig(tenantId);
+  }
+
   if (!cfg.enabled) {
     return { ok: false, skipped: true, reason: "whatsapp_disabled" };
   }

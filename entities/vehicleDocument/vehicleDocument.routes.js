@@ -8,9 +8,9 @@ import {
   getDownloadUrl,
   updateDocument,
   deleteDocument,
+  getDocumentDetail,
   fetchDocumentsList,
   syncDocumentsFromProvider,
-  getDocumentDetail,
 } from './vehicleDocument.controller.js';
 
 const router = Router({ mergeParams: true });

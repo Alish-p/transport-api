@@ -1,6 +1,6 @@
+import { fDate } from '../utils/time-utils.js';
 import SubtripEvent from '../entities/subtripEvent/subtripEvent.model.js';
 import { SUBTRIP_EVENT_TYPES } from '../entities/subtripEvent/subtripEvent.constants.js';
-import { fDate } from '../utils/time-utils.js';
 
 // ----------------------------------------------------------------------
 // Currency & number formatting (mirrors frontend fCurrency / fNumber)
@@ -231,6 +231,6 @@ const recordSubtripEvent = async (
 
 export {
   recordSubtripEvent,
-  compileDisplayMessage,
   SUBTRIP_EVENT_TYPES,
+  compileDisplayMessage,
 };
