@@ -450,6 +450,37 @@ const updateSubtrip = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Subtrip not found" });
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // Block editing if any financial document has already been generated.
+  // Mirrors the same guard used in deleteSubtrip for consistency.
+  // ──────────────────────────────────────────────────────────────────────────
+  const populatedForGuard = await Subtrip.findById(existingSubtrip._id)
+    .populate({ path: "invoiceId", select: "invoiceNo" })
+    .populate({ path: "driverSalaryId", select: "paymentId" })
+    .populate({ path: "transporterPaymentReceiptId", select: "paymentId" })
+    .lean();
+
+  const blockingDocuments = [];
+  if (populatedForGuard.transporterPaymentReceiptId) {
+    blockingDocuments.push(
+      `Transporter Payment [${populatedForGuard.transporterPaymentReceiptId.paymentId}]`
+    );
+  }
+  if (populatedForGuard.invoiceId) {
+    blockingDocuments.push(`Invoice [${populatedForGuard.invoiceId.invoiceNo}]`);
+  }
+  if (populatedForGuard.driverSalaryId) {
+    blockingDocuments.push(
+      `Driver Salary [${populatedForGuard.driverSalaryId.paymentId}]`
+    );
+  }
+
+  if (blockingDocuments.length > 0) {
+    return res.status(400).json({
+      message: `Cannot edit this subtrip. The following financial documents have already been generated: ${blockingDocuments.join(", ")}.`,
+    });
+  }
+
   // Check for ewayBill uniqueness if it's being updated
   if (req.body.ewayBill && req.body.ewayBill !== existingSubtrip.ewayBill) {
     const duplicateEwayBill = await Subtrip.findOne({
