@@ -1,6 +1,6 @@
 import { model, Schema } from 'mongoose';
 
-import defaults from './tenant.constants.js';
+import defaults, { VEHICLE_MODES } from './tenant.constants.js';
 import { FREIGHT_MODELS } from '../subtrip/subtrip.constants.js';
 
 const FREIGHT_MODEL_ENUM = Object.values(FREIGHT_MODELS);
@@ -162,7 +162,11 @@ const tenantSchema = new Schema(
     },
     config: {
       vehicle: {
-        marketVehicles: { type: Boolean, default: true },
+        vehicleMode: {
+          type: String,
+          enum: Object.values(VEHICLE_MODES),
+          default: VEHICLE_MODES.BOTH,
+        },
         types: {
           type: [optionSchema],
           default: defaults.vehicle.types,
