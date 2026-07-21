@@ -289,6 +289,31 @@ export async function getWhitebooksEwayBillsForTransporter(tenant, generatedDate
   return callWhitebooksApi(tenant, url, ipAddress);
 }
 
+export async function getWhitebooksEwayBillsForTransporterByState(
+  tenant,
+  generatedDate,
+  stateCode,
+  ipAddress,
+) {
+  const email = process.env.WHITEBOOKS_EMAIL;
+
+  if (!email) {
+    throw new Error('Whitebooks email not configured in environment');
+  }
+  if (!generatedDate) {
+    throw new Error('generatedDate is required in DD/MM/YYYY');
+  }
+  if (!stateCode) {
+    throw new Error('stateCode is required');
+  }
+
+  const url = `https://api.whitebooks.in/ewaybillapi/v1.03/ewayapi/getewaybillsfortransporterbystate?email=${encodeURIComponent(
+    email,
+  )}&stateCode=${encodeURIComponent(stateCode)}&date=${encodeURIComponent(generatedDate)}`;
+
+  return callWhitebooksApi(tenant, url, ipAddress);
+}
+
 export async function getWhitebooksEwayBill(tenant, ewayBillNumber, ipAddress) {
   const email = process.env.WHITEBOOKS_EMAIL;
 
