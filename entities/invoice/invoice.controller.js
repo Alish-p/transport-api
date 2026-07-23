@@ -246,13 +246,27 @@ const fetchInvoices = asyncHandler(async (req, res) => {
 
     const totals = {
       all: { count: total, amount: 0 },
-      pending: { count: 0, amount: 0 },
-      paid: { count: 0, amount: 0 },
+      [INVOICE_STATUS.PENDING]: { count: 0, amount: 0 },
+      [INVOICE_STATUS.PARTIAL_RECEIVED]: { count: 0, amount: 0 },
+      [INVOICE_STATUS.RECEIVED]: { count: 0, amount: 0 },
+      [INVOICE_STATUS.CANCELLED]: { count: 0, amount: 0 },
     };
 
+    const statusMap = Object.values(INVOICE_STATUS).reduce((acc, status) => {
+      acc[status.trim().toLowerCase()] = status;
+      return acc;
+    }, {});
+
     statusAgg.forEach((ag) => {
-      totals.all.amount += ag.amount;
-      totals[ag._id] = { count: ag.count, amount: ag.amount };
+      if (ag._id) {
+        totals.all.amount += ag.amount;
+        const canonicalKey = statusMap[String(ag._id).trim().toLowerCase()] || ag._id;
+        if (!totals[canonicalKey]) {
+          totals[canonicalKey] = { count: 0, amount: 0 };
+        }
+        totals[canonicalKey].count += ag.count;
+        totals[canonicalKey].amount += ag.amount;
+      }
     });
 
     res.status(200).json({
