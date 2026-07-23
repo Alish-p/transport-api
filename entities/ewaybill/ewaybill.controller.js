@@ -28,7 +28,13 @@ const getEwayBillByNumber = asyncHandler(async (req, res) => {
   // Check if we already have a successfully cached E-way Bill in our database
   try {
     const existing = await EwayBill.findOne({ tenant: req.tenant, ewayBillNo: String(number) });
-    if (existing && existing.status === 'SUCCESS' && existing.payload) {
+    // Only use the cache if the payload already has pincode fields (post-Whitebooks normalization).
+    // Older cache entries from MastersIndia/earlier normalization lack these fields, so we
+    // fall through to re-fetch and overwrite with the corrected shape.
+    const hasNewNormalization =
+      existing?.payload?.pincode_of_consignor !== undefined ||
+      existing?.payload?.pincode_of_consignee !== undefined;
+    if (existing && existing.status === 'SUCCESS' && existing.payload && hasNewNormalization) {
       return res.status(200).json({
         ...existing.payload,
         results: {
@@ -60,15 +66,28 @@ const getEwayBillByNumber = asyncHandler(async (req, res) => {
     eway_bill_date: data.ewayBillDate || '',
     eway_bill_valid_date: data.validUpto || '',
     document_number: data.docNo || '',
+    // Consignor address fields
     address1_of_consignor: data.fromAddr1 || '',
+    address2_of_consignor: data.fromAddr2 || '',
     place_of_consignor: data.fromPlace || '',
+    pincode_of_consignor: data.fromPincode ? String(data.fromPincode) : '',
+    state_of_consignor: data.fromStateCode ? String(data.fromStateCode) : '',
+    // Consignee address fields
+    address1_of_consignee: data.toAddr1 || '',
+    address2_of_consignee: data.toAddr2 || '',
     place_of_consignee: data.toPlace || '',
+    pincode_of_consignee: data.toPincode ? String(data.toPincode) : '',
+    state_of_supply: data.toStateCode ? String(data.toStateCode) : '',
+    // Party names and GSTINs
     legal_name_of_consignee: data.toTrdName || '',
     gstin_of_consignee: data.toGstin || '',
     gstin_of_consignor: data.fromGstin || '',
     legal_name_of_consignor: data.fromTrdName || '',
     legal_name_of_supply: data.fromTrdName || '',
     userGstin: data.userGstin || data.fromGstin || '',
+    // Route map extras
+    transportation_distance: data.transDistance || data.transportation_distance || '',
+    number_of_valid_days: data.validDays || data.number_of_valid_days || '',
     itemList: (data.itemList || []).map((item) => ({
       ...item,
       product_description: item.productDesc || '',
