@@ -853,6 +853,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     rate: { header: 'Rate', key: 'rate', width: 15 },
     freightAmount: { header: 'Freight Amount', key: 'freightAmount', width: 15 },
     commissionRate: { header: 'Commission Rate', key: 'commissionRate', width: 15 },
+    commissionAmount: { header: 'Commission Amount', key: 'commissionAmount', width: 15 },
     expenses: { header: 'Expenses', key: 'totalExpenses', width: 15 },
     advances: { header: 'Advances', key: 'totalAdvances', width: 15 },
     profitAndLoss: { header: 'Profit & Loss', key: 'profitAndLoss', width: 15 },
@@ -904,6 +905,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
   let totalLoadingWeight = 0;
   let totalUnloadingWeight = 0;
   let totalShortageWeight = 0;
+  let totalCommissionSum = 0;
 
   for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
     const row = {};
@@ -921,6 +923,9 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     totalLoadingWeight += (doc.loadingWeight || 0);
     totalUnloadingWeight += (doc.unloadingWeight || 0);
     totalShortageWeight += (doc.shortageWeight || 0);
+    if (doc.isOwn === false) {
+      totalCommissionSum += (doc.commissionAmount || 0);
+    }
 
     exportColumns.forEach((col) => {
       const {key} = col;
@@ -938,6 +943,13 @@ const exportSubtrips = asyncHandler(async (req, res) => {
           row[key] = 'N.A.';
         } else {
           row[key] = Math.round(totalAdvances * 100) / 100;
+        }
+      }
+      else if (key === 'commissionAmount') {
+        if (doc.isOwn === true) {
+          row[key] = 'N.A.';
+        } else {
+          row[key] = doc.commissionAmount !== undefined && doc.commissionAmount !== null ? Math.round(doc.commissionAmount * 100) / 100 : 0;
         }
       }
       else if (key === 'profitAndLoss') row[key] = Math.round(profitAndLoss * 100) / 100;
@@ -971,6 +983,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     else if (key === 'loadingWeight') totalRow[key] = Math.round(totalLoadingWeight * 100) / 100;
     else if (key === 'unloadingWeight') totalRow[key] = Math.round(totalUnloadingWeight * 100) / 100;
     else if (key === 'shortageWeight') totalRow[key] = Math.round(totalShortageWeight * 100) / 100;
+    else if (key === 'commissionAmount') totalRow[key] = Math.round(totalCommissionSum * 100) / 100;
     else totalRow[key] = '';
   });
 
