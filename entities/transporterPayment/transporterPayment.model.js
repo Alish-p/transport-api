@@ -109,6 +109,7 @@ const transporterPaymentReceiptSchema = new Schema(
 
     // Timestamp fields
     issueDate: { type: Date, default: Date.now },
+    paidDate: { type: Date },
 
     // Subtrip linkage and snapshot
     associatedSubtrips: [{ type: Schema.Types.ObjectId, ref: "Subtrip" }],

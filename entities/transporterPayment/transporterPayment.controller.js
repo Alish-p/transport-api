@@ -523,6 +523,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
 
     const sortMapping = {
       issueDate: 'issueDate',
+      paidDate: 'paidDate',
       cgst: 'taxBreakup.cgst.amount',
       sgst: 'taxBreakup.sgst.amount',
       igst: 'taxBreakup.igst.amount',
@@ -712,6 +713,14 @@ const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   }
 
   const wasPaid = existingReceipt.status === 'paid';
+
+  if (req.body.status === 'paid') {
+    if (!req.body.paidDate && !existingReceipt.paidDate) {
+      req.body.paidDate = new Date();
+    }
+  } else if (req.body.status && req.body.status !== 'paid') {
+    req.body.paidDate = null;
+  }
 
   const updatedReceipt = await TransporterPayment.findOneAndUpdate(
     { _id: req.params.id, tenant: req.tenant },
@@ -1015,6 +1024,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
     subtrips: { header: 'Jobs', key: 'subtripNos', width: 30 },
     status: { header: 'Status', key: 'status', width: 15 },
     issueDate: { header: 'Issue Date', key: 'issueDate', width: 15 },
+    paidDate: { header: 'Paid Date', key: 'paidDate', width: 15 },
     dieselTotal: { header: 'Diesel', key: 'dieselTotal', width: 15 },
     tripAdvanceTotal: { header: 'Trip Advance', key: 'tripAdvanceTotal', width: 15 },
     podAmount: { header: 'POD Amount', key: 'podAmount', width: 15 },
@@ -1064,6 +1074,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
 
   const sortMapping = {
     issueDate: 'issueDate',
+    paidDate: 'paidDate',
     cgst: 'taxBreakup.cgst.amount',
     sgst: 'taxBreakup.sgst.amount',
     igst: 'taxBreakup.igst.amount',
@@ -1153,6 +1164,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
         bankDetails: '$transporter.bankDetails',
         status: 1,
         issueDate: 1,
+        paidDate: 1,
         subtripSnapshot: 1, // Needed for complex calculations
         additionalCharges: 1, // Needed for POD calculations
         summary: 1,
@@ -1194,6 +1206,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
       ifsc: doc.bankDetails?.ifsc || '-',
       status: doc.status,
       issueDate: doc.issueDate ? new Date(doc.issueDate).toISOString().split('T')[0] : '-',
+      paidDate: doc.paidDate ? new Date(doc.paidDate).toISOString().split('T')[0] : '-',
       subtripNos: (doc.subtripSnapshot || []).map((st) => st.subtripNo).join(', '),
       dieselTotal: getExpenseTotal('Diesel'), // Hardcoded string match with config
       tripAdvanceTotal: getExpenseTotal('Trip Advance'),
