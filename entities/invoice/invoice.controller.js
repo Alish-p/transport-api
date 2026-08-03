@@ -22,6 +22,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     subtripIds,
     additionalCharges = [],
     notes = "",
+    issueDate,
   } = req.body;
 
   // 1. Fetch customer to get invoicePayWithin
@@ -33,9 +34,20 @@ const createInvoice = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Customer not found." });
   }
 
-  // 2. Calculate dueDate based on invoicePayWithin
+  // 2. Parse issueDate and validate non-future date
+  const issueDateTime = issueDate ? new Date(issueDate) : new Date();
+  if (isNaN(issueDateTime.getTime())) {
+    return res.status(400).json({ message: "Invalid issue date provided." });
+  }
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  if (issueDateTime > endOfToday) {
+    return res.status(400).json({ message: "Issue date cannot be in the future." });
+  }
+
+  // 3. Calculate dueDate based on issueDateTime & invoicePayWithin
   const payWithin = customer.invoicePayWithin || 10;
-  const dueDate = new Date(Date.now() + payWithin * 24 * 60 * 60 * 1000);
+  const dueDate = new Date(issueDateTime.getTime() + payWithin * 24 * 60 * 60 * 1000);
 
   // 3. Basic validations
   if (!Array.isArray(subtripIds) || subtripIds.length === 0) {
@@ -120,6 +132,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     const invoice = new Invoice({
       customerId,
       invoiceNo,
+      issueDate: issueDateTime,
       dueDate,
       notes,
       additionalCharges,
