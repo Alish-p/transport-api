@@ -10,6 +10,10 @@ const createUser = asyncHandler(async (req, res) => {
   if (!(req.user && req.user.role === 'super')) {
     delete body.role;
   }
+  // Prevent setting tenant permissions via API; tenant permissions must be edited manually in DB
+  if (body.permissions) {
+    delete body.permissions.tenant;
+  }
   const newUser = await new UserModel({
     ...body,
     tenant: req.tenant,
@@ -181,6 +185,15 @@ const updateUser = asyncHandler(async (req, res) => {
   // Prevent role changes here; use dedicated role endpoint
   if (!(req.user && req.user.role === 'super')) {
     delete body.role;
+  }
+  if (body.permissions) {
+    // Preserve existing permissions.tenant from DB; tenant permissions must be updated manually in DB
+    const existingUser = await UserModel.findOne({ _id: req.params.id, tenant: req.tenant }).select('permissions.tenant');
+    if (existingUser?.permissions?.tenant) {
+      body.permissions.tenant = existingUser.permissions.tenant;
+    } else {
+      delete body.permissions.tenant;
+    }
   }
   const user = await UserModel.findOneAndUpdate(
     { _id: req.params.id, tenant: req.tenant },

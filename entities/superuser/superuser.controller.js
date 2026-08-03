@@ -15,6 +15,7 @@ function buildFullPermissionsFromSchema() {
   const traverse = (node) => {
     const out = {};
     for (const [k, v] of Object.entries(node)) {
+      if (k === 'tenant') continue; // Do not grant tenant permissions via API; must be set manually in DB
       // Leaf boolean definition: { type: Boolean, default: false }
       if (v && typeof v === 'object' && 'type' in v && v.type === Boolean) {
         out[k] = true;
