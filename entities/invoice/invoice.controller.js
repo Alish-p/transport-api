@@ -546,6 +546,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
     netTotal: { header: 'Net Total', key: 'netTotal', width: 15 },
     totalReceived: { header: 'Received Amount', key: 'totalReceived', width: 15 },
     balanceAmount: { header: 'Balance', key: 'balanceAmount', width: 15 },
+    remainingAmount: { header: 'Remaining Amount', key: 'remainingAmount', width: 15 },
     subtrips: { header: 'Jobs', key: 'subtripNos', width: 30 },
   };
 
@@ -672,7 +673,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
       const {key} = col;
       if (key === 'issueDate' || key === 'dueDate') {
         row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
-      } else if (key === 'balanceAmount') {
+      } else if (key === 'balanceAmount' || key === 'remainingAmount') {
         row[key] = Math.round(balance * 100) / 100;
       } else if (key === 'taxAmount') {
         row[key] = Math.round(tax * 100) / 100;
@@ -695,7 +696,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
     else if (key === 'taxAmount') totalRow[key] = Math.round(totalTax * 100) / 100;
     else if (key === 'netTotal') totalRow[key] = Math.round(totalNet * 100) / 100;
     else if (key === 'totalReceived') totalRow[key] = Math.round(totalRec * 100) / 100;
-    else if (key === 'balanceAmount') totalRow[key] = Math.round(totalBal * 100) / 100;
+    else if (key === 'balanceAmount' || key === 'remainingAmount') totalRow[key] = Math.round(totalBal * 100) / 100;
     else if (key === 'cgst') totalRow[key] = Math.round(totalCgst * 100) / 100;
     else if (key === 'sgst') totalRow[key] = Math.round(totalSgst * 100) / 100;
     else if (key === 'igst') totalRow[key] = Math.round(totalIgst * 100) / 100;
