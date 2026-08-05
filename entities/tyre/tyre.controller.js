@@ -327,7 +327,15 @@ const getTyres = asyncHandler(async (req, res) => {
                 $group: {
                     _id: '$status',
                     count: { $sum: 1 },
-                    value: { $sum: { $ifNull: ['$cost', 0] } },
+                    value: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$status', TYRE_STATUS.SOLD] },
+                                { $ifNull: ['$soldPrice', 0] },
+                                { $ifNull: ['$cost', 0] },
+                            ],
+                        },
+                    },
                 },
             },
         ]),
