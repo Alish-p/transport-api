@@ -32,6 +32,7 @@ import vehicleDocumentRouter from '../entities/vehicleDocument/vehicleDocument.r
 import transporterPaymentRouter from '../entities/transporterPayment/transporterPayment.routes.js';
 import transporterAdvanceRouter from '../entities/transporterAdvance/transporterAdvance.routes.js';
 import maintenanceAndInventoryRouter from '../entities/maintenanceAndInventory/maintenanceAndInventory.routes.js';
+import transporterPortalRouter from '../entities/transporterPortal/transporterPortal.routes.js';
 
 const router = express.Router();
 
@@ -76,5 +77,8 @@ router.use('/super', superuserRouter);
 
 // authentication
 router.use('/account', authRouter);
+
+// Transporter self-service portal (has its own auth middleware)
+router.use('/transporter-portal', transporterPortalRouter);
 
 export default router;

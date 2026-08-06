@@ -25,6 +25,11 @@ const transporterSchema = new Schema({
   docs: [{ type: String }],
   isActive: { type: Boolean, default: true },
   tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+
+  // Portal OTP auth fields
+  otp: { type: String, select: false },
+  otpExpiresAt: { type: Date, select: false },
+  lastOtpSentAt: { type: Date, select: false },
 });
 
 export default model("Transporter", transporterSchema);
