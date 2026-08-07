@@ -1,7 +1,16 @@
 import express from 'express';
 
 import { requestOtp, verifyOtp, selectTransporter } from './transporterPortalAuth.controller.js';
-import { getDashboard, getProfile, getVehicles, getVehicleById, getSubtrips, getSubtripById } from './transporterPortal.controller.js';
+import {
+  getDashboard,
+  getProfile,
+  getVehicles,
+  getVehicleById,
+  getSubtrips,
+  getSubtripById,
+  getPayments,
+  getPaymentById,
+} from './transporterPortal.controller.js';
 import { authenticateTransporter } from '../../middlewares/authenticateTransporter.js';
 
 const router = express.Router();
@@ -22,6 +31,9 @@ router.get('/vehicles', authenticateTransporter, getVehicles);
 router.get('/vehicles/:id', authenticateTransporter, getVehicleById);
 router.get('/subtrips', authenticateTransporter, getSubtrips);
 router.get('/subtrips/:id', authenticateTransporter, getSubtripById);
+router.get('/payments', authenticateTransporter, getPayments);
+router.get('/payments/:id', authenticateTransporter, getPaymentById);
 
 export default router;
+
 

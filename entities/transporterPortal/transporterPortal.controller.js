@@ -340,6 +340,111 @@ const getSubtripById = asyncHandler(async (req, res) => {
   return res.status(200).json({ subtrip });
 });
 
-export { getDashboard, getProfile, getVehicles, getVehicleById, getSubtrips, getSubtripById };
+// ----------------------------------------------------------------------
+// Transporter Payments
+// ----------------------------------------------------------------------
+
+/**
+ * GET /api/transporter-portal/payments
+ * Returns payments/vouchers for the authenticated transporter.
+ */
+const getPayments = asyncHandler(async (req, res) => {
+  const transporterId = req.transporter._id;
+  const tenant = req.tenant;
+  const { status, search } = req.query;
+
+  const baseQuery = {
+    transporterId,
+    tenant,
+  };
+
+  const query = { ...baseQuery };
+
+  if (status && status !== 'all') {
+    query.status = status;
+  }
+
+  if (search && search.trim()) {
+    const searchRegex = new RegExp(search.trim(), 'i');
+    query.$or = [
+      { paymentId: searchRegex },
+      { 'subtripSnapshot.subtripNo': searchRegex },
+      { 'subtripSnapshot.vehicleNo': searchRegex },
+      { 'subtripSnapshot.invoiceNo': searchRegex },
+    ];
+  }
+
+  const [allPayments, filteredPayments] = await Promise.all([
+    TransporterPaymentModel.find(baseQuery).lean(),
+    TransporterPaymentModel.find(query)
+      .populate('transporterId', 'transportName cellNo bankDetails panNo gstNo')
+      .populate('tenant', 'name logoUrl contactDetails address config')
+
+      .sort({ issueDate: -1, createdAt: -1 })
+      .lean(),
+  ]);
+
+  let totalNetIncome = 0;
+  let totalPaidAmount = 0;
+  let totalPendingAmount = 0;
+
+  allPayments.forEach((p) => {
+    const net = p.summary?.netIncome || 0;
+    totalNetIncome += net;
+    if (p.status === 'paid') {
+      totalPaidAmount += net;
+    } else if (p.status === 'generated') {
+      totalPendingAmount += net;
+    }
+  });
+
+  return res.status(200).json({
+    payments: filteredPayments,
+    total: allPayments.length,
+    filteredTotal: filteredPayments.length,
+    totalNetIncome,
+    totalPaidAmount,
+    totalPendingAmount,
+  });
+});
+
+/**
+ * GET /api/transporter-portal/payments/:id
+ * Returns single transporter payment details for the authenticated transporter.
+ */
+const getPaymentById = asyncHandler(async (req, res) => {
+  const transporterId = req.transporter._id;
+  const tenant = req.tenant;
+  const { id } = req.params;
+
+  const query = {
+    transporterId,
+    tenant,
+    ...(mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { paymentId: id }),
+  };
+
+  const payment = await TransporterPaymentModel.findOne(query)
+    .populate('transporterId', 'transportName cellNo emailId address state pinNo bankDetails panNo gstNo')
+    .populate('tenant', 'name logoUrl contactDetails address config')
+
+    .lean();
+
+  if (!payment) {
+    return res.status(404).json({ message: 'Transporter payment record not found.' });
+  }
+
+  return res.status(200).json({ payment });
+});
+
+export {
+  getDashboard,
+  getProfile,
+  getVehicles,
+  getVehicleById,
+  getSubtrips,
+  getSubtripById,
+  getPayments,
+  getPaymentById,
+};
 
 
