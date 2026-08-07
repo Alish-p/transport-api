@@ -185,4 +185,161 @@ const getVehicleById = asyncHandler(async (req, res) => {
   return res.status(200).json({ vehicle });
 });
 
-export { getDashboard, getProfile, getVehicles, getVehicleById };
+// ----------------------------------------------------------------------
+// Subtrips / Jobs
+// ----------------------------------------------------------------------
+
+/**
+ * Helper to sanitize and compute post-commission freight amount and rate for fleet owners.
+ * Transporters should ONLY see post-commission freight values.
+ */
+function formatSubtripForTransporter(subtrip) {
+  if (!subtrip) return subtrip;
+
+  const grossFreightAmount = subtrip.freightDetails?.freightAmount || 0;
+  const commissionAmount = subtrip.commissionDetails?.commissionAmount || 0;
+  const commissionRate = subtrip.commissionDetails?.commissionRate || 0;
+  const grossRate = subtrip.freightDetails?.rate || 0;
+
+  const netFreightAmount = Math.max(0, grossFreightAmount - commissionAmount);
+
+  let netRate = 0;
+  if (subtrip.freightDetails?.freightModel === 'fixed') {
+    netRate = netFreightAmount;
+  } else {
+    netRate = Math.max(0, grossRate - commissionRate);
+  }
+
+  const formattedSubtrip = {
+    ...subtrip,
+    freightDetails: subtrip.freightDetails
+      ? {
+          ...subtrip.freightDetails,
+          rate: netRate,
+          freightAmount: netFreightAmount,
+        }
+      : undefined,
+  };
+
+  delete formattedSubtrip.commissionDetails;
+  return formattedSubtrip;
+}
+
+/**
+ * GET /api/transporter-portal/subtrips
+ * Returns subtrips for vehicles belonging to the authenticated transporter.
+ */
+const getSubtrips = asyncHandler(async (req, res) => {
+  const transporterId = req.transporter._id;
+  const tenant = req.tenant;
+  const { status, search } = req.query;
+
+  // Get all vehicle IDs belonging to this transporter
+  const vehicles = await VehicleModel.find(
+    { transporter: transporterId, tenant },
+    { _id: 1 }
+  ).lean();
+
+  const vehicleIds = vehicles.map((v) => v._id);
+
+  if (vehicleIds.length === 0) {
+    return res.status(200).json({
+      subtrips: [],
+      total: 0,
+      completedCount: 0,
+      pendingCount: 0,
+    });
+  }
+
+  const baseQuery = {
+    vehicleId: { $in: vehicleIds },
+    tenant,
+  };
+
+  const COMPLETED_STATUSES = ['Received', 'received', 'Billed', 'billed'];
+
+  const [total, completedCount, pendingCount] = await Promise.all([
+    SubtripModel.countDocuments(baseQuery),
+    SubtripModel.countDocuments({
+      ...baseQuery,
+      subtripStatus: { $in: COMPLETED_STATUSES },
+    }),
+    SubtripModel.countDocuments({
+      ...baseQuery,
+      subtripStatus: { $nin: COMPLETED_STATUSES },
+    }),
+  ]);
+
+  const query = { ...baseQuery };
+
+  if (status === 'completed') {
+    query.subtripStatus = { $in: COMPLETED_STATUSES };
+  } else if (status === 'pending') {
+    query.subtripStatus = { $nin: COMPLETED_STATUSES };
+  }
+
+  if (search && search.trim()) {
+    const searchRegex = new RegExp(search.trim(), 'i');
+    query.$or = [
+      { subtripNo: searchRegex },
+      { invoiceNo: searchRegex },
+      { loadingPoint: searchRegex },
+      { unloadingPoint: searchRegex },
+      { consignee: searchRegex },
+      { materialType: searchRegex },
+    ];
+  }
+
+  const rawSubtrips = await SubtripModel.find(query)
+    .populate('vehicleId', 'vehicleNo vehicleType loadingCapacity vehicleCompany modelType')
+    .populate('driverId', 'name mobile')
+    .sort({ startDate: -1, createdAt: -1 })
+    .lean();
+
+  const subtrips = rawSubtrips.map(formatSubtripForTransporter);
+
+  return res.status(200).json({
+    subtrips,
+    total,
+    completedCount,
+    pendingCount,
+  });
+});
+
+/**
+ * GET /api/transporter-portal/subtrips/:id
+ * Returns single subtrip detail verified for the authenticated transporter.
+ */
+const getSubtripById = asyncHandler(async (req, res) => {
+  const transporterId = req.transporter._id;
+  const tenant = req.tenant;
+
+  const vehicles = await VehicleModel.find(
+    { transporter: transporterId, tenant },
+    { _id: 1 }
+  ).lean();
+
+  const vehicleIds = vehicles.map((v) => v._id);
+
+  const rawSubtrip = await SubtripModel.findOne({
+    _id: req.params.id,
+    vehicleId: { $in: vehicleIds },
+    tenant,
+  })
+    .populate('vehicleId', 'vehicleNo vehicleType loadingCapacity vehicleCompany modelType')
+    .populate('driverId', 'name mobile licenseNumber')
+    .populate('advances')
+    .lean();
+
+  if (!rawSubtrip) {
+    return res.status(404).json({ message: 'Subtrip job not found.' });
+  }
+
+  const subtrip = formatSubtripForTransporter(rawSubtrip);
+
+  return res.status(200).json({ subtrip });
+});
+
+export { getDashboard, getProfile, getVehicles, getVehicleById, getSubtrips, getSubtripById };
+
+
