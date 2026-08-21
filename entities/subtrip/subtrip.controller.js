@@ -859,6 +859,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     profitAndLoss: { header: 'Profit & Loss', key: 'profitAndLoss', width: 15 },
     transport: { header: 'Transporter', key: 'transporterName', width: 20 },
     subtripStatus: { header: 'Job Status', key: 'subtripStatus', width: 15 },
+    errorRemarks: { header: 'Error Remarks', key: 'errorRemarks', width: 30 },
   };
 
   // Determine Columns
