@@ -210,8 +210,30 @@ function formatSubtripForTransporter(subtrip) {
     netRate = Math.max(0, grossRate - commissionRate);
   }
 
+  // Calculate advances total
+  const totalAdvances = Array.isArray(subtrip.advances)
+    ? subtrip.advances.reduce((acc, a) => acc + (a.amount || 0), 0)
+    : 0;
+
+  const netPayable = Math.max(0, netFreightAmount - totalAdvances);
+
+  // Determine portalStatus
+  let portalStatus = 'in_transit';
+  const COMPLETED_STATUSES = ['Received', 'received', 'Billed', 'billed'];
+
+  if (subtrip.transporterPaymentReceiptId) {
+    portalStatus = 'paid';
+  } else if (COMPLETED_STATUSES.includes(subtrip.subtripStatus)) {
+    portalStatus = 'delivered';
+  } else {
+    portalStatus = 'in_transit';
+  }
+
   const formattedSubtrip = {
     ...subtrip,
+    portalStatus,
+    totalAdvances,
+    netPayable,
     freightDetails: subtrip.freightDetails
       ? {
           ...subtrip.freightDetails,
@@ -232,7 +254,11 @@ function formatSubtripForTransporter(subtrip) {
 const getSubtrips = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
   const tenant = req.tenant;
-  const { status, search } = req.query;
+  const { status = 'all', search, order = 'desc', orderBy = 'startDate' } = req.query;
+
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const rowsPerPage = Math.max(1, parseInt(req.query.rowsPerPage || req.query.limit, 10) || 10);
+  const skip = (page - 1) * rowsPerPage;
 
   // Get all vehicle IDs belonging to this transporter
   const vehicles = await VehicleModel.find(
@@ -246,8 +272,12 @@ const getSubtrips = asyncHandler(async (req, res) => {
     return res.status(200).json({
       subtrips: [],
       total: 0,
-      completedCount: 0,
-      pendingCount: 0,
+      allCount: 0,
+      inTransitCount: 0,
+      deliveredCount: 0,
+      paidCount: 0,
+      page,
+      rowsPerPage,
     });
   }
 
@@ -258,29 +288,45 @@ const getSubtrips = asyncHandler(async (req, res) => {
 
   const COMPLETED_STATUSES = ['Received', 'received', 'Billed', 'billed'];
 
-  const [total, completedCount, pendingCount] = await Promise.all([
+  const inTransitCondition = {
+    ...baseQuery,
+    subtripStatus: { $nin: COMPLETED_STATUSES },
+    $or: [{ transporterPaymentReceiptId: null }, { transporterPaymentReceiptId: { $exists: false } }],
+  };
+
+  const deliveredCondition = {
+    ...baseQuery,
+    subtripStatus: { $in: COMPLETED_STATUSES },
+    $or: [{ transporterPaymentReceiptId: null }, { transporterPaymentReceiptId: { $exists: false } }],
+  };
+
+  const paidCondition = {
+    ...baseQuery,
+    transporterPaymentReceiptId: { $ne: null, $exists: true },
+  };
+
+  const [total, inTransitCount, deliveredCount, paidCount] = await Promise.all([
     SubtripModel.countDocuments(baseQuery),
-    SubtripModel.countDocuments({
-      ...baseQuery,
-      subtripStatus: { $in: COMPLETED_STATUSES },
-    }),
-    SubtripModel.countDocuments({
-      ...baseQuery,
-      subtripStatus: { $nin: COMPLETED_STATUSES },
-    }),
+    SubtripModel.countDocuments(inTransitCondition),
+    SubtripModel.countDocuments(deliveredCondition),
+    SubtripModel.countDocuments(paidCondition),
   ]);
 
   const query = { ...baseQuery };
 
-  if (status === 'completed') {
-    query.subtripStatus = { $in: COMPLETED_STATUSES };
-  } else if (status === 'pending') {
+  if (status === 'in_transit') {
     query.subtripStatus = { $nin: COMPLETED_STATUSES };
+    query.$or = [{ transporterPaymentReceiptId: null }, { transporterPaymentReceiptId: { $exists: false } }];
+  } else if (status === 'delivered') {
+    query.subtripStatus = { $in: COMPLETED_STATUSES };
+    query.$or = [{ transporterPaymentReceiptId: null }, { transporterPaymentReceiptId: { $exists: false } }];
+  } else if (status === 'paid') {
+    query.transporterPaymentReceiptId = { $ne: null, $exists: true };
   }
 
   if (search && search.trim()) {
     const searchRegex = new RegExp(search.trim(), 'i');
-    query.$or = [
+    const searchCondition = [
       { subtripNo: searchRegex },
       { invoiceNo: searchRegex },
       { loadingPoint: searchRegex },
@@ -288,21 +334,51 @@ const getSubtrips = asyncHandler(async (req, res) => {
       { consignee: searchRegex },
       { materialType: searchRegex },
     ];
+
+    if (query.$or) {
+      query.$and = [{ $or: query.$or }, { $or: searchCondition }];
+      delete query.$or;
+    } else {
+      query.$or = searchCondition;
+    }
   }
 
-  const rawSubtrips = await SubtripModel.find(query)
-    .populate('vehicleId', 'vehicleNo vehicleType loadingCapacity vehicleCompany modelType')
-    .populate('driverId', 'name mobile')
-    .sort({ startDate: -1, createdAt: -1 })
-    .lean();
+  const sortMapping = {
+    subtripNo: 'subtripNo',
+    startDate: 'startDate',
+    loadingPoint: 'loadingPoint',
+    unloadingPoint: 'unloadingPoint',
+    createdAt: 'createdAt',
+  };
+
+  const sortField = sortMapping[orderBy] || 'startDate';
+  const sortDirection = order === 'asc' ? 1 : -1;
+  const sortObj = { [sortField]: sortDirection, _id: -1 };
+
+  const [filteredCount, rawSubtrips] = await Promise.all([
+    SubtripModel.countDocuments(query),
+    SubtripModel.find(query)
+      .populate('vehicleId', 'vehicleNo vehicleType loadingCapacity vehicleCompany modelType')
+      .populate('driverId', 'name mobile')
+      .populate('customerId', 'customerName')
+      .populate('advances', 'amount')
+      .sort(sortObj)
+      .skip(skip)
+      .limit(rowsPerPage)
+      .lean(),
+  ]);
 
   const subtrips = rawSubtrips.map(formatSubtripForTransporter);
 
   return res.status(200).json({
     subtrips,
-    total,
-    completedCount,
-    pendingCount,
+    total: filteredCount,
+    allCount: total,
+    inTransitCount,
+    deliveredCount,
+    paidCount,
+    page,
+    rowsPerPage,
   });
 });
 
