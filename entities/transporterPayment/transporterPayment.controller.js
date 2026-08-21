@@ -873,7 +873,11 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     }
 
     // Mark the receipt as cancelled within the same transaction
+    const remarksToSave = req.body?.cancellationRemarks || req.body?.remarks || req.body?.errorMessage;
     receipt.status = 'cancelled';
+    if (remarksToSave) {
+      receipt.cancellationRemarks = remarksToSave;
+    }
     await receipt.save({ session });
 
     // Record TRANSPORTER_PAYMENT_CANCELLED events for each unlinked subtrip within transaction
@@ -1023,6 +1027,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
     transporterIFSC: { header: 'Transporter IFSC Code', key: 'ifsc', width: 20 },
     subtrips: { header: 'Jobs', key: 'subtripNos', width: 30 },
     status: { header: 'Status', key: 'status', width: 15 },
+    cancellationRemarks: { header: 'Cancellation Remarks', key: 'cancellationRemarks', width: 30 },
     issueDate: { header: 'Issue Date', key: 'issueDate', width: 15 },
     paidDate: { header: 'Paid Date', key: 'paidDate', width: 15 },
     dieselTotal: { header: 'Diesel', key: 'dieselTotal', width: 15 },
@@ -1163,6 +1168,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
         panNo: '$transporter.panNo',
         bankDetails: '$transporter.bankDetails',
         status: 1,
+        cancellationRemarks: 1,
         issueDate: 1,
         paidDate: 1,
         subtripSnapshot: 1, // Needed for complex calculations
@@ -1205,6 +1211,7 @@ const exportTransporterPayments = asyncHandler(async (req, res) => {
       accNo: doc.bankDetails?.accNo || '-',
       ifsc: doc.bankDetails?.ifsc || '-',
       status: doc.status,
+      cancellationRemarks: doc.cancellationRemarks || '-',
       issueDate: doc.issueDate ? new Date(doc.issueDate).toISOString().split('T')[0] : '-',
       paidDate: doc.paidDate ? new Date(doc.paidDate).toISOString().split('T')[0] : '-',
       subtripNos: (doc.subtripSnapshot || []).map((st) => st.subtripNo).join(', '),

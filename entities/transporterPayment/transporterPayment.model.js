@@ -106,6 +106,7 @@ const transporterPaymentReceiptSchema = new Schema(
       enum: Object.values(TRANSPORTER_PAYMENT_STATUS),
       default: TRANSPORTER_PAYMENT_STATUS.GENERATED,
     },
+    cancellationRemarks: { type: String },
 
     // Timestamp fields
     issueDate: { type: Date, default: Date.now },
