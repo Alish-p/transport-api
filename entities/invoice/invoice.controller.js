@@ -537,6 +537,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
     issueDate: { header: 'Issue Date', key: 'issueDate', width: 15 },
     dueDate: { header: 'Due Date', key: 'dueDate', width: 15 },
     invoiceStatus: { header: 'Status', key: 'invoiceStatus', width: 15 },
+    cancellationRemarks: { header: 'Cancellation Remarks', key: 'cancellationRemarks', width: 30 },
     totalAmountBeforeTax: { header: 'Taxable Amount', key: 'totalAmountBeforeTax', width: 15 },
     taxAmount: { header: 'Tax Amount', key: 'taxAmount', width: 15 },
     // Individual Tax Columns
@@ -612,6 +613,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
         issueDate: 1,
         dueDate: 1,
         invoiceStatus: 1,
+        cancellationRemarks: 1,
         totalAmountBeforeTax: 1,
         taxAmount: { $subtract: ['$netTotal', '$totalAmountBeforeTax'] },
         // Extract taxes. taxBreakup structure: { cgst: { amount: 0 }, ... }
