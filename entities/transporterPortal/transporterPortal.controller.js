@@ -20,9 +20,9 @@ const getDashboard = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
   const tenant = req.tenant;
 
-  // Get all vehicles for this transporter
+  // Get all vehicles for this transporter (active and inactive)
   const vehicleIds = await VehicleModel.find(
-    { transporter: transporterId, tenant, isActive: true },
+    { transporter: transporterId, tenant },
     { _id: 1 },
   ).lean();
 
@@ -38,7 +38,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     advancesResult,
     monthlyEarnings,
   ] = await Promise.all([
-    // 1. Total active vehicles
+    // 1. Total vehicles (active + inactive)
     vehicleIds.length,
 
     // 2. Active trips (in-progress subtrips)
