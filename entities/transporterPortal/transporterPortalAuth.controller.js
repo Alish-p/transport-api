@@ -159,7 +159,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
     isActive: true,
   })
     .select('+otp +otpExpiresAt')
-    .populate('tenant', 'name');
+    .populate('tenant', 'name contactDetails');
 
   // Find first transporter with matching valid OTP
   const matched = transporters.find(
@@ -234,7 +234,7 @@ const selectTransporter = asyncHandler(async (req, res) => {
   }
 
   // Load the selected transporter and verify it exists
-  const transporter = await TransporterModel.findById(transporterId).populate('tenant', 'name');
+  const transporter = await TransporterModel.findById(transporterId).populate('tenant', 'name contactDetails');
 
   if (!transporter || !transporter.isActive) {
     return res.status(404).json({ message: 'Transporter not found or inactive.' });
