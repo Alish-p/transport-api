@@ -10,6 +10,7 @@ import {
   getSubtripById,
   getPayments,
   getPaymentById,
+  getAdvances,
 } from './transporterPortal.controller.js';
 import { authenticateTransporter } from '../../middlewares/authenticateTransporter.js';
 
@@ -31,6 +32,7 @@ router.get('/vehicles', authenticateTransporter, getVehicles);
 router.get('/vehicles/:id', authenticateTransporter, getVehicleById);
 router.get('/subtrips', authenticateTransporter, getSubtrips);
 router.get('/subtrips/:id', authenticateTransporter, getSubtripById);
+router.get('/advances', authenticateTransporter, getAdvances);
 router.get('/payments', authenticateTransporter, getPayments);
 router.get('/payments/:id', authenticateTransporter, getPaymentById);
 

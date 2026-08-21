@@ -508,6 +508,192 @@ const getPaymentById = asyncHandler(async (req, res) => {
   return res.status(200).json({ payment });
 });
 
+/**
+ * GET /api/transporter-portal/advances
+ * Returns advances belonging to the authenticated transporter's vehicles.
+ */
+const getAdvances = asyncHandler(async (req, res) => {
+  const transporterId = req.transporter._id;
+  const tenant = req.tenant;
+  const { status = 'all', search, order = 'desc', orderBy = 'date' } = req.query;
+
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const rowsPerPage = Math.max(1, parseInt(req.query.rowsPerPage || req.query.limit, 10) || 10);
+  const skip = (page - 1) * rowsPerPage;
+
+  // Get all vehicle IDs belonging to this transporter
+  const vehicles = await VehicleModel.find(
+    { transporter: transporterId, tenant },
+    { _id: 1 }
+  ).lean();
+
+  const vehicleIds = vehicles.map((v) => v._id);
+
+  if (vehicleIds.length === 0) {
+    return res.status(200).json({
+      advances: [],
+      total: 0,
+      allCount: 0,
+      unsettledCount: 0,
+      deductedCount: 0,
+      page,
+      rowsPerPage,
+    });
+  }
+
+  const baseQuery = {
+    vehicleId: { $in: vehicleIds },
+    tenant,
+  };
+
+  const unsettledCondition = {
+    ...baseQuery,
+    status: { $ne: 'Recovered' },
+  };
+
+  const deductedCondition = {
+    ...baseQuery,
+    status: 'Recovered',
+  };
+
+  const [total, unsettledCount, deductedCount] = await Promise.all([
+    TransporterAdvanceModel.countDocuments(baseQuery),
+    TransporterAdvanceModel.countDocuments(unsettledCondition),
+    TransporterAdvanceModel.countDocuments(deductedCondition),
+  ]);
+
+  const query = { ...baseQuery };
+
+  if (status === 'unsettled' || status === 'pending') {
+    query.status = { $ne: 'Recovered' };
+  } else if (status === 'deducted' || status === 'recovered') {
+    query.status = 'Recovered';
+  }
+
+  if (search && search.trim()) {
+    const searchRegex = new RegExp(search.trim(), 'i');
+    query.$or = [
+      { advanceType: searchRegex },
+      { slipNo: searchRegex },
+      { remarks: searchRegex },
+      { paidThrough: searchRegex },
+    ];
+  }
+
+  const sortMapping = {
+    date: 'date',
+    amount: 'amount',
+    advanceType: 'advanceType',
+    createdAt: 'createdAt',
+  };
+
+  const sortField = sortMapping[orderBy] || 'date';
+  const sortDirection = order === 'asc' ? 1 : -1;
+  const sortObj = { [sortField]: sortDirection, _id: -1 };
+
+  const [filteredCount, rawAdvances] = await Promise.all([
+    TransporterAdvanceModel.countDocuments(query),
+    TransporterAdvanceModel.find(query)
+      .populate('vehicleId', 'vehicleNo vehicleType')
+      .populate('subtripId', 'subtripNo loadingPoint unloadingPoint startDate transporterPaymentReceiptId')
+      .populate('pumpCd', 'name')
+      .sort(sortObj)
+      .skip(skip)
+      .limit(rowsPerPage)
+      .lean(),
+  ]);
+
+  // Resolve voucher details for settled/recovered advances
+  const subtripIds = rawAdvances
+    .map((adv) => adv.subtripId?._id || adv.subtripId)
+    .filter(Boolean);
+
+  const receiptIds = rawAdvances
+    .map((adv) => adv.transporterPaymentReceiptId?._id || adv.transporterPaymentReceiptId || adv.subtripId?.transporterPaymentReceiptId)
+    .filter((id) => id && mongoose.Types.ObjectId.isValid(id));
+
+  const orConditions = [];
+  if (receiptIds.length > 0) {
+    orConditions.push({ _id: { $in: receiptIds } });
+  }
+  if (subtripIds.length > 0) {
+    orConditions.push({ associatedSubtrips: { $in: subtripIds } });
+    orConditions.push({ 'subtripSnapshot.subtripId': { $in: subtripIds } });
+  }
+
+  let payments = [];
+  if (orConditions.length > 0) {
+    payments = await TransporterPaymentModel.find({
+      tenant,
+      $or: orConditions,
+    })
+      .select('_id paymentId associatedSubtrips subtripSnapshot.subtripId')
+      .lean();
+  }
+
+  const paymentByReceiptId = new Map();
+  const paymentBySubtripId = new Map();
+
+  payments.forEach((p) => {
+    paymentByReceiptId.set(p._id.toString(), { _id: p._id, paymentId: p.paymentId });
+    if (Array.isArray(p.associatedSubtrips)) {
+      p.associatedSubtrips.forEach((stId) => {
+        paymentBySubtripId.set(stId.toString(), { _id: p._id, paymentId: p.paymentId });
+      });
+    }
+    if (Array.isArray(p.subtripSnapshot)) {
+      p.subtripSnapshot.forEach((snap) => {
+        if (snap.subtripId) {
+          paymentBySubtripId.set(snap.subtripId.toString(), { _id: p._id, paymentId: p.paymentId });
+        }
+      });
+    }
+  });
+
+  const advances = rawAdvances.map((adv) => {
+    const rawReceiptId =
+      adv.transporterPaymentReceiptId?._id ||
+      adv.transporterPaymentReceiptId ||
+      adv.subtripId?.transporterPaymentReceiptId;
+    const subtripIdStr = (adv.subtripId?._id || adv.subtripId)?.toString();
+
+    let voucher = null;
+    if (rawReceiptId && paymentByReceiptId.has(rawReceiptId.toString())) {
+      voucher = paymentByReceiptId.get(rawReceiptId.toString());
+    } else if (subtripIdStr && paymentBySubtripId.has(subtripIdStr)) {
+      voucher = paymentBySubtripId.get(subtripIdStr);
+    } else if (
+      adv.transporterPaymentReceiptId &&
+      typeof adv.transporterPaymentReceiptId === 'object' &&
+      adv.transporterPaymentReceiptId.paymentId
+    ) {
+      voucher = {
+        _id: adv.transporterPaymentReceiptId._id,
+        paymentId: adv.transporterPaymentReceiptId.paymentId,
+      };
+    }
+
+    const isRecovered = adv.status === 'Recovered' || !!voucher;
+
+    return {
+      ...adv,
+      status: isRecovered ? 'Recovered' : 'Pending',
+      portalStatus: isRecovered ? 'deducted' : 'unsettled',
+      transporterPaymentReceiptId: voucher,
+    };
+  });
+
+  return res.status(200).json({
+    advances,
+    total: filteredCount,
+    allCount: total,
+    unsettledCount,
+    deductedCount,
+    page,
+    rowsPerPage,
+  });
+});
+
 export {
   getDashboard,
   getProfile,
@@ -517,6 +703,7 @@ export {
   getSubtripById,
   getPayments,
   getPaymentById,
+  getAdvances,
 };
 
 

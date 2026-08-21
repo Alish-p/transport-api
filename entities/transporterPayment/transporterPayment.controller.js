@@ -179,7 +179,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
     await TransporterAdvance.updateMany(
       { subtripId: { $in: associatedSubtrips }, tenant: req.tenant },
-      { $set: { status: 'Recovered' } },
+      { $set: { status: 'Recovered', transporterPaymentReceiptId: saved._id } },
       { session }
     );
 
@@ -394,7 +394,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
 
       await TransporterAdvance.updateMany(
         { subtripId: { $in: associatedSubtrips }, tenant: req.tenant },
-        { $set: { status: 'Recovered' } },
+        { $set: { status: 'Recovered', transporterPaymentReceiptId: saved._id } },
         { session }
       );
 
@@ -844,7 +844,7 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
 
     await TransporterAdvance.updateMany(
       { subtripId: { $in: receipt.associatedSubtrips }, tenant: req.tenant },
-      { $set: { status: 'Pending' } },
+      { $set: { status: 'Pending' }, $unset: { transporterPaymentReceiptId: "" } },
       { session }
     );
 
