@@ -351,18 +351,17 @@ const getSubtripById = asyncHandler(async (req, res) => {
 const getPayments = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
   const tenant = req.tenant;
-  const { status, search } = req.query;
+  const { search, order = 'desc', orderBy = 'issueDate' } = req.query;
 
-  const baseQuery = {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const rowsPerPage = Math.max(1, parseInt(req.query.rowsPerPage || req.query.limit, 10) || 10);
+  const skip = (page - 1) * rowsPerPage;
+
+  const query = {
     transporterId,
     tenant,
+    status: { $regex: /^paid$/i },
   };
-
-  const query = { ...baseQuery };
-
-  if (status && status !== 'all') {
-    query.status = status;
-  }
 
   if (search && search.trim()) {
     const searchRegex = new RegExp(search.trim(), 'i');
@@ -374,37 +373,34 @@ const getPayments = asyncHandler(async (req, res) => {
     ];
   }
 
-  const [allPayments, filteredPayments] = await Promise.all([
-    TransporterPaymentModel.find(baseQuery).lean(),
+  const sortMapping = {
+    paymentId: 'paymentId',
+    issueDate: 'issueDate',
+    paidDate: 'paidDate',
+    netIncome: 'summary.netIncome',
+    createdAt: 'createdAt',
+  };
+
+  const sortField = sortMapping[orderBy] || 'issueDate';
+  const sortDirection = order === 'asc' ? 1 : -1;
+  const sortObj = { [sortField]: sortDirection, _id: -1 };
+
+  const [total, payments] = await Promise.all([
+    TransporterPaymentModel.countDocuments(query),
     TransporterPaymentModel.find(query)
       .populate('transporterId', 'transportName cellNo bankDetails panNo gstNo')
       .populate('tenant', 'name logoUrl contactDetails address config')
-
-      .sort({ issueDate: -1, createdAt: -1 })
+      .sort(sortObj)
+      .skip(skip)
+      .limit(rowsPerPage)
       .lean(),
   ]);
 
-  let totalNetIncome = 0;
-  let totalPaidAmount = 0;
-  let totalPendingAmount = 0;
-
-  allPayments.forEach((p) => {
-    const net = p.summary?.netIncome || 0;
-    totalNetIncome += net;
-    if (p.status === 'paid') {
-      totalPaidAmount += net;
-    } else if (p.status === 'generated') {
-      totalPendingAmount += net;
-    }
-  });
-
   return res.status(200).json({
-    payments: filteredPayments,
-    total: allPayments.length,
-    filteredTotal: filteredPayments.length,
-    totalNetIncome,
-    totalPaidAmount,
-    totalPendingAmount,
+    payments,
+    total,
+    page,
+    rowsPerPage,
   });
 });
 
