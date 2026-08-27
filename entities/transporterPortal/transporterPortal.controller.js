@@ -6,6 +6,7 @@ import SubtripModel from '../subtrip/subtrip.model.js';
 import TransporterModel from '../transporter/transporter.model.js';
 import TransporterPaymentModel from '../transporterPayment/transporterPayment.model.js';
 import TransporterAdvanceModel from '../transporterAdvance/transporterAdvance.model.js';
+import LoanModel from '../loan/loan.model.js';
 
 
 // ----------------------------------------------------------------------
@@ -36,6 +37,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     earningsResult,
     pendingResult,
     advancesResult,
+    loansResult,
     monthlyEarnings,
   ] = await Promise.all([
     // 1. Total vehicles (active + inactive)
@@ -93,7 +95,20 @@ const getDashboard = asyncHandler(async (req, res) => {
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]),
 
-    // 7. Monthly earnings (last 6 months)
+    // 7. Outstanding loans balance
+    LoanModel.aggregate([
+      {
+        $match: {
+          borrowerId: new mongoose.Types.ObjectId(transporterId),
+          borrowerType: 'Transporter',
+          tenant: new mongoose.Types.ObjectId(tenant),
+          status: 'active',
+        },
+      },
+      { $group: { _id: null, total: { $sum: '$outstandingBalance' } } },
+    ]),
+
+    // 8. Monthly earnings (last 6 months)
     TransporterPaymentModel.aggregate([
       {
         $match: {
@@ -123,6 +138,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     totalEarnings: earningsResult[0]?.total || 0,
     pendingPayments: pendingResult[0]?.total || 0,
     totalAdvances: advancesResult[0]?.total || 0,
+    outstandingLoans: loansResult[0]?.total || 0,
     monthlyEarnings: monthlyEarnings.map((m) => ({
       year: m._id.year,
       month: m._id.month,
@@ -694,6 +710,131 @@ const getAdvances = asyncHandler(async (req, res) => {
   });
 });
 
+// ----------------------------------------------------------------------
+// Loans
+// ----------------------------------------------------------------------
+
+/**
+ * GET /api/transporter-portal/loans
+ * Returns paginated loans for the authenticated transporter.
+ */
+const getLoans = asyncHandler(async (req, res) => {
+  const transporterId = req.transporter._id;
+  const tenant = req.tenant;
+  const { status = 'all', search, order = 'desc', orderBy = 'disbursementDate' } = req.query;
+
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const rowsPerPage = Math.max(1, parseInt(req.query.rowsPerPage || req.query.limit, 10) || 10);
+  const skip = (page - 1) * rowsPerPage;
+
+  const baseQuery = {
+    borrowerId: new mongoose.Types.ObjectId(transporterId),
+    borrowerType: 'Transporter',
+    tenant: new mongoose.Types.ObjectId(tenant),
+  };
+
+  const activeCondition = { ...baseQuery, status: 'active' };
+  const closedCondition = { ...baseQuery, status: 'closed' };
+
+  const [allCount, activeCount, closedCount, financialTotals] = await Promise.all([
+    LoanModel.countDocuments(baseQuery),
+    LoanModel.countDocuments(activeCondition),
+    LoanModel.countDocuments(closedCondition),
+    LoanModel.aggregate([
+      { $match: baseQuery },
+      {
+        $group: {
+          _id: null,
+          totalPrincipal: { $sum: '$principalAmount' },
+          totalOutstanding: { $sum: '$outstandingBalance' },
+        },
+      },
+    ]),
+  ]);
+
+  const totalPrincipal = financialTotals[0]?.totalPrincipal || 0;
+  const totalOutstanding = financialTotals[0]?.totalOutstanding || 0;
+  const totalRepaid = Math.max(0, totalPrincipal - totalOutstanding);
+
+  const query = { ...baseQuery };
+  if (status === 'active') {
+    query.status = 'active';
+  } else if (status === 'closed') {
+    query.status = 'closed';
+  }
+
+  if (search && search.trim()) {
+    const searchRegex = new RegExp(search.trim(), 'i');
+    query.$or = [
+      { loanNo: searchRegex },
+      { loanReason: searchRegex },
+      { remarks: searchRegex },
+    ];
+  }
+
+  const sortMapping = {
+    loanNo: 'loanNo',
+    disbursementDate: 'disbursementDate',
+    principalAmount: 'principalAmount',
+    outstandingBalance: 'outstandingBalance',
+    createdAt: 'createdAt',
+  };
+
+  const sortField = sortMapping[orderBy] || 'disbursementDate';
+  const sortDirection = order === 'asc' ? 1 : -1;
+  const sortObj = { [sortField]: sortDirection, _id: -1 };
+
+  const [filteredCount, loans] = await Promise.all([
+    LoanModel.countDocuments(query),
+    LoanModel.find(query)
+      .sort(sortObj)
+      .skip(skip)
+      .limit(rowsPerPage)
+      .lean(),
+  ]);
+
+  return res.status(200).json({
+    loans,
+    total: filteredCount,
+    allCount,
+    activeCount,
+    closedCount,
+    totalPrincipal,
+    totalOutstanding,
+    totalRepaid,
+    page,
+    rowsPerPage,
+  });
+});
+
+/**
+ * GET /api/transporter-portal/loans/:id
+ * Returns a single loan detail verified for the authenticated transporter.
+ */
+const getLoanById = asyncHandler(async (req, res) => {
+  const transporterId = req.transporter._id;
+  const tenant = req.tenant;
+  const { id } = req.params;
+
+  const query = {
+    borrowerId: transporterId,
+    borrowerType: 'Transporter',
+    tenant,
+    ...(mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { loanNo: id }),
+  };
+
+  const loan = await LoanModel.findOne(query)
+    .populate('borrowerId', 'transportName cellNo emailId address state pinNo bankDetails panNo gstNo')
+    .populate('tenant', 'name logoUrl contactDetails address config')
+    .lean();
+
+  if (!loan) {
+    return res.status(404).json({ message: 'Loan record not found.' });
+  }
+
+  return res.status(200).json({ loan });
+});
+
 export {
   getDashboard,
   getProfile,
@@ -704,6 +845,9 @@ export {
   getPayments,
   getPaymentById,
   getAdvances,
+  getLoans,
+  getLoanById,
 };
+
 
 

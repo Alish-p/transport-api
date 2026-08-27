@@ -11,6 +11,8 @@ import {
   getPayments,
   getPaymentById,
   getAdvances,
+  getLoans,
+  getLoanById,
 } from './transporterPortal.controller.js';
 import { authenticateTransporter } from '../../middlewares/authenticateTransporter.js';
 
@@ -35,6 +37,8 @@ router.get('/subtrips/:id', authenticateTransporter, getSubtripById);
 router.get('/advances', authenticateTransporter, getAdvances);
 router.get('/payments', authenticateTransporter, getPayments);
 router.get('/payments/:id', authenticateTransporter, getPaymentById);
+router.get('/loans', authenticateTransporter, getLoans);
+router.get('/loans/:id', authenticateTransporter, getLoanById);
 
 export default router;
 
