@@ -196,13 +196,13 @@ export async function authenticateWhitebooks(tenant, ipAddress) {
     );
   }
 
-  if (data && data.status_cd === '0') {
-    let errMsg = 'Authentication failed';
+  if (data && (data.status_cd === '0' || data.status_cd === 0)) {
+    let errMsg = data.status_desc || data.message || 'Authentication failed';
     try {
       const parsed = typeof data.error?.message === 'string' ? JSON.parse(data.error.message) : data.error?.message;
-      errMsg = parsed?.errorCodes || parsed?.errorDesc || data.error?.message || errMsg;
+      errMsg = parsed?.errorDesc || parsed?.errorCodes || data.status_desc || data.error?.message || errMsg;
     } catch (_) {
-      errMsg = data.error?.message || errMsg;
+      errMsg = data.status_desc || data.error?.message || errMsg;
     }
     throw new Error(`Whitebooks authentication failed: ${errMsg}`);
   }
@@ -246,24 +246,44 @@ async function callWhitebooksApi(tenant, url, ipAddress, isRetry = false) {
     throw new Error(`Failed to parse Whitebooks API response: ${bodyText}`);
   }
 
-  // Check for session expired / authentication required (error code 238)
+  // Check for session expired / authentication required (Whitebooks status_desc or NIC error code 238)
   let isExpired = false;
-  if (data && data.status_cd === '0' && data.error) {
-    try {
-      const errMsg = typeof data.error.message === 'string' ? JSON.parse(data.error.message) : data.error.message;
-      const errCode = String(errMsg?.errorCodes || errMsg?.errorCode || '');
-      if (errCode === '238') {
-        isExpired = true;
-      }
-    } catch (_) {
-      if (typeof data.error.message === 'string' && data.error.message.includes('238')) {
-        isExpired = true;
+  if (data && (data.status_cd === '0' || data.status_cd === 0)) {
+    const statusDesc = String(data.status_desc || data.message || data.error_description || '').toLowerCase();
+    if (
+      statusDesc.includes('token') ||
+      statusDesc.includes('expired') ||
+      statusDesc.includes('authentication') ||
+      statusDesc.includes('session')
+    ) {
+      isExpired = true;
+    }
+
+    if (!isExpired && data.error) {
+      try {
+        const errMsg = typeof data.error.message === 'string' ? JSON.parse(data.error.message) : data.error.message;
+        const errCode = String(errMsg?.errorCodes || errMsg?.errorCode || '');
+        const errDesc = String(errMsg?.errorDesc || errMsg?.message || data.error?.message || '').toLowerCase();
+        if (
+          errCode === '238' ||
+          errDesc.includes('238') ||
+          errDesc.includes('token') ||
+          errDesc.includes('session') ||
+          errDesc.includes('expired')
+        ) {
+          isExpired = true;
+        }
+      } catch (_) {
+        const rawMsg = String(data.error.message || '').toLowerCase();
+        if (rawMsg.includes('238') || rawMsg.includes('token') || rawMsg.includes('expired') || rawMsg.includes('session')) {
+          isExpired = true;
+        }
       }
     }
   }
 
   if (isExpired && !isRetry) {
-    console.log(`Whitebooks API returned session expired (238) for GSTIN ${gstin}. Attempting re-authentication...`);
+    console.log(`Whitebooks API returned session expired / invalid token for GSTIN ${gstin}. Attempting re-authentication...`);
     await authenticateWhitebooks(tenant, ipAddress);
     // Retry the request once
     return callWhitebooksApi(tenant, url, ipAddress, true);
