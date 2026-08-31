@@ -34,6 +34,8 @@ const purchaseOrderCreateSchema = z.object({
 
 const purchaseOrderReceiveSchema = z.object({
   body: z.object({
+    vendorInvoiceNo: z.string().trim().optional(),
+    vendorInvoiceDate: z.union([z.string(), z.date()]).optional(),
     notes: z.string().optional(),
     lines: z
       .array(

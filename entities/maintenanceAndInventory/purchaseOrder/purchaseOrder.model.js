@@ -57,6 +57,8 @@ const grnEntrySchema = new Schema(
     grnNumber: { type: Number, required: true },
     receivedAt: { type: Date, default: Date.now },
     receivedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    vendorInvoiceNo: { type: String, trim: true },
+    vendorInvoiceDate: { type: Date },
     notes: { type: String, trim: true },
     lines: [grnLineSchema],
     totalAmount: { type: Number, default: 0 },
@@ -164,6 +166,7 @@ purchaseOrderSchema.plugin(activityLoggerPlugin);
 
 purchaseOrderSchema.index({ tenant: 1, purchaseOrderNo: 1 }, { unique: true });
 purchaseOrderSchema.index({ tenant: 1, vendor: 1, createdAt: -1 });
+purchaseOrderSchema.index({ tenant: 1, 'receipts.vendorInvoiceNo': 1 });
 
 purchaseOrderSchema.pre('validate', async function (next) {
   if (!this.isNew) {

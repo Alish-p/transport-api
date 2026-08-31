@@ -187,13 +187,28 @@ const createPurchaseOrder = asyncHandler(async (req, res) => {
 
 const fetchPurchaseOrders = asyncHandler(async (req, res) => {
   try {
-    const { vendor, status, fromDate, toDate, part, partLocation, order, orderBy, purchaseOrderNo } = req.query;
+    const {
+      vendor,
+      status,
+      fromDate,
+      toDate,
+      part,
+      partLocation,
+      order,
+      orderBy,
+      purchaseOrderNo,
+      vendorInvoiceNo,
+    } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
 
     if (purchaseOrderNo) {
       query.purchaseOrderNo = { $regex: purchaseOrderNo, $options: 'i' };
+    }
+
+    if (vendorInvoiceNo) {
+      query['receipts.vendorInvoiceNo'] = { $regex: vendorInvoiceNo, $options: 'i' };
     }
 
     if (vendor) {
@@ -570,7 +585,7 @@ const rejectPurchaseOrder = asyncHandler(async (req, res) => {
 
 const receivePurchaseOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { lines, notes } = req.body;
+  const { lines, notes, vendorInvoiceNo, vendorInvoiceDate } = req.body;
 
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -841,6 +856,8 @@ const receivePurchaseOrder = asyncHandler(async (req, res) => {
       grnNumber,
       receivedAt: new Date(),
       receivedBy: req.user._id,
+      vendorInvoiceNo: vendorInvoiceNo && vendorInvoiceNo.trim() ? vendorInvoiceNo.trim() : undefined,
+      vendorInvoiceDate: vendorInvoiceDate ? new Date(vendorInvoiceDate) : undefined,
       notes: notes || undefined,
       lines: grnLines,
       totalAmount: Math.round(grnTotalAmount * 100) / 100,
@@ -953,16 +970,83 @@ const deletePurchaseOrder = asyncHandler(async (req, res) => {
     .json({ message: 'Purchase order deleted successfully', id: deletedOrder._id });
 });
 
+// @desc    Check if vendor invoice number is already referenced in any PO
+// @route   GET /api/maintenance/purchase-orders/check-invoice
+// @access  Private
+const checkInvoiceReferences = asyncHandler(async (req, res) => {
+  const { invoiceNo, excludePoId } = req.query;
+
+  if (!invoiceNo || !invoiceNo.trim()) {
+    return res.status(200).json({ references: [] });
+  }
+
+  const trimmedInvoice = invoiceNo.trim();
+  const escapedInvoice = trimmedInvoice.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const query = {
+    tenant: req.tenant,
+    'receipts.vendorInvoiceNo': { $regex: new RegExp(`^${escapedInvoice}$`, 'i') },
+  };
+
+  const matchingOrders = await PurchaseOrder.find(query)
+    .populate('vendor', 'name')
+    .populate('receipts.receivedBy', 'name')
+    .select('purchaseOrderNo vendor vendorSnapshot receipts createdAt')
+    .lean();
+
+  const references = [];
+
+  for (const order of matchingOrders) {
+    const matchingReceipts = (order.receipts || []).filter(
+      (r) =>
+        r.vendorInvoiceNo &&
+        r.vendorInvoiceNo.toLowerCase() === trimmedInvoice.toLowerCase(),
+    );
+
+    for (const receipt of matchingReceipts) {
+      references.push({
+        purchaseOrderId: order._id,
+        purchaseOrderNo: order.purchaseOrderNo,
+        vendorName: order.vendorSnapshot?.name || order.vendor?.name || 'Unknown Vendor',
+        grnNumber: receipt.grnNumber,
+        vendorInvoiceNo: receipt.vendorInvoiceNo,
+        vendorInvoiceDate: receipt.vendorInvoiceDate,
+        receivedAt: receipt.receivedAt,
+        receivedByName: receipt.receivedBy?.name,
+        isCurrentPo: excludePoId ? order._id.toString() === excludePoId.toString() : false,
+      });
+    }
+  }
+
+  res.status(200).json({ references });
+});
+
 // @desc    Export purchase orders to Excel
 // @route   GET /api/maintenance/purchase-orders/export
 // @access  Private
 const exportPurchaseOrders = asyncHandler(async (req, res) => {
-  const { vendor, status, fromDate, toDate, part, partLocation, columns, order, orderBy, purchaseOrderNo } = req.query;
+  const {
+    vendor,
+    status,
+    fromDate,
+    toDate,
+    part,
+    partLocation,
+    columns,
+    order,
+    orderBy,
+    purchaseOrderNo,
+    vendorInvoiceNo,
+  } = req.query;
 
   const query = addTenantToQuery(req);
 
   if (purchaseOrderNo) {
     query.purchaseOrderNo = { $regex: purchaseOrderNo, $options: 'i' };
+  }
+
+  if (vendorInvoiceNo) {
+    query['receipts.vendorInvoiceNo'] = { $regex: vendorInvoiceNo, $options: 'i' };
   }
 
   if (vendor) {
@@ -1011,6 +1095,8 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
     vendor: { header: 'Vendor', key: 'vendor', width: 25 },
     partLocation: { header: 'Location', key: 'partLocation', width: 20 },
     status: { header: 'Status', key: 'status', width: 15 },
+    vendorInvoiceNo: { header: 'Vendor Invoice No.', key: 'vendorInvoiceNo', width: 25 },
+    vendorInvoiceDate: { header: 'Invoice Date', key: 'vendorInvoiceDate', width: 18 },
     total: { header: 'Total', key: 'total', width: 15 },
     createdAt: { header: 'Date', key: 'createdAt', width: 15 },
   };
@@ -1057,6 +1143,21 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
         row[key] = rowData.vendorSnapshot?.name || rowData.vendor?.name || '-';
       } else if (key === 'partLocation') {
         row[key] = rowData.partLocationSnapshot?.name || rowData.partLocation?.name || '-';
+      } else if (key === 'vendorInvoiceNo') {
+        const invoices = [
+          ...new Set(
+            (rowData.receipts || [])
+              .map((r) => r.vendorInvoiceNo)
+              .filter(Boolean),
+          ),
+        ];
+        row[key] = invoices.length > 0 ? invoices.join(', ') : '-';
+      } else if (key === 'vendorInvoiceDate') {
+        const dates = (rowData.receipts || [])
+          .map((r) => (r.vendorInvoiceDate ? new Date(r.vendorInvoiceDate).toLocaleDateString() : null))
+          .filter(Boolean);
+        const uniqueDates = [...new Set(dates)];
+        row[key] = uniqueDates.length > 0 ? uniqueDates.join(', ') : '-';
       } else if (key === 'createdAt') {
         const dateStr = rowData.createdAt ? new Date(rowData.createdAt).toLocaleDateString() : '-';
         row[key] = dateStr;
@@ -1090,13 +1191,14 @@ const exportPurchaseOrders = asyncHandler(async (req, res) => {
 export {
   closePurchaseOrder,
   createPurchaseOrder,
-  fetchPurchaseOrders,
-  updatePurchaseOrder,
-  rejectPurchaseOrder,
   deletePurchaseOrder,
+  fetchPurchaseOrders,
+  rejectPurchaseOrder,
+  updatePurchaseOrder,
   approvePurchaseOrder,
-  receivePurchaseOrder,
   exportPurchaseOrders,
+  receivePurchaseOrder,
+  checkInvoiceReferences,
   fetchPurchaseOrderById,
 };
 

@@ -11,13 +11,14 @@ import {
 import {
   closePurchaseOrder,
   createPurchaseOrder,
-  fetchPurchaseOrders,
-  updatePurchaseOrder,
-  rejectPurchaseOrder,
   deletePurchaseOrder,
+  fetchPurchaseOrders,
+  rejectPurchaseOrder,
+  updatePurchaseOrder,
   approvePurchaseOrder,
-  receivePurchaseOrder,
   exportPurchaseOrders,
+  receivePurchaseOrder,
+  checkInvoiceReferences,
   fetchPurchaseOrderById,
 } from './purchaseOrder.controller.js';
 
@@ -34,6 +35,7 @@ router.post(
 
 // List + filters
 router.get('/export', authenticate, checkPermission('purchaseOrder', 'view'), exportPurchaseOrders);
+router.get('/check-invoice', authenticate, checkPermission('purchaseOrder', 'view'), checkInvoiceReferences);
 router.get('/', authenticate, pagination, fetchPurchaseOrders);
 
 // Get single
