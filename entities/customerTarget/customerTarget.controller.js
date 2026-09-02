@@ -8,7 +8,11 @@ import { getStartOfMonthIST, getNextMonthStartIST } from '../../utils/time-utils
 export const createTarget = async (req, res, next) => {
     try {
         const { customer, materialTarget, month, year } = req.body;
-        const {tenant} = req.user;
+        const tenant = req.tenant || req.user?.tenant;
+
+        if (!tenant) {
+            return res.status(403).json({ message: 'Tenant context is missing' });
+        }
 
         // Ensure month is stored as the first day of the month in UTC
         const targetMonth = new Date(month);
@@ -43,7 +47,11 @@ export const updateTarget = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { materialTarget, month, year } = req.body;
-        const {tenant} = req.user;
+        const tenant = req.tenant || req.user?.tenant;
+
+        if (!tenant) {
+            return res.status(403).json({ message: 'Tenant context is missing' });
+        }
 
         const targetMonth = new Date(month);
         targetMonth.setUTCDate(1);
@@ -71,8 +79,12 @@ export const updateTarget = async (req, res, next) => {
 
 export const getTargets = async (req, res, next) => {
     try {
-        const {tenant} = req.user;
+        const tenant = req.tenant || req.user?.tenant;
         const { month, year } = req.query;
+
+        if (!tenant) {
+            return res.status(403).json({ message: 'Tenant context is missing' });
+        }
 
         if (!month || !year) {
             return res.status(400).json({ message: 'Month and Year are required' });
@@ -142,7 +154,11 @@ export const getTargets = async (req, res, next) => {
 export const deleteTarget = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const {tenant} = req.user;
+        const tenant = req.tenant || req.user?.tenant;
+
+        if (!tenant) {
+            return res.status(403).json({ message: 'Tenant context is missing' });
+        }
 
         const target = await CustomerTarget.findOneAndDelete({ _id: id, tenant });
 

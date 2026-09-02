@@ -31,6 +31,7 @@ const authenticate = asyncHandler(async (req, res, next) => {
       // Superusers have platform-wide access
       if (userDoc.role === 'super') {
         req.user = userDoc.toObject ? userDoc.toObject() : { ...userDoc };
+        req.user.tenant = activeTenantId;
         req.tenant = activeTenantId;
       } else {
         // Find active company membership
@@ -50,6 +51,7 @@ const authenticate = asyncHandler(async (req, res, next) => {
         userObj.permissions = membership.permissions;
         userObj.role = membership.role;
         userObj.designation = membership.designation;
+        userObj.tenant = activeTenantId;
         req.user = userObj;
       }
 
