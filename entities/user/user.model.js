@@ -5,147 +5,23 @@ import { toTitleCase } from '../../utils/format-string.js';
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, set: toTitleCase },
-    email: { type: String, required: true, unique: true },
-    mobile: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    mobile: { type: String, required: true, unique: true, trim: true },
     address: { type: String, required: true },
     password: { type: String, required: true },
-    designation: { type: String, required: true },
-    // Role-based access: 'user' (default) or 'super' (platform admin)
+    designation: { type: String, required: false },
+    // Platform-level access: 'user' (default) or 'super' (platform admin)
     role: { type: String, enum: ['user', 'super'], default: 'user', index: true },
-    tenant: {
+    // The active company the user last worked in
+    lastActiveTenant: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
+      ref: 'Tenant',
       index: true,
     },
     lastSeen: { type: Date },
     otp: { type: String },
     otpExpiresAt: { type: Date },
     lastOtpSentAt: { type: Date },
-
-    permissions: {
-      customer: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      driver: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      driverSalary: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      expense: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      invoice: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      loan: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      pump: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      part: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      partLocation: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      vendor: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      purchaseOrder: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-        approve: { type: Boolean, default: false },
-      },
-      workOrder: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-
-      subtrip: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      transporter: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      transporterPayment: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      trip: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      user: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-      vehicle: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-
-      tenant: {
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-      },
-      tyre: {
-        create: { type: Boolean, default: false },
-        view: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      },
-    },
 
     bankDetails: {
       name: { type: String },
@@ -157,8 +33,9 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return enteredPassword === this.password;
 };
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model('User', userSchema);

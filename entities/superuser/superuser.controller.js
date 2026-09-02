@@ -7,11 +7,12 @@ import Subtrip from '../subtrip/subtrip.model.js';
 import Invoice from '../invoice/invoice.model.js';
 import Customer from '../customer/customer.model.js';
 import Transporter from '../transporter/transporter.model.js';
+import TenantMembership from '../tenantMembership/tenantMembership.model.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 
 // Build a permissions object with every boolean permission set to true
 function buildFullPermissionsFromSchema() {
-  const def = UserModel.schema?.obj?.permissions || {};
+  const def = TenantMembership.schema?.obj?.permissions || {};
   const traverse = (node) => {
     const out = {};
     for (const [k, v] of Object.entries(node)) {
@@ -37,15 +38,47 @@ const createUserForTenant = asyncHandler(async (req, res) => {
   // a fully-permissioned tenant user, not for promoting to super.
   delete body.role;
 
+  const email = body.email ? body.email.toLowerCase().trim() : null;
+  const mobile = body.mobile ? body.mobile.trim() : null;
+
   const permissions = buildFullPermissionsFromSchema();
 
-  const user = await new UserModel({
-    ...body,
-    tenant: tenantId,
-    permissions,
-  }).save();
+  // 1. Check if user already exists
+  let user = await UserModel.findOne({
+    $or: [{ email }, { mobile }],
+  });
 
-  return res.status(201).json(user);
+  if (!user) {
+    user = await new UserModel({
+      ...body,
+      email,
+      mobile,
+      lastActiveTenant: tenantId,
+    }).save();
+  }
+
+  // 2. Create or update TenantMembership with full permissions
+  const membership = await TenantMembership.findOneAndUpdate(
+    { user: user._id, tenant: tenantId },
+    {
+      user: user._id,
+      tenant: tenantId,
+      permissions,
+      designation: body.designation || 'Admin',
+      role: 'admin',
+      status: 'active',
+      isDefault: true,
+    },
+    { upsert: true, new: true }
+  );
+
+  return res.status(201).json({
+    ...(user.toObject ? user.toObject() : user),
+    membershipId: membership._id,
+    permissions: membership.permissions,
+    role: membership.role,
+    designation: membership.designation,
+  });
 });
 
 
@@ -255,8 +288,8 @@ const fetchTenantDetails = asyncHandler(async (req, res) => {
   const tenant = await Tenant.findById(id);
   if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
 
-  const [users, driverCount, customerCount, subtripCount, transporterCount, tpCount, invoiceAgg] = await Promise.all([
-    UserModel.find({ tenant: id }, { password: 0 }).sort({ name: 1 }),
+  const [memberships, driverCount, customerCount, subtripCount, transporterCount, tpCount, invoiceAgg] = await Promise.all([
+    TenantMembership.find({ tenant: id }).populate('user', '-password'),
     Driver.countDocuments({ tenant: id }),
     Customer.countDocuments({ tenant: id }),
     Subtrip.countDocuments({ tenant: id }),
@@ -267,6 +300,17 @@ const fetchTenantDetails = asyncHandler(async (req, res) => {
       { $group: { _id: null, total: { $sum: '$netTotal' } } },
     ]),
   ]);
+
+  const users = memberships
+    .filter((m) => m.user)
+    .map((m) => ({
+      ...(m.user.toObject ? m.user.toObject() : m.user),
+      membershipId: m._id,
+      role: m.role,
+      designation: m.designation,
+      permissions: m.permissions,
+      status: m.status,
+    }));
 
   const totalInvoiceGenerated = Array.isArray(invoiceAgg) && invoiceAgg.length > 0 ? invoiceAgg[0].total || 0 : 0;
 

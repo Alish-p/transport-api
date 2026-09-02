@@ -6,6 +6,7 @@ import Tenant from '../tenant/tenant.model.js';
 import { generateToken } from '../../utils/generate-token.js';
 import { sendTemplateMessage } from '../../services/whatsapp.service.js';
 import { getOtpEmailTemplate } from '../../utils/templates/otp-template.js';
+import TenantMembership from '../tenantMembership/tenantMembership.model.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -52,6 +53,73 @@ function getCooldownSeconds(user) {
   return elapsed < COOLDOWN_MS ? Math.ceil((COOLDOWN_MS - elapsed) / 1000) : 0;
 }
 
+/**
+ * Resolves accessible tenants and active membership for a user
+ */
+async function resolveUserTenantsAndActive(user, requestedTenantId = null) {
+  const memberships = await TenantMembership.find({
+    user: user._id,
+    status: 'active',
+  }).populate({
+    path: 'tenant',
+    select: 'name slug logoUrl logoKey theme subscription isActive config integrations address contactDetails',
+  });
+
+  let accessibleTenants = [];
+  let activeMembership = null;
+  let activeTenant = null;
+
+  if (memberships.length > 0) {
+    accessibleTenants = memberships
+      .filter((m) => m.tenant && m.tenant.isActive !== false)
+      .map((m) => ({
+        _id: m.tenant._id,
+        name: m.tenant.name,
+        slug: m.tenant.slug,
+        logoUrl: m.tenant.logoUrl,
+        logoKey: m.tenant.logoKey,
+        theme: m.tenant.theme,
+        role: m.role,
+        designation: m.designation,
+        isDefault: m.isDefault,
+      }));
+
+    if (requestedTenantId) {
+      activeMembership = memberships.find(
+        (m) => m.tenant && m.tenant._id.toString() === requestedTenantId.toString()
+      );
+    }
+
+    if (!activeMembership && user.lastActiveTenant) {
+      activeMembership = memberships.find(
+        (m) => m.tenant && m.tenant._id.toString() === user.lastActiveTenant.toString()
+      );
+    }
+
+    if (!activeMembership) {
+      activeMembership = memberships.find((m) => m.isDefault) || memberships[0];
+    }
+
+    if (activeMembership && activeMembership.tenant) {
+      activeTenant = activeMembership.tenant;
+    }
+  }
+
+  // Superusers may access a tenant directly without an explicit membership document
+  if (!activeTenant && user.role === 'super') {
+    const targetId = requestedTenantId || user.lastActiveTenant;
+    if (targetId) {
+      activeTenant = await Tenant.findById(targetId);
+    }
+  }
+
+  return {
+    accessibleTenants,
+    activeMembership,
+    activeTenant,
+  };
+}
+
 // ----------------------------------------------------------------------
 // Controllers
 // ----------------------------------------------------------------------
@@ -62,15 +130,34 @@ const loginUser = asyncHandler(async (req, res) => {
   const matched = user ? await user.matchPassword(password) : false;
 
   if (user && matched) {
+    const { accessibleTenants, activeMembership, activeTenant } = await resolveUserTenantsAndActive(user);
+
+    if (!activeTenant && user.role !== 'super') {
+      return res.status(403).json({ message: 'User does not have an active membership in any company' });
+    }
+
+    const activeTenantId = activeTenant?._id || null;
+
+    if (activeTenantId && (!user.lastActiveTenant || user.lastActiveTenant.toString() !== activeTenantId.toString())) {
+      user.lastActiveTenant = activeTenantId;
+      await user.save();
+    }
+
     return res.status(200).json({
-      accessToken: generateToken(user),
+      accessToken: generateToken(user, activeTenantId),
       user: {
         _id: user._id,
-        displayName: user.displayName,
+        name: user.name,
+        displayName: user.displayName || user.name,
         email: user.email,
-        role: user.role,
-        tenant: user.tenant,
+        mobile: user.mobile,
+        role: activeMembership?.role || user.role,
+        designation: activeMembership?.designation || user.designation || '',
+        permissions: activeMembership?.permissions || {},
+        tenant: activeTenantId,
       },
+      tenant: activeTenant,
+      accessibleTenants,
     });
   }
 
@@ -78,8 +165,9 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const getUser = asyncHandler(async (req, res) => {
-  const tenant = await Tenant.findById(req.user.tenant);
-  res.status(200).json({ user: req.user, tenant });
+  const { accessibleTenants } = await resolveUserTenantsAndActive(req.user, req.tenant);
+  const tenant = await Tenant.findById(req.tenant);
+  res.status(200).json({ user: req.user, tenant, accessibleTenants });
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
@@ -197,16 +285,98 @@ const verifyWhatsAppOTP = asyncHandler(async (req, res) => {
   user.otpExpiresAt = undefined;
   await user.save();
 
+  const { accessibleTenants, activeMembership, activeTenant } = await resolveUserTenantsAndActive(user);
+
+  if (!activeTenant && user.role !== 'super') {
+    return res.status(403).json({ message: 'User does not have an active membership in any company' });
+  }
+
+  const activeTenantId = activeTenant?._id || null;
+
+  if (activeTenantId && (!user.lastActiveTenant || user.lastActiveTenant.toString() !== activeTenantId.toString())) {
+    user.lastActiveTenant = activeTenantId;
+    await user.save();
+  }
+
   return res.status(200).json({
-    accessToken: generateToken(user),
+    accessToken: generateToken(user, activeTenantId),
     user: {
       _id: user._id,
+      name: user.name,
       displayName: user.displayName || user.name,
       email: user.email,
-      role: user.role,
-      tenant: user.tenant,
+      mobile: user.mobile,
+      role: activeMembership?.role || user.role,
+      designation: activeMembership?.designation || user.designation || '',
+      permissions: activeMembership?.permissions || {},
+      tenant: activeTenantId,
     },
+    tenant: activeTenant,
+    accessibleTenants,
   });
 });
 
-export { getUser, loginUser, resetPassword, forgotPassword, verifyWhatsAppOTP, requestWhatsAppOTP };
+const switchTenant = asyncHandler(async (req, res) => {
+  const { tenantId } = req.body;
+  if (!tenantId) {
+    return res.status(400).json({ message: 'Target tenantId is required' });
+  }
+
+  const userId = req.user._id;
+
+  // 1. Verify user has an active membership in the target tenant (or is superuser)
+  const membership = await TenantMembership.findOne({
+    user: userId,
+    tenant: tenantId,
+    status: 'active',
+  }).populate({
+    path: 'tenant',
+    select: 'name slug logoUrl logoKey theme subscription isActive config integrations address contactDetails',
+  });
+
+  let targetTenant = membership ? membership.tenant : null;
+
+  if (!targetTenant && req.user.role === 'super') {
+    targetTenant = await Tenant.findById(tenantId);
+  }
+
+  if (!targetTenant || targetTenant.isActive === false) {
+    return res.status(403).json({ message: 'You do not have access to this company or company is inactive' });
+  }
+
+  // 2. Update user's lastActiveTenant
+  await UserModel.updateOne({ _id: userId }, { lastActiveTenant: targetTenant._id });
+
+  // 3. Issue fresh tenant-scoped token
+  const newAccessToken = generateToken(req.user, targetTenant._id);
+
+  // 4. Resolve updated accessible tenants list
+  const { accessibleTenants } = await resolveUserTenantsAndActive(req.user, targetTenant._id);
+
+  return res.status(200).json({
+    accessToken: newAccessToken,
+    tenant: targetTenant,
+    user: {
+      _id: req.user._id,
+      name: req.user.name,
+      displayName: req.user.displayName || req.user.name,
+      email: req.user.email,
+      mobile: req.user.mobile,
+      role: membership?.role || req.user.role,
+      designation: membership?.designation || req.user.designation || '',
+      permissions: membership?.permissions || req.user.permissions || {},
+      tenant: targetTenant._id,
+    },
+    accessibleTenants,
+  });
+});
+
+export {
+  getUser,
+  loginUser,
+  switchTenant,
+  resetPassword,
+  forgotPassword,
+  verifyWhatsAppOTP,
+  requestWhatsAppOTP,
+};
