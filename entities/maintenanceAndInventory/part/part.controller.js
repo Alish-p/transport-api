@@ -367,19 +367,32 @@ const fetchParts = asyncHandler(async (req, res) => {
     let totalQuantityItems = 0;
     let outOfStockItems = 0;
     let lowStockItems = 0;
+    let inStockItems = 0;
     let totalInventoryValue = 0;
 
     for (const part of matchingParts) {
       const partId = part._id.toString();
       const stock = stockMap[partId] || { quantity: 0, threshold: 0 };
-      const q = stock.quantity;
-      const t = stock.threshold;
+      const q = stock.quantity || 0;
+      const t = stock.threshold || 0;
+
+      // Stats should reflect overall counts matching query before status filter
+      totalQuantityItems += q;
+      totalInventoryValue += q * (part.averageUnitCost || part.unitCost || 0);
+
+      const isOut = q <= 0;
+      const isLow = !isOut && t > 0 && q < t;
+      const isIn = !isOut && (t <= 0 || q >= t);
+
+      if (isOut) outOfStockItems++;
+      else if (isLow) lowStockItems++;
+      else if (isIn) inStockItems++;
 
       let keep = true;
       if (status && status !== 'all') {
-        if (status === 'outOfStock' && q > 0) keep = false;
-        else if (status === 'lowStock' && (q <= 0 || q >= t)) keep = false;
-        else if (status === 'inStock' && q < t) keep = false;
+        if (status === 'outOfStock' && !isOut) keep = false;
+        else if (status === 'lowStock' && !isLow) keep = false;
+        else if (status === 'inStock' && !isIn) keep = false;
       }
 
       if (keep) {
@@ -391,11 +404,6 @@ const fetchParts = asyncHandler(async (req, res) => {
           totalQuantity: q,
           totalCost: q * (part.averageUnitCost || part.unitCost || 0),
         });
-        totalQuantityItems += q;
-        if (q <= 0) outOfStockItems++;
-        else if (q > 0 && q < t) lowStockItems++;
-
-        totalInventoryValue += q * (part.averageUnitCost || part.unitCost || 0);
       }
     }
 
@@ -439,8 +447,8 @@ const fetchParts = asyncHandler(async (req, res) => {
       const stock = stockMap[partId] || { quantity: 0, threshold: 0 };
       return {
         ...partObj,
-        totalQuantity: stock.quantity,
-        threshold: stock.threshold,
+        totalQuantity: stock.quantity || 0,
+        threshold: stock.threshold || 0,
       };
     });
 
@@ -452,7 +460,8 @@ const fetchParts = asyncHandler(async (req, res) => {
       totalQuantityItems,
       outOfStockItems,
       lowStockItems,
-      count: total,
+      inStockItems,
+      count: matchingParts.length,
       totalInventoryValue,
     });
   } catch (error) {
@@ -803,8 +812,8 @@ const exportParts = asyncHandler(async (req, res) => {
     const stock = stockMap[partId] || { quantity: 0, threshold: 0 };
     return {
       ...part,
-      totalQuantity: stock.quantity,
-      threshold: stock.threshold,
+      totalQuantity: stock.quantity || 0,
+      threshold: stock.threshold || 0,
     };
   });
 
@@ -813,9 +822,13 @@ const exportParts = asyncHandler(async (req, res) => {
     finalPartsToExport = partsWithStats.filter((part) => {
       const q = part.totalQuantity || 0;
       const t = part.threshold || 0;
-      if (status === 'outOfStock' && q > 0) return false;
-      if (status === 'lowStock' && (q <= 0 || q >= t)) return false;
-      if (status === 'inStock' && q < t) return false;
+      const isOut = q <= 0;
+      const isLow = !isOut && t > 0 && q < t;
+      const isIn = !isOut && (t <= 0 || q >= t);
+
+      if (status === 'outOfStock' && !isOut) return false;
+      if (status === 'lowStock' && !isLow) return false;
+      if (status === 'inStock' && !isIn) return false;
       return true;
     });
   }
