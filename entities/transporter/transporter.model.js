@@ -30,6 +30,7 @@ const transporterSchema = new Schema({
   otp: { type: String, select: false },
   otpExpiresAt: { type: Date, select: false },
   lastOtpSentAt: { type: Date, select: false },
+  lastLoginAt: { type: Date },
 });
 
 export default model("Transporter", transporterSchema);

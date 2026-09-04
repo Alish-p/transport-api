@@ -178,6 +178,9 @@ const verifyOtp = asyncHandler(async (req, res) => {
 
   // Single transporter — issue token directly
   if (transporters.length === 1) {
+    const loginTime = new Date();
+    await TransporterModel.findByIdAndUpdate(matched._id, { lastLoginAt: loginTime });
+
     const token = generateTransporterToken(matched);
     return res.status(200).json({
       token,
@@ -239,6 +242,9 @@ const selectTransporter = asyncHandler(async (req, res) => {
   if (!transporter || !transporter.isActive) {
     return res.status(404).json({ message: 'Transporter not found or inactive.' });
   }
+
+  const loginTime = new Date();
+  await TransporterModel.findByIdAndUpdate(transporter._id, { lastLoginAt: loginTime });
 
   const token = generateTransporterToken(transporter);
 

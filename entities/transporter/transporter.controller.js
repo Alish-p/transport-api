@@ -538,6 +538,7 @@ const exportTransporters = asyncHandler(async (req, res) => {
     bankName: { header: 'Bank Name', key: 'bankName', width: 20 },
     vehicleCount: { header: 'Active Vehicles', key: 'vehicleCount', width: 15 },
     lastSubtripDate: { header: 'Last Subtrip Date', key: 'lastSubtripDate', width: 20 },
+    lastLoginAt: { header: 'Last Portal Login', key: 'lastLoginAt', width: 22 },
   };
 
   let exportColumns = [];
@@ -586,6 +587,8 @@ const exportTransporters = asyncHandler(async (req, res) => {
         row[key] = doc[key] ? 'Yes' : 'No';
       } else if (key === 'lastSubtripDate') {
         row[key] = doc[key] ? new Date(doc[key]).toLocaleDateString() : 'Never';
+      } else if (key === 'lastLoginAt') {
+        row[key] = doc[key] ? new Date(doc[key]).toLocaleString() : 'Never';
       } else {
         row[key] = (doc[key] !== undefined && doc[key] !== null) ? doc[key] : '-';
       }
