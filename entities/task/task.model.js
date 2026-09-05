@@ -90,6 +90,7 @@ const taskSchema = new Schema(
     tenant: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
     order: { type: Number, default: 0 },
     subtasks: [subtaskSchema],
+    isLiked: { type: Boolean, default: false },
   },
   {
     timestamps: true,
