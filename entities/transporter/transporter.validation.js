@@ -16,13 +16,15 @@ const transporterSchema = z.object({
     gstNo: z.string().optional(),
     emailId: z.string().optional(),
     docs: z.array(z.string()).optional(),
-    bankDetails: z.object({
-      name: z.string(),
-      branch: z.string(),
-      ifsc: z.string(),
-      place: z.string(),
-      accNo: z.string(),
-    }),
+    bankDetails: z
+      .object({
+        name: z.string().optional(),
+        branch: z.string().optional(),
+        ifsc: z.string().optional(),
+        place: z.string().optional(),
+        accNo: z.string().optional(),
+      })
+      .optional(),
   }),
 });
 
