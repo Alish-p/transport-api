@@ -1,5 +1,6 @@
 import { formatPhoneE164ish } from "../../utils/format-utils.js";
 import { GRAPH_API_VERSION, getTenantWhatsAppConfig } from "./config.js";
+import WhatsAppMessage from "../../entities/whatsapp/whatsappMessage.model.js";
 
 async function sendTemplateMessage({ tenantId, to, templateName, languageCode, components = [], forceGlobalFallback = false }) {
   // When forceGlobalFallback is true (e.g. login OTP), skip tenant lookup and use global credentials directly
@@ -55,6 +56,32 @@ async function sendTemplateMessage({ tenantId, to, templateName, languageCode, c
       console.error("WhatsApp send failed", { status: res.status, data });
       return { ok: false, status: res.status, data };
     }
+
+    // Record outbound template message asynchronously for thread tracking
+    if (data?.messages?.[0]?.id) {
+      try {
+        WhatsAppMessage.create({
+          tenant: tenantId || null,
+          messageId: data.messages[0].id,
+          direction: "outbound",
+          from: cfg.phoneNumberId,
+          to: recipient,
+          contactPhone: recipient,
+          messageType: "template",
+          content: {
+            templateName,
+            templateComponents: components,
+          },
+          status: "sent",
+          statusHistory: [{ status: "sent", timestamp: new Date() }],
+          timestamp: new Date(),
+          rawPayload: payload,
+        }).catch((logErr) => {
+          console.warn("Failed to log outbound WhatsApp message:", logErr?.message || logErr);
+        });
+      } catch (_) {}
+    }
+
     return { ok: true, data };
   } catch (err) {
     console.error("WhatsApp send error:", err?.message || err);

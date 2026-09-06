@@ -33,6 +33,7 @@ import transporterPaymentRouter from '../entities/transporterPayment/transporter
 import transporterAdvanceRouter from '../entities/transporterAdvance/transporterAdvance.routes.js';
 import maintenanceAndInventoryRouter from '../entities/maintenanceAndInventory/maintenanceAndInventory.routes.js';
 import transporterPortalRouter from '../entities/transporterPortal/transporterPortal.routes.js';
+import whatsappRouter from '../entities/whatsapp/whatsapp.routes.js';
 
 const router = express.Router();
 
@@ -64,6 +65,7 @@ router.use('/lookup', lookupRouter);
 router.use('/activities', activityRouter);
 router.use('/tyre', tyreRouter);
 router.use('/transporter-advances', transporterAdvanceRouter);
+router.use('/whatsapp', whatsappRouter);
 
 // Vehicle Maintenance & Inventory
 router.use('/maintenance', authenticate, maintenanceAndInventoryRouter);
