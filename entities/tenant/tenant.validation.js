@@ -17,7 +17,6 @@ const contactSchema = z.object({
 const tenantSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
-    slug: z.string().min(1, 'Slug is required'),
     address: addressSchema,
     contactDetails: contactSchema,
   }),

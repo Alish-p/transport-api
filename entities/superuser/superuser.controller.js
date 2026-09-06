@@ -102,7 +102,7 @@ const fetchTenants = asyncHandler(async (req, res) => {
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
-        { slug: { $regex: search, $options: 'i' } },
+        { 'address.city': { $regex: search, $options: 'i' } },
       ];
     }
 

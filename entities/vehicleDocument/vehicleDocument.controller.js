@@ -38,9 +38,9 @@ export const getUploadUrl = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Invalid docType' });
   }
 
-  // Fetch tenant name/slug for key prefix
-  const tenantDoc = await Tenant.findOne({ _id: req.tenant }).select('name slug');
-  const tenantSegment = sanitizeSegment(tenantDoc?.slug || tenantDoc?.name || 'tenant', true);
+  // Fetch tenant name for key prefix
+  const tenantDoc = await Tenant.findOne({ _id: req.tenant }).select('name');
+  const tenantSegment = sanitizeSegment(tenantDoc?.name || 'tenant', true);
   const vehicleSegment = sanitizeSegment(vehicle.vehicleNo || String(vehicleId), false);
   const docTypeSegment = sanitizeSegment(docType, true);
 

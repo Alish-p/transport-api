@@ -102,7 +102,7 @@ const TENANT_SCOPED_MODELS = [
 function printUsage() {
   console.log(`
 Usage:
-  node scripts/purge-tenant.js <TENANT_ID_OR_SLUG> [options]
+  node scripts/purge-tenant.js <TENANT_ID_OR_NAME> [options]
 
 Options:
   --dry-run, --dryrun   Preview everything that will be deleted without modifying data (Default)
@@ -113,10 +113,10 @@ Options:
 Examples:
   # 1. Preview trial tenant purge safely:
   node scripts/purge-tenant.js 64b1f2e8a1234567890abcde --dry-run
-  node scripts/purge-tenant.js acme-logistics --dry-run
+  node scripts/purge-tenant.js "Acme Logistics" --dry-run
 
   # 2. Execute purge with confirmation:
-  node scripts/purge-tenant.js acme-logistics --confirm
+  node scripts/purge-tenant.js "Acme Logistics" --confirm
 `);
 }
 
@@ -203,7 +203,7 @@ async function run() {
   const skipS3 = args.includes('--skip-s3');
 
   if (!targetIdentifier) {
-    console.error('❌ Error: Tenant ID or Slug is required.');
+    console.error('❌ Error: Tenant ID or Name is required.');
     printUsage();
     process.exit(1);
   }
@@ -222,8 +222,8 @@ async function run() {
     // 1. Find Tenant
     const isObjectId = mongoose.Types.ObjectId.isValid(targetIdentifier);
     const tenantQuery = isObjectId
-      ? { $or: [{ _id: targetIdentifier }, { slug: targetIdentifier }] }
-      : { slug: targetIdentifier };
+      ? { _id: targetIdentifier }
+      : { name: new RegExp(`^${targetIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
 
     const tenant = await Tenant.findOne(tenantQuery);
     if (!tenant) {
@@ -234,7 +234,7 @@ async function run() {
     const tenantId = tenant._id;
 
     console.log('='.repeat(70));
-    console.log(` TENANT PURGE REPORT: ${tenant.name} (${tenant.slug})`);
+    console.log(` TENANT PURGE REPORT: ${tenant.name}`);
     console.log(` ID: ${tenantId}`);
     console.log(` Status: ${tenant.isActive ? 'Active' : 'Inactive'}`);
     console.log(` Plan: ${tenant.subscription?.planName || 'N/A'} (Valid till: ${tenant.subscription?.validTill ? new Date(tenant.subscription.validTill).toLocaleDateString() : 'N/A'})`);

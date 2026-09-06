@@ -58,10 +58,10 @@ const getLogoUploadUrl = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Invalid extension (png|jpg|jpeg|webp|svg only)' });
   }
 
-  const tenantDoc = await Tenant.findById(req.tenant).select('name slug');
+  const tenantDoc = await Tenant.findById(req.tenant).select('name');
   if (!tenantDoc) return res.status(404).json({ message: 'Tenant not found' });
 
-  const tenantSegment = sanitizeSegment(tenantDoc.slug || tenantDoc.name || 'tenant', true);
+  const tenantSegment = sanitizeSegment(tenantDoc.name || 'tenant', true);
   const filename = buildDatedFilename('logo', safeExt);
 
   try {

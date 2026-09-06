@@ -47,9 +47,9 @@ Upload Flow
 
 Object Key Structure
 
-- Storage key (S3): `logos/<tenantSlugOrName>/logo_YYYY-MM-DD_rand4.<ext>`
+- Storage key (S3): `logos/<tenantName>/logo_YYYY-MM-DD_rand4.<ext>`
   - Example: `logos/mayur-logistics/logo_2025-11-08_77e7.svg`
-- Public URL (CloudFront, Origin Path = `/logos`): `https://<CDN_DOMAIN>/<tenantSlugOrName>/logo_...`
+- Public URL (CloudFront, Origin Path = `/logos`): `https://<CDN_DOMAIN>/<tenantName>/logo_...`
   - Example: `https://cdn.example.com/mayur-logistics/logo_2025-11-08_77e7.svg`
   - Note: the `logos/` prefix is NOT present in the public URL because CloudFront Origin Path supplies it.
 

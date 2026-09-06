@@ -53,7 +53,7 @@ On success, the user’s `role` becomes `super`. Use this account to manage tena
 
 - Create tenant:
   - `POST /api/super/tenants`
-  - Body fields follow `entities/tenant/tenant.model.js` (e.g., `name`, `slug`, `address`, etc.)
+  - Body fields follow `entities/tenant/tenant.model.js` (e.g., `name`, `address`, etc.)
   - Guard: `authenticate` + `requireSuperuser`
 
 - List tenants:
@@ -64,8 +64,8 @@ On success, the user’s `role` becomes `super`. Use this account to manage tena
   - `DELETE /api/super/tenants/:id`
   - Guard: `authenticate` + `requireSuperuser`
   - Note: Standard API delete removes the tenant record. To perform a safe, complete purge of trial tenants across all 35+ collections and S3 files with dry-run support:
-    - Dry-run preview: `npm run purge:tenant <tenantIdOrSlug> -- --dry-run`
-    - Execute purge: `npm run purge:tenant <tenantIdOrSlug> -- --confirm`
+    - Dry-run preview: `npm run purge:tenant <tenantIdOrName> -- --dry-run`
+    - Execute purge: `npm run purge:tenant <tenantIdOrName> -- --confirm`
 
 - View/update current tenant (tenant‑scoped):
   - `GET /api/tenants/mytenant`
@@ -158,7 +158,6 @@ curl -sS -X POST "$API/super/tenants" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Acme Logistics",
-    "slug": "acme-logistics",
     "address": {"line1":"A1","state":"MH","city":"Mumbai","pincode":"400001"},
     "contactDetails": {"email":"ops@acme.com"}
   }'

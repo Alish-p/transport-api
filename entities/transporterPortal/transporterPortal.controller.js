@@ -157,7 +157,7 @@ const getDashboard = asyncHandler(async (req, res) => {
  */
 const getProfile = asyncHandler(async (req, res) => {
   const transporter = await TransporterModel.findById(req.transporter._id)
-    .populate('tenant', 'name slug logoUrl contactDetails');
+    .populate('tenant', 'name logoUrl contactDetails');
 
   if (!transporter) {
     return res.status(404).json({ message: 'Transporter not found.' });

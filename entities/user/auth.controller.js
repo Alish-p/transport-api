@@ -62,7 +62,7 @@ async function resolveUserTenantsAndActive(user, requestedTenantId = null) {
     status: 'active',
   }).populate({
     path: 'tenant',
-    select: 'name slug logoUrl logoKey theme subscription isActive config integrations address contactDetails',
+    select: 'name logoUrl logoKey theme subscription isActive config integrations address contactDetails',
   });
 
   let accessibleTenants = [];
@@ -75,7 +75,6 @@ async function resolveUserTenantsAndActive(user, requestedTenantId = null) {
       .map((m) => ({
         _id: m.tenant._id,
         name: m.tenant.name,
-        slug: m.tenant.slug,
         logoUrl: m.tenant.logoUrl,
         logoKey: m.tenant.logoKey,
         theme: m.tenant.theme,
@@ -363,7 +362,7 @@ const switchTenant = asyncHandler(async (req, res) => {
     status: 'active',
   }).populate({
     path: 'tenant',
-    select: 'name slug logoUrl logoKey theme subscription isActive config integrations address contactDetails',
+    select: 'name logoUrl logoKey theme subscription isActive config integrations address contactDetails',
   });
 
   let targetTenant = membership ? membership.tenant : null;
