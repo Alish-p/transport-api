@@ -219,6 +219,38 @@ const resetPassword = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Password updated successfully.' });
 });
 
+const changePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ message: 'Both old password and new password are required.' });
+  }
+
+  if (typeof newPassword !== 'string' || newPassword.length < 6) {
+    return res.status(400).json({ message: 'New password must be at least 6 characters long.' });
+  }
+
+  if (oldPassword === newPassword) {
+    return res.status(400).json({ message: 'New password must be different than old password.' });
+  }
+
+  const userId = req.user?._id || req.user?.id;
+  const user = await UserModel.findById(userId);
+  if (!user) {
+    return res.status(404).json({ message: 'User not found.' });
+  }
+
+  const isMatched = await user.matchPassword(oldPassword);
+  if (!isMatched) {
+    return res.status(400).json({ message: 'Incorrect old password.' });
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  return res.status(200).json({ message: 'Password updated successfully.' });
+});
+
 const requestWhatsAppOTP = asyncHandler(async (req, res) => {
   const { mobile } = req.body;
 
@@ -376,6 +408,7 @@ export {
   loginUser,
   switchTenant,
   resetPassword,
+  changePassword,
   forgotPassword,
   verifyWhatsAppOTP,
   requestWhatsAppOTP,

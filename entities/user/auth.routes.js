@@ -6,6 +6,7 @@ import {
   loginUser,
   switchTenant,
   resetPassword,
+  changePassword,
   forgotPassword,
   verifyWhatsAppOTP,
   requestWhatsAppOTP,
@@ -16,6 +17,7 @@ const router = Router();
 router.get("/my-account", authenticate, getUser);
 router.post("/login", loginUser);
 router.post("/switch-tenant", authenticate, switchTenant);
+router.post("/change-password", authenticate, changePassword);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.post("/whatsapp-otp", requestWhatsAppOTP);
