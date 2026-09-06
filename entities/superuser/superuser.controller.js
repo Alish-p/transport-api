@@ -9,6 +9,7 @@ import Customer from '../customer/customer.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import TenantMembership from '../tenantMembership/tenantMembership.model.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
+import { sendPaymentReceiptEmail } from '../../services/email.service.js';
 
 // Build a permissions object with every boolean permission set to true
 function buildFullPermissionsFromSchema() {
@@ -334,13 +335,101 @@ const fetchTenantDetails = asyncHandler(async (req, res) => {
   });
 });
 
+// Record payment, extend plan validity (optional), and send confirmation receipt email
+const recordTenantPayment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const {
+    amount,
+    paymentDate,
+    paymentMethod,
+    planName,
+    validTill,
+    notes,
+    sendEmail = true,
+    extendValidity = true,
+  } = req.body || {};
+
+  if (typeof amount !== 'number' || Number.isNaN(amount) || amount <= 0) {
+    return res.status(400).json({ message: 'amount must be a positive number' });
+  }
+
+  if (!paymentDate) {
+    return res.status(400).json({ message: 'paymentDate is required' });
+  }
+
+  const validMethods = ['UPI', 'Card', 'BankTransfer', 'Cash'];
+  if (!validMethods.includes(String(paymentMethod))) {
+    return res.status(400).json({
+      message: `paymentMethod must be one of: ${validMethods.join(', ')}`,
+    });
+  }
+
+  let validTillDate = null;
+  if (extendValidity) {
+    if (!validTill) {
+      return res.status(400).json({ message: 'validTill is required when extending plan validity' });
+    }
+    validTillDate = new Date(validTill);
+    if (Number.isNaN(validTillDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid validTill date' });
+    }
+  }
+
+  const tenant = await Tenant.findById(id);
+  if (!tenant) {
+    return res.status(404).json({ message: 'Tenant not found' });
+  }
+
+  const paymentRecord = {
+    amount,
+    paymentDate: new Date(paymentDate),
+    paymentMethod,
+    status: 'SUCCESS',
+    ...(notes ? { notes } : {}),
+  };
+
+  tenant.paymentHistory.push(paymentRecord);
+
+  if (extendValidity && validTillDate) {
+    const updatedPlanName = (planName && String(planName).trim()) || tenant.subscription?.planName || 'Standard';
+    tenant.subscription = {
+      ...(tenant.subscription ? tenant.subscription.toObject?.() || tenant.subscription : {}),
+      planName: updatedPlanName,
+      validTill: validTillDate,
+      isActive: true,
+      updatedAt: new Date(),
+    };
+  }
+
+  await tenant.save();
+
+  let emailStatus = null;
+  if (sendEmail) {
+    emailStatus = await sendPaymentReceiptEmail({
+      tenant,
+      payment: paymentRecord,
+      subscription: tenant.subscription,
+    });
+  }
+
+  const responseData = tenant.toObject ? tenant.toObject() : { ...tenant };
+  if (emailStatus) {
+    responseData._emailStatus = emailStatus;
+  }
+
+  return res.status(200).json(responseData);
+});
+
 export {
   createTenant,
   fetchTenants,
   deleteTenant,
-  addTenantPayment, updateTenantById,
+  addTenantPayment,
+  updateTenantById,
   fetchTenantDetails,
   createUserForTenant,
   updateTenantPayment,
   deleteTenantPayment,
+  recordTenantPayment,
 };
+

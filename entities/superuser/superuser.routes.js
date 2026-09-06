@@ -11,6 +11,7 @@ import {
   createUserForTenant,
   updateTenantPayment,
   deleteTenantPayment,
+  recordTenantPayment,
 } from './superuser.controller.js';
 
 const router = Router();
@@ -30,5 +31,8 @@ router.get('/tenants/:id', authenticate, requireSuperuser, fetchTenantDetails);
 router.post('/tenants/:id/payments', authenticate, requireSuperuser, addTenantPayment);
 router.put('/tenants/:id/payments/:paymentId', authenticate, requireSuperuser, updateTenantPayment);
 router.delete('/tenants/:id/payments/:paymentId', authenticate, requireSuperuser, deleteTenantPayment);
+
+// Record payment, extend validity, and dispatch confirmation email
+router.post('/tenants/:id/record-payment', authenticate, requireSuperuser, recordTenantPayment);
 
 export default router;
