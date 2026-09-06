@@ -63,7 +63,9 @@ On success, the user’s `role` becomes `super`. Use this account to manage tena
 - Delete tenant:
   - `DELETE /api/super/tenants/:id`
   - Guard: `authenticate` + `requireSuperuser`
-  - Note: No cascading delete is performed. If needed, add a cleanup process before/after deletion.
+  - Note: Standard API delete removes the tenant record. To perform a safe, complete purge of trial tenants across all 35+ collections and S3 files with dry-run support:
+    - Dry-run preview: `npm run purge:tenant <tenantIdOrSlug> -- --dry-run`
+    - Execute purge: `npm run purge:tenant <tenantIdOrSlug> -- --confirm`
 
 - View/update current tenant (tenant‑scoped):
   - `GET /api/tenants/mytenant`
