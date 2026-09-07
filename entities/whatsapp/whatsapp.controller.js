@@ -1,29 +1,25 @@
 import asyncHandler from 'express-async-handler';
 import Driver from '../driver/driver.model.js';
-import Tenant from '../tenant/tenant.model.js';
 import Customer from '../customer/customer.model.js';
 import WhatsAppMessage from './whatsappMessage.model.js';
 import WhatsAppConversation from './whatsappConversation.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import { sendTextMessage as sendTextMessageService } from '../../services/whatsapp/api.js';
-import { getTenantWhatsAppConfig } from '../../services/whatsapp/config.js';
 
 /**
  * Resolve sender identity (Driver, Transporter, Customer) by phone number.
  */
-async function resolveSenderEntity(phone, tenantId = null) {
-  if (!phone) return { entityType: 'Unknown', entityId: null, entityName: null };
+async function resolveSenderEntity(phone) {
+  if (!phone) return { entityType: 'Unknown', entityId: null, entityName: null, tenant: null };
   const last10 = String(phone).replace(/\D/g, '').slice(-10);
   if (!last10 || last10.length < 10) {
-    return { entityType: 'Unknown', entityId: null, entityName: null };
+    return { entityType: 'Unknown', entityId: null, entityName: null, tenant: null };
   }
 
   const phoneRegex = new RegExp(`${last10}$`);
 
   // 1. Check Driver
-  const driverQuery = { driverCellNo: phoneRegex };
-  if (tenantId) driverQuery.tenant = tenantId;
-  const driver = await Driver.findOne(driverQuery).select('driverName tenant');
+  const driver = await Driver.findOne({ driverCellNo: phoneRegex }).select('driverName tenant');
   if (driver) {
     return {
       entityType: 'Driver',
@@ -34,9 +30,7 @@ async function resolveSenderEntity(phone, tenantId = null) {
   }
 
   // 2. Check Transporter
-  const transporterQuery = { cellNo: phoneRegex };
-  if (tenantId) transporterQuery.tenant = tenantId;
-  const transporter = await Transporter.findOne(transporterQuery).select(
+  const transporter = await Transporter.findOne({ cellNo: phoneRegex }).select(
     'transportName ownerName tenant'
   );
   if (transporter) {
@@ -49,9 +43,7 @@ async function resolveSenderEntity(phone, tenantId = null) {
   }
 
   // 3. Check Customer
-  const customerQuery = { cellNo: phoneRegex };
-  if (tenantId) customerQuery.tenant = tenantId;
-  const customer = await Customer.findOne(customerQuery).select(
+  const customer = await Customer.findOne({ cellNo: phoneRegex }).select(
     'customerName companyName tenant'
   );
   if (customer) {
@@ -63,31 +55,7 @@ async function resolveSenderEntity(phone, tenantId = null) {
     };
   }
 
-  return { entityType: 'Unknown', entityId: null, entityName: null };
-}
-
-/**
- * Resolve tenant from Meta's phone_number_id.
- */
-async function resolveTenantFromPhoneNumberId(phoneNumberId) {
-  if (!phoneNumberId) return null;
-
-  try {
-    const tenant = await Tenant.findOne({
-      'integrations.whatsapp.config.phoneNumberId': phoneNumberId,
-      'integrations.whatsapp.enabled': true,
-    }).select('_id');
-    if (tenant) return tenant._id;
-
-    const fallbackTenant = await Tenant.findOne({
-      'integrations.whatsapp.config.phoneNumberId': phoneNumberId,
-    }).select('_id');
-    if (fallbackTenant) return fallbackTenant._id;
-  } catch (err) {
-    console.error('Error resolving tenant from phoneNumberId:', err?.message || err);
-  }
-
-  return null;
+  return { entityType: 'Unknown', entityId: null, entityName: null, tenant: null };
 }
 
 /**
@@ -137,7 +105,6 @@ const receiveWebhook = async (req, res) => {
 
         const phoneNumberId = value.metadata?.phone_number_id;
         const displayPhoneNumber = value.metadata?.display_phone_number;
-        let resolvedTenantId = await resolveTenantFromPhoneNumberId(phoneNumberId);
 
         // 1. Process Status Updates (sent, delivered, read, failed)
         if (Array.isArray(value.statuses)) {
@@ -179,11 +146,9 @@ const receiveWebhook = async (req, res) => {
             const contact = contacts.find((c) => c.wa_id === from);
             const senderName = contact?.profile?.name || null;
 
-            // Resolve sender identity & tenant
-            const entityResolution = await resolveSenderEntity(from, resolvedTenantId);
-            if (!resolvedTenantId && entityResolution.tenant) {
-              resolvedTenantId = entityResolution.tenant;
-            }
+            // Resolve sender identity across registered entities
+            const entityResolution = await resolveSenderEntity(from);
+            const resolvedTenantId = entityResolution.tenant || null;
 
             const content = {
               text: msg.text?.body || null,
@@ -247,7 +212,7 @@ const receiveWebhook = async (req, res) => {
             }
 
             const messageDoc = {
-              tenant: resolvedTenantId || null,
+              tenant: resolvedTenantId,
               messageId: msgId,
               direction: 'inbound',
               from,
@@ -272,7 +237,7 @@ const receiveWebhook = async (req, res) => {
               { upsert: true, new: true }
             );
 
-            // Upsert WhatsAppConversation
+            // Upsert WhatsAppConversation globally by contact phone
             const updateDoc = {
               $inc: { unreadCount: 1, totalMessages: 1 },
               $set: {
@@ -286,17 +251,18 @@ const receiveWebhook = async (req, res) => {
                 lastMessageAt: msgTimestamp,
                 lastInboundAt: msgTimestamp,
                 displayName: senderName || entityResolution.entityName,
+                tenant: resolvedTenantId,
                 senderEntity: {
                   entityType: entityResolution.entityType,
                   entityId: entityResolution.entityId,
                   entityName: entityResolution.entityName,
                 },
               },
-              $setOnInsert: { contactPhone: from, tenant: resolvedTenantId || null },
+              $setOnInsert: { contactPhone: from },
             };
 
             await WhatsAppConversation.findOneAndUpdate(
-              { contactPhone: from, tenant: resolvedTenantId || null },
+              { contactPhone: from },
               updateDoc,
               { upsert: true, new: true }
             );
@@ -363,7 +329,7 @@ const getConversations = asyncHandler(async (req, res) => {
 const getConversationMessages = asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
   const { before } = req.query;
-  const limit = parseInt(req.query.limit) || 50;
+  const limit = parseInt(req.query.limit, 10) || 50;
 
   const conversation = await WhatsAppConversation.findById(conversationId);
   if (!conversation) {
@@ -372,7 +338,6 @@ const getConversationMessages = asyncHandler(async (req, res) => {
 
   const query = {
     contactPhone: conversation.contactPhone,
-    tenant: conversation.tenant,
   };
 
   if (before) {
@@ -445,14 +410,14 @@ const getMediaProxy = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Media not found' });
   }
 
-  const cfg = await getTenantWhatsAppConfig(message.tenant);
-  if (!cfg.enabled || !cfg.accessToken) {
-    return res.status(400).json({ message: 'WhatsApp config incomplete' });
+  const accessToken = process.env.WA_ACCESS_TOKEN;
+  if (!accessToken) {
+    return res.status(400).json({ message: 'WhatsApp configuration incomplete: missing access token' });
   }
 
   try {
     const metaRes = await globalThis.fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
-      headers: { Authorization: `Bearer ${cfg.accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     if (!metaRes.ok) {
@@ -468,8 +433,8 @@ const getMediaProxy = asyncHandler(async (req, res) => {
     }
 
     const binaryRes = await globalThis.fetch(mediaUrl, {
-      headers: { 
-        Authorization: `Bearer ${cfg.accessToken}`,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
         'User-Agent': 'Tranzit-API/1.0',
       },
     });
@@ -485,7 +450,7 @@ const getMediaProxy = asyncHandler(async (req, res) => {
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Cache-Control', 'public, max-age=86400, immutable');
-    
+
     return res.send(Buffer.from(buffer));
   } catch (error) {
     console.error('Error in getMediaProxy:', error?.message || error);
@@ -510,7 +475,6 @@ const markConversationAsRead = asyncHandler(async (req, res) => {
   await WhatsAppMessage.updateMany(
     {
       contactPhone: conversation.contactPhone,
-      tenant: conversation.tenant,
       direction: 'inbound',
       status: { $ne: 'read' },
     },

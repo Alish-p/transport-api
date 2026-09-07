@@ -1,17 +1,18 @@
 import { formatPhoneE164ish } from "../../utils/format-utils.js";
-import { GRAPH_API_VERSION, getTenantWhatsAppConfig } from "./config.js";
+import { GRAPH_API_VERSION, getGlobalWhatsAppConfig, getTenantWhatsAppConfig } from "./config.js";
 import WhatsAppMessage from "../../entities/whatsapp/whatsappMessage.model.js";
 
-async function sendTemplateMessage({ tenantId, to, templateName, languageCode, components = [], forceGlobalFallback = false }) {
-  // When forceGlobalFallback is true (e.g. login OTP), skip tenant lookup and use global credentials directly
+async function sendTemplateMessage({
+  tenantId,
+  to,
+  templateName,
+  languageCode,
+  components = [],
+  forceGlobalFallback = false,
+}) {
   let cfg;
-  if (forceGlobalFallback) {
-    cfg = {
-      enabled: true,
-      accessToken: process.env.WA_ACCESS_TOKEN,
-      phoneNumberId: process.env.WA_PHONE_NUMBER_ID,
-      languageCode: process.env.WA_LANG || "en",
-    };
+  if (forceGlobalFallback || !tenantId) {
+    cfg = getGlobalWhatsAppConfig();
   } else {
     cfg = await getTenantWhatsAppConfig(tenantId);
   }
@@ -89,28 +90,35 @@ async function sendTemplateMessage({ tenantId, to, templateName, languageCode, c
   }
 }
 
-async function sendTextMessage({ tenantId, to, text }) {
-  const cfg = await getTenantWhatsAppConfig(tenantId);
-  if (!cfg.enabled) return { ok: false, skipped: true, reason: 'whatsapp_disabled' };
-  if (!cfg.accessToken || !cfg.phoneNumberId) {
-    console.error('WhatsApp config incomplete for text message');
-    return { ok: false, skipped: true, reason: 'config_incomplete' };
+async function sendTextMessage({ tenantId = null, to, text }) {
+  const cfg = getGlobalWhatsAppConfig();
+  if (!cfg.enabled || !cfg.accessToken || !cfg.phoneNumberId) {
+    console.error("WhatsApp config incomplete for text message");
+    return { ok: false, skipped: true, reason: "config_incomplete" };
   }
   const recipient = formatPhoneE164ish(to);
-  if (!recipient) return { ok: false, skipped: true, reason: 'invalid_recipient' };
+  if (!recipient) return { ok: false, skipped: true, reason: "invalid_recipient" };
 
-  const payload = { messaging_product: 'whatsapp', to: recipient, type: 'text', text: { body: text } };
+  const payload = {
+    messaging_product: "whatsapp",
+    to: recipient,
+    type: "text",
+    text: { body: text },
+  };
   const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${cfg.phoneNumberId}/messages`;
-  
+
   try {
     const res = await globalThis.fetch(url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${cfg.accessToken}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      console.error('WhatsApp text send failed', { status: res.status, data });
+      console.error("WhatsApp text send failed", { status: res.status, data });
       return { ok: false, status: res.status, data };
     }
     // Record outbound message
@@ -118,23 +126,23 @@ async function sendTextMessage({ tenantId, to, text }) {
       WhatsAppMessage.create({
         tenant: tenantId || null,
         messageId: data.messages[0].id,
-        direction: 'outbound',
+        direction: "outbound",
         from: cfg.phoneNumberId,
         to: recipient,
         contactPhone: recipient,
-        messageType: 'text',
+        messageType: "text",
         content: { text },
-        status: 'sent',
-        statusHistory: [{ status: 'sent', timestamp: new Date() }],
+        status: "sent",
+        statusHistory: [{ status: "sent", timestamp: new Date() }],
         timestamp: new Date(),
         rawPayload: payload,
       }).catch((logErr) => {
-        console.warn('Failed to log outbound WhatsApp text:', logErr?.message || logErr);
+        console.warn("Failed to log outbound WhatsApp text:", logErr?.message || logErr);
       });
     }
     return { ok: true, data };
   } catch (err) {
-    console.error('WhatsApp text send error:', err?.message || err);
+    console.error("WhatsApp text send error:", err?.message || err);
     return { ok: false, error: String(err?.message || err) };
   }
 }

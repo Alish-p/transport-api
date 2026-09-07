@@ -38,7 +38,6 @@ const integrationSchema = new Schema(
   {
     whatsapp: {
       enabled: { type: Boolean, default: false },
-      config: { type: Schema.Types.Mixed },
     },
     vehicleGPS: {
       enabled: { type: Boolean, default: false },

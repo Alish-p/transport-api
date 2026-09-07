@@ -54,9 +54,9 @@ const whatsappConversationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-whatsappConversationSchema.index({ tenant: 1, lastMessageAt: -1 });
-whatsappConversationSchema.index({ contactPhone: 1, tenant: 1 }, { unique: true });
+whatsappConversationSchema.index({ contactPhone: 1 }, { unique: true });
 whatsappConversationSchema.index({ lastMessageAt: -1 });
+whatsappConversationSchema.index({ tenant: 1, lastMessageAt: -1 });
 
 const WhatsAppConversation = mongoose.model('WhatsAppConversation', whatsappConversationSchema);
 

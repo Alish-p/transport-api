@@ -7,8 +7,9 @@ WhatsApp Cloud API Integration
   - `WA_GRAPH_API_VERSION` (optional): Defaults to `v22.0`.
   - `WA_DEFAULT_COUNTRY_CODE` (optional): Defaults to `91`.
 
-- Tenant-level override (optional):
-  - `Tenant.integrations.whatsapp = { enabled: true, config: { accessToken, phoneNumberId, languageCode } }`
+- Tenant-level notification toggle:
+  - `Tenant.integrations.whatsapp = { enabled: Boolean }`
+  - When enabled, automated WhatsApp notifications (e.g., LR generation, driver assignment, transporter payment) are dispatched using the global application credentials.
 
 - Sending (Outbound):
   - On transporter payment generation, a template message `transporter_payment_generated` is sent to `transporter.cellNo` if WhatsApp is enabled for the tenant.

@@ -4,6 +4,7 @@
 export {
   GRAPH_API_VERSION,
   sendTemplateMessage,
+  getGlobalWhatsAppConfig,
   getTenantWhatsAppConfig,
   sendLRGenerationNotification,
   sendDriverJobAssignedNotification,
