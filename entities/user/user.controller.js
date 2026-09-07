@@ -32,7 +32,10 @@ const createUser = asyncHandler(async (req, res) => {
   }
   // Prevent setting tenant permissions via API; tenant permissions must be edited manually in DB
   if (body.permissions) {
-    delete body.permissions.tenant;
+    body.permissions.tenant = {
+      view: false,
+      update: false,
+    };
   }
 
   const email = body.email ? body.email.toLowerCase().trim() : null;
@@ -331,13 +334,18 @@ const updateUser = asyncHandler(async (req, res) => {
     membership.role = body.role;
   }
   if (body.permissions) {
+    const existingPermissions = membership.permissions?.toObject
+      ? membership.permissions.toObject()
+      : (membership.permissions || {});
+
     // Preserve existing permissions.tenant from DB
-    if (membership.permissions?.tenant) {
-      body.permissions.tenant = membership.permissions.tenant;
-    } else {
-      delete body.permissions.tenant;
-    }
+    const existingTenant = existingPermissions.tenant || {};
+    body.permissions.tenant = {
+      view: Boolean(existingTenant.view),
+      update: Boolean(existingTenant.update),
+    };
     membership.permissions = body.permissions;
+    membership.markModified('permissions');
   }
   await membership.save();
 
