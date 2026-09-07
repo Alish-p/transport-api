@@ -405,11 +405,6 @@ const getMediaProxy = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'mediaId is required' });
   }
 
-  const message = await WhatsAppMessage.findOne({ 'content.media.id': mediaId });
-  if (!message) {
-    return res.status(404).json({ message: 'Media not found' });
-  }
-
   const accessToken = process.env.WA_ACCESS_TOKEN;
   if (!accessToken) {
     return res.status(400).json({ message: 'WhatsApp configuration incomplete: missing access token' });
