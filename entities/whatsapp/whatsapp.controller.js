@@ -1,10 +1,12 @@
 import asyncHandler from 'express-async-handler';
-
 import Driver from '../driver/driver.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import Customer from '../customer/customer.model.js';
 import WhatsAppMessage from './whatsappMessage.model.js';
+import WhatsAppConversation from './whatsappConversation.model.js';
 import Transporter from '../transporter/transporter.model.js';
+import { sendTextMessage as sendTextMessageService } from '../../services/whatsapp/api.js';
+import { getTenantWhatsAppConfig } from '../../services/whatsapp/config.js';
 
 /**
  * Resolve sender identity (Driver, Transporter, Customer) by phone number.
@@ -269,6 +271,35 @@ const receiveWebhook = async (req, res) => {
               { $setOnInsert: messageDoc },
               { upsert: true, new: true }
             );
+
+            // Upsert WhatsAppConversation
+            const updateDoc = {
+              $inc: { unreadCount: 1, totalMessages: 1 },
+              $set: {
+                lastMessage: {
+                  text: content.text || '[Media]',
+                  messageType: msgType,
+                  direction: 'inbound',
+                  timestamp: msgTimestamp,
+                  templateName: null,
+                },
+                lastMessageAt: msgTimestamp,
+                lastInboundAt: msgTimestamp,
+                displayName: senderName || entityResolution.entityName,
+                senderEntity: {
+                  entityType: entityResolution.entityType,
+                  entityId: entityResolution.entityId,
+                  entityName: entityResolution.entityName,
+                },
+              },
+              $setOnInsert: { contactPhone: from, tenant: resolvedTenantId || null },
+            };
+
+            await WhatsAppConversation.findOneAndUpdate(
+              { contactPhone: from, tenant: resolvedTenantId || null },
+              updateDoc,
+              { upsert: true, new: true }
+            );
           }
         }
       }
@@ -279,140 +310,40 @@ const receiveWebhook = async (req, res) => {
 };
 
 /**
- * GET /api/whatsapp/messages
- * View message history (supports filters by phone, direction, sender entity, date).
+ * GET /api/whatsapp/conversations
  */
-const getMessages = asyncHandler(async (req, res) => {
-  const { phone, direction, entityType, search, startDate, endDate } = req.query;
+const getConversations = asyncHandler(async (req, res) => {
+  const { q, entityType, tenantId } = req.query;
   const { limit, skip, page } = req.pagination;
 
   const query = {};
-  if (req.tenant) {
-    query.tenant = req.tenant;
+
+  if (tenantId) {
+    query.tenant = tenantId;
   }
 
-  if (phone) {
-    const digits = String(phone).replace(/\D/g, '').slice(-10);
-    query.contactPhone = new RegExp(`${digits}$`);
-  }
-
-  if (direction && ['inbound', 'outbound'].includes(direction)) {
-    query.direction = direction;
-  }
-
-  if (
-    entityType &&
-    ['Driver', 'Transporter', 'Customer', 'User', 'Unknown'].includes(entityType)
-  ) {
+  if (entityType) {
     query['senderEntity.entityType'] = entityType;
   }
 
-  if (search && String(search).trim()) {
-    const regex = new RegExp(String(search).trim(), 'i');
+  if (q && String(q).trim()) {
+    const regex = new RegExp(String(q).trim(), 'i');
     query.$or = [
-      { 'content.text': regex },
-      { senderName: regex },
-      { 'senderEntity.entityName': regex },
       { contactPhone: regex },
+      { displayName: regex },
+      { 'senderEntity.entityName': regex },
     ];
   }
 
-  if (startDate || endDate) {
-    query.timestamp = {};
-    if (startDate) query.timestamp.$gte = new Date(startDate);
-    if (endDate) query.timestamp.$lte = new Date(endDate);
-  }
-
-  const [total, messages] = await Promise.all([
-    WhatsAppMessage.countDocuments(query),
-    WhatsAppMessage.find(query)
-      .sort({ timestamp: -1 })
+  const [total, conversations] = await Promise.all([
+    WhatsAppConversation.countDocuments(query),
+    WhatsAppConversation.find(query)
+      .populate('tenant', 'companyName')
+      .sort({ lastMessageAt: -1 })
       .skip(skip)
       .limit(limit)
       .lean(),
   ]);
-
-  return res.status(200).json({
-    success: true,
-    data: messages,
-    pagination: {
-      total,
-      page,
-      limit,
-      pages: Math.ceil(total / limit) || 1,
-    },
-  });
-});
-
-/**
- * GET /api/whatsapp/conversations
- * View aggregated conversation threads grouped by contact phone.
- */
-const getConversations = asyncHandler(async (req, res) => {
-  const { search, entityType } = req.query;
-  const { limit, skip, page } = req.pagination;
-
-  const matchStage = {};
-  if (req.tenant) {
-    matchStage.tenant = req.tenant;
-  }
-
-  const pipeline = [
-    { $match: matchStage },
-    { $sort: { timestamp: -1 } },
-    {
-      $group: {
-        _id: '$contactPhone',
-        lastMessage: { $first: '$$ROOT' },
-        unreadCount: {
-          $sum: {
-            $cond: [
-              {
-                $and: [
-                  { $eq: ['$direction', 'inbound'] },
-                  { $ne: ['$status', 'read'] },
-                ],
-              },
-              1,
-              0,
-            ],
-          },
-        },
-        totalMessages: { $sum: 1 },
-        lastActivity: { $max: '$timestamp' },
-      },
-    },
-    { $sort: { lastActivity: -1 } },
-  ];
-
-  if (entityType) {
-    pipeline.push({
-      $match: { 'lastMessage.senderEntity.entityType': entityType },
-    });
-  }
-
-  if (search && String(search).trim()) {
-    const regex = new RegExp(String(search).trim(), 'i');
-    pipeline.push({
-      $match: {
-        $or: [
-          { _id: regex },
-          { 'lastMessage.senderName': regex },
-          { 'lastMessage.senderEntity.entityName': regex },
-          { 'lastMessage.content.text': regex },
-        ],
-      },
-    });
-  }
-
-  // Count total conversations
-  const countPipeline = [...pipeline, { $count: 'total' }];
-  const [countResult] = await WhatsAppMessage.aggregate(countPipeline);
-  const total = countResult?.total || 0;
-
-  pipeline.push({ $skip: skip }, { $limit: limit });
-
-  const conversations = await WhatsAppMessage.aggregate(pipeline);
 
   return res.status(200).json({
     success: true,
@@ -427,45 +358,182 @@ const getConversations = asyncHandler(async (req, res) => {
 });
 
 /**
- * PATCH /api/whatsapp/conversations/:phone/read
- * Mark inbound messages in a conversation as read.
+ * GET /api/whatsapp/conversations/:conversationId/messages
  */
-const markConversationAsRead = asyncHandler(async (req, res) => {
-  const { phone } = req.params;
-  if (!phone) {
-    return res.status(400).json({ message: 'Phone parameter is required' });
+const getConversationMessages = asyncHandler(async (req, res) => {
+  const { conversationId } = req.params;
+  const { before } = req.query;
+  const limit = parseInt(req.query.limit) || 50;
+
+  const conversation = await WhatsAppConversation.findById(conversationId);
+  if (!conversation) {
+    return res.status(404).json({ message: 'Conversation not found' });
   }
 
-  const digits = String(phone).replace(/\D/g, '').slice(-10);
   const query = {
-    contactPhone: new RegExp(`${digits}$`),
-    direction: 'inbound',
-    status: { $ne: 'read' },
+    contactPhone: conversation.contactPhone,
+    tenant: conversation.tenant,
   };
-  if (req.tenant) {
-    query.tenant = req.tenant;
+
+  if (before) {
+    query.timestamp = { $lt: new Date(before) };
   }
 
-  const result = await WhatsAppMessage.updateMany(query, {
-    $set: { status: 'read' },
-    $push: {
-      statusHistory: {
-        status: 'read',
-        timestamp: new Date(),
-      },
-    },
-  });
+  const messages = await WhatsAppMessage.find(query)
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .lean();
 
   return res.status(200).json({
     success: true,
-    updatedCount: result.modifiedCount,
+    data: messages.reverse(),
   });
+});
+
+/**
+ * POST /api/whatsapp/messages/send
+ */
+const sendTextMessage = asyncHandler(async (req, res) => {
+  const { conversationId, text } = req.body;
+
+  if (!conversationId || !text) {
+    return res.status(400).json({ message: 'conversationId and text are required' });
+  }
+
+  const conversation = await WhatsAppConversation.findById(conversationId);
+  if (!conversation) {
+    return res.status(404).json({ message: 'Conversation not found' });
+  }
+
+  const result = await sendTextMessageService({
+    tenantId: conversation.tenant,
+    to: conversation.contactPhone,
+    text,
+  });
+
+  if (result.ok) {
+    const now = new Date();
+    await WhatsAppConversation.findByIdAndUpdate(conversationId, {
+      $inc: { totalMessages: 1 },
+      $set: {
+        lastMessage: {
+          text,
+          messageType: 'text',
+          direction: 'outbound',
+          timestamp: now,
+          templateName: null,
+        },
+        lastMessageAt: now,
+      },
+    });
+  }
+
+  return res.status(result.ok ? 200 : 400).json(result);
+});
+
+/**
+ * GET /api/whatsapp/media/:mediaId
+ */
+const getMediaProxy = asyncHandler(async (req, res) => {
+  const { mediaId } = req.params;
+  if (!mediaId) {
+    return res.status(400).json({ message: 'mediaId is required' });
+  }
+
+  const message = await WhatsAppMessage.findOne({ 'content.media.id': mediaId });
+  if (!message) {
+    return res.status(404).json({ message: 'Media not found' });
+  }
+
+  const cfg = await getTenantWhatsAppConfig(message.tenant);
+  if (!cfg.enabled || !cfg.accessToken) {
+    return res.status(400).json({ message: 'WhatsApp config incomplete' });
+  }
+
+  try {
+    const metaRes = await globalThis.fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${cfg.accessToken}` },
+    });
+
+    if (!metaRes.ok) {
+      const errData = await metaRes.text();
+      console.error('Failed to get media url from meta', { status: metaRes.status, data: errData });
+      return res.status(metaRes.status).json({ message: 'Failed to fetch media details from Meta' });
+    }
+
+    const metaData = await metaRes.json();
+    const mediaUrl = metaData.url;
+    if (!mediaUrl) {
+      return res.status(404).json({ message: 'Media URL not found in Meta response' });
+    }
+
+    const binaryRes = await globalThis.fetch(mediaUrl, {
+      headers: { 
+        Authorization: `Bearer ${cfg.accessToken}`,
+        'User-Agent': 'Tranzit-API/1.0',
+      },
+    });
+
+    if (!binaryRes.ok) {
+      console.error('Failed to download media binary', { status: binaryRes.status });
+      return res.status(binaryRes.status).json({ message: 'Failed to download media' });
+    }
+
+    const buffer = await binaryRes.arrayBuffer();
+
+    res.set('Content-Type', binaryRes.headers.get('Content-Type') || 'application/octet-stream');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cache-Control', 'public, max-age=86400, immutable');
+    
+    return res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Error in getMediaProxy:', error?.message || error);
+    return res.status(500).json({ message: 'Internal server error fetching media' });
+  }
+});
+
+/**
+ * PATCH /api/whatsapp/conversations/:conversationId/read
+ */
+const markConversationAsRead = asyncHandler(async (req, res) => {
+  const { conversationId } = req.params;
+
+  const conversation = await WhatsAppConversation.findById(conversationId);
+  if (!conversation) {
+    return res.status(404).json({ message: 'Conversation not found' });
+  }
+
+  conversation.unreadCount = 0;
+  await conversation.save();
+
+  await WhatsAppMessage.updateMany(
+    {
+      contactPhone: conversation.contactPhone,
+      tenant: conversation.tenant,
+      direction: 'inbound',
+      status: { $ne: 'read' },
+    },
+    {
+      $set: { status: 'read' },
+      $push: {
+        statusHistory: {
+          status: 'read',
+          timestamp: new Date(),
+        },
+      },
+    }
+  );
+
+  return res.status(200).json({ success: true });
 });
 
 export {
   verifyWebhook,
   receiveWebhook,
-  getMessages,
   getConversations,
+  getConversationMessages,
+  sendTextMessage,
   markConversationAsRead,
+  getMediaProxy,
 };

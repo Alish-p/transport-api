@@ -18,7 +18,7 @@ const port = process.env.PORT || 5001;
 // -----------------------------------------------------------------------------
 // Security & Core Middleware
 // -----------------------------------------------------------------------------
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
 const corsOptions = {
   origin: ["https://transport-rewrite.onrender.com", "http://localhost:3031", "https://tranzitsolutions.com", "http://localhost:5174", "https://portal.tranzitsolutions.com"],

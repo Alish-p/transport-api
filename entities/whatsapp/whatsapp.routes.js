@@ -1,28 +1,27 @@
 import { Router } from 'express';
-
 import {
-  getMessages,
   verifyWebhook,
   receiveWebhook,
   getConversations,
+  getConversationMessages,
+  sendTextMessage,
   markConversationAsRead,
+  getMediaProxy,
 } from './whatsapp.controller.js';
-import { authenticate } from '../../middlewares/auth.js';
+import { authenticate, requireSuperuser } from '../../middlewares/auth.js';
 import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 
-// -----------------------------------------------------------------------------
-// Public Webhook Endpoints (Meta Cloud API)
-// -----------------------------------------------------------------------------
+// Public: Meta Webhook
 router.get('/webhook', verifyWebhook);
 router.post('/webhook', receiveWebhook);
 
-// -----------------------------------------------------------------------------
-// Authenticated Viewer Endpoints
-// -----------------------------------------------------------------------------
-router.get('/messages', authenticate, pagination, getMessages);
-router.get('/conversations', authenticate, pagination, getConversations);
-router.patch('/conversations/:phone/read', authenticate, markConversationAsRead);
+// Superuser-only endpoints
+router.get('/conversations', authenticate, requireSuperuser, pagination, getConversations);
+router.get('/conversations/:conversationId/messages', authenticate, requireSuperuser, getConversationMessages);
+router.patch('/conversations/:conversationId/read', authenticate, requireSuperuser, markConversationAsRead);
+router.post('/messages/send', authenticate, requireSuperuser, sendTextMessage);
+router.get('/media/:mediaId', authenticate, requireSuperuser, getMediaProxy);
 
 export default router;
