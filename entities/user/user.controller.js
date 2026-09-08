@@ -1,7 +1,7 @@
+import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 
 import UserModel from './user.model.js';
-import { buildSortObject } from '../../utils/query-utils.js';
 import TenantMembership from '../tenantMembership/tenantMembership.model.js';
 
 // Format membership + user into a unified response object
@@ -122,47 +122,86 @@ const buildPermissionQueryCondition = (permission) => {
   return andConditions.length > 0 ? { $and: andConditions } : null;
 };
 
-// Fetch Users for Current Company
-const fetchUsers = asyncHandler(async (req, res) => {
-  const { name, designation, permission, orderBy, order } = req.query;
-  const { limit, skip } = req.pagination;
+const USER_SORT_FIELDS = {
+  name: 'user.name',
+  email: 'user.email',
+  mobile: 'user.mobile',
+  address: 'user.address',
+  lastSeen: 'user.lastSeen',
+};
 
-  const membershipQuery = { tenant: req.tenant };
+const getUserSortStage = (orderBy, order) => {
+  if (!orderBy) return { createdAt: -1 };
+  const sortDirection = order === 'asc' ? 1 : -1;
+  const sortKey = USER_SORT_FIELDS[orderBy] || orderBy;
+  return { [sortKey]: sortDirection };
+};
+
+const buildUserPipeline = (req) => {
+  const { name, designation, permission, orderBy, order } = req.query;
+  const matchStage = { tenant: new mongoose.Types.ObjectId(req.tenant) };
 
   if (designation) {
-    membershipQuery.designation = { $regex: designation, $options: 'i' };
+    matchStage.designation = { $regex: designation, $options: 'i' };
   }
 
   const permCondition = buildPermissionQueryCondition(permission);
   if (permCondition) {
-    membershipQuery.$and = permCondition.$and;
+    matchStage.$and = permCondition.$and;
   }
+
+  const pipeline = [
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'user',
+        foreignField: '_id',
+        as: 'user',
+      },
+    },
+    { $unwind: '$user' },
+  ];
 
   if (name) {
-    const matchingUsers = await UserModel.find({
-      name: { $regex: name, $options: 'i' },
-    }).select('_id');
-    const userIds = matchingUsers.map((u) => u._id);
-    membershipQuery.user = { $in: userIds };
+    pipeline.push({
+      $match: {
+        'user.name': { $regex: name, $options: 'i' },
+      },
+    });
   }
 
-  const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
+  pipeline.push({ $sort: getUserSortStage(orderBy, order) });
 
-  const [memberships, total] = await Promise.all([
-    TenantMembership.find(membershipQuery)
-      .populate({
-        path: 'user',
-        select: '-password',
-      })
-      .sort(sortObj)
-      .skip(skip)
-      .limit(limit),
-    TenantMembership.countDocuments(membershipQuery),
-  ]);
+  return pipeline;
+};
 
-  const users = memberships
-    .filter((m) => m.user)
-    .map((m) => formatMemberUser(m));
+// Fetch Users for Current Company
+const fetchUsers = asyncHandler(async (req, res) => {
+  const { limit, skip } = req.pagination;
+
+  const pipeline = buildUserPipeline(req);
+
+  pipeline.push({
+    $facet: {
+      users: [
+        { $skip: skip },
+        { $limit: limit },
+        { $project: { 'user.password': 0 } },
+      ],
+      totalCount: [{ $count: 'count' }],
+    },
+  });
+
+  const [result] = await TenantMembership.aggregate(pipeline).collation({
+    locale: 'en',
+    strength: 2,
+  });
+
+  const total = result?.totalCount?.[0]?.count || 0;
+  const memberships = result?.users || [];
+
+  const users = memberships.map((m) => formatMemberUser(m));
 
   return res.status(200).json({
     users,
@@ -172,7 +211,7 @@ const fetchUsers = asyncHandler(async (req, res) => {
 
 // Export Users for Current Company
 const exportUsers = asyncHandler(async (req, res) => {
-  const { name, designation, permission, columns, order, orderBy } = req.query;
+  const { columns } = req.query;
 
   const COLUMN_MAPPING = {
     name: { header: 'Name', key: 'name', width: 25 },
@@ -204,23 +243,11 @@ const exportUsers = asyncHandler(async (req, res) => {
   const worksheet = workbook.addWorksheet('Users');
   worksheet.columns = exportColumns;
 
-  const membershipQuery = { tenant: req.tenant };
-  if (designation) membershipQuery.designation = { $regex: designation, $options: 'i' };
-  const permCondition = buildPermissionQueryCondition(permission);
-  if (permCondition) membershipQuery.$and = permCondition.$and;
+  const pipeline = buildUserPipeline(req);
+  pipeline.push({ $project: { 'user.password': 0 } });
 
-  if (name) {
-    const matchingUsers = await UserModel.find({
-      name: { $regex: name, $options: 'i' },
-    }).select('_id');
-    membershipQuery.user = { $in: matchingUsers.map((u) => u._id) };
-  }
-
-  const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
-  const cursor = TenantMembership.find(membershipQuery)
-    .populate('user', '-password')
-    .sort(sortObj)
-    .lean()
+  const cursor = TenantMembership.aggregate(pipeline)
+    .collation({ locale: 'en', strength: 2 })
     .cursor();
 
   for (let membership = await cursor.next(); membership != null; membership = await cursor.next()) {
