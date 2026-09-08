@@ -355,6 +355,7 @@ const updateUser = asyncHandler(async (req, res) => {
   if (body.address) userUpdateFields.address = body.address;
   if (body.mobile) userUpdateFields.mobile = body.mobile;
   if (body.bankDetails) userUpdateFields.bankDetails = body.bankDetails;
+  if (body.password) userUpdateFields.password = body.password;
 
   let updatedUser = null;
   if (Object.keys(userUpdateFields).length > 0) {
