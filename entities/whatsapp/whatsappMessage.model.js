@@ -143,6 +143,8 @@ const whatsappMessageSchema = new Schema(
 );
 
 // Helpful compound indexes
+whatsappMessageSchema.index({ contactPhone: 1, timestamp: -1 });
+whatsappMessageSchema.index({ timestamp: -1 });
 whatsappMessageSchema.index({ tenant: 1, contactPhone: 1, timestamp: -1 });
 whatsappMessageSchema.index({ tenant: 1, timestamp: -1 });
 whatsappMessageSchema.index({ tenant: 1, status: 1 });

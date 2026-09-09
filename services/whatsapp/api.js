@@ -1,6 +1,6 @@
 import { formatPhoneE164ish } from "../../utils/format-utils.js";
 import { GRAPH_API_VERSION, getGlobalWhatsAppConfig, getTenantWhatsAppConfig } from "./config.js";
-import WhatsAppMessage from "../../entities/whatsapp/whatsappMessage.model.js";
+import { recordOutboundMessage } from "./helper.js";
 
 async function sendTemplateMessage({
   tenantId,
@@ -58,29 +58,20 @@ async function sendTemplateMessage({
       return { ok: false, status: res.status, data };
     }
 
-    // Record outbound template message asynchronously for thread tracking
+    // Record outbound template message and upsert conversation thread
     if (data?.messages?.[0]?.id) {
-      try {
-        WhatsAppMessage.create({
-          tenant: tenantId || null,
-          messageId: data.messages[0].id,
-          direction: "outbound",
-          from: cfg.phoneNumberId,
-          to: recipient,
-          contactPhone: recipient,
-          messageType: "template",
-          content: {
-            templateName,
-            templateComponents: components,
-          },
-          status: "sent",
-          statusHistory: [{ status: "sent", timestamp: new Date() }],
-          timestamp: new Date(),
-          rawPayload: payload,
-        }).catch((logErr) => {
-          console.warn("Failed to log outbound WhatsApp message:", logErr?.message || logErr);
-        });
-      } catch (_) {}
+      recordOutboundMessage({
+        tenantId,
+        messageId: data.messages[0].id,
+        from: cfg.phoneNumberId,
+        to: recipient,
+        messageType: "template",
+        templateName,
+        components,
+        rawPayload: payload,
+      }).catch((logErr) => {
+        console.warn("Failed to log outbound WhatsApp message:", logErr?.message || logErr);
+      });
     }
 
     return { ok: true, data };
@@ -121,20 +112,15 @@ async function sendTextMessage({ tenantId = null, to, text }) {
       console.error("WhatsApp text send failed", { status: res.status, data });
       return { ok: false, status: res.status, data };
     }
-    // Record outbound message
+    // Record outbound message and upsert conversation thread
     if (data?.messages?.[0]?.id) {
-      WhatsAppMessage.create({
-        tenant: tenantId || null,
+      recordOutboundMessage({
+        tenantId,
         messageId: data.messages[0].id,
-        direction: "outbound",
         from: cfg.phoneNumberId,
         to: recipient,
-        contactPhone: recipient,
         messageType: "text",
         content: { text },
-        status: "sent",
-        statusHistory: [{ status: "sent", timestamp: new Date() }],
-        timestamp: new Date(),
         rawPayload: payload,
       }).catch((logErr) => {
         console.warn("Failed to log outbound WhatsApp text:", logErr?.message || logErr);

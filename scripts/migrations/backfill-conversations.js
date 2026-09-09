@@ -1,99 +1,37 @@
 import 'dotenv/config';
-import connectDB from '../../config/db.js';
-import WhatsAppMessage from '../../entities/whatsapp/whatsappMessage.model.js';
-import WhatsAppConversation from '../../entities/whatsapp/whatsappConversation.model.js';
 import mongoose from 'mongoose';
+import connectDB from '../../config/db.js';
 
-async function backfillConversations() {
+/**
+ * Note: Conversations are now dynamically aggregated on-the-fly from the single
+ * `WhatsAppMessage` collection. A separate `WhatsAppConversation` collection is no longer used.
+ *
+ * This script is retained for cleaning up any legacy `whatsappconversations` collection.
+ */
+async function cleanupLegacyConversations() {
   console.log('Connecting to database...');
   await connectDB();
   console.log('Connected.');
 
-  console.log('Aggregating WhatsAppMessage to form conversations...');
-  
-  const pipeline = [
-    { $sort: { timestamp: -1 } },
-    {
-      $group: {
-        _id: { contactPhone: '$contactPhone', tenant: '$tenant' },
-        lastMessage: { $first: '$$ROOT' },
-        unreadCount: {
-          $sum: {
-            $cond: [
-              {
-                $and: [
-                  { $eq: ['$direction', 'inbound'] },
-                  { $ne: ['$status', 'read'] },
-                ],
-              },
-              1,
-              0,
-            ],
-          },
-        },
-        totalMessages: { $sum: 1 },
-        lastActivity: { $max: '$timestamp' },
-      },
-    },
-  ];
-
-  const results = await WhatsAppMessage.aggregate(pipeline);
-  console.log(`Found ${results.length} conversation threads to migrate.`);
-
-  let processed = 0;
-  for (const group of results) {
-    const { contactPhone, tenant } = group._id;
-    const lastMsg = group.lastMessage;
-    
-    // Find last inbound message to get lastInboundAt properly if possible,
-    // or just use last activity if last message was inbound.
-    const lastInboundAt = lastMsg.direction === 'inbound' ? lastMsg.timestamp : null;
-
-    const updateDoc = {
-      $set: {
-        lastMessage: {
-          text: lastMsg.content?.text || (lastMsg.content?.media ? '[Media]' : ''),
-          messageType: lastMsg.messageType || 'text',
-          direction: lastMsg.direction,
-          timestamp: lastMsg.timestamp,
-          templateName: lastMsg.content?.templateName || null,
-        },
-        lastMessageAt: group.lastActivity,
-        unreadCount: group.unreadCount,
-        totalMessages: group.totalMessages,
-        displayName: lastMsg.senderName || lastMsg.senderEntity?.entityName,
-        senderEntity: lastMsg.senderEntity || { entityType: 'Unknown' },
-      },
-      $setOnInsert: {
-        contactPhone,
-        tenant: tenant || null,
-      },
-    };
-
-    if (lastInboundAt) {
-      updateDoc.$set.lastInboundAt = lastInboundAt;
+  try {
+    const collections = await mongoose.connection.db.listCollections({ name: 'whatsappconversations' }).toArray();
+    if (collections.length > 0) {
+      console.log('Dropping legacy whatsappconversations collection...');
+      await mongoose.connection.db.dropCollection('whatsappconversations');
+      console.log('Legacy collection dropped successfully.');
+    } else {
+      console.log('No legacy whatsappconversations collection found.');
     }
-
-    await WhatsAppConversation.findOneAndUpdate(
-      { contactPhone, tenant: tenant || null },
-      updateDoc,
-      { upsert: true, new: true }
-    );
-
-    processed++;
-    if (processed % 100 === 0) {
-      console.log(`Processed ${processed}/${results.length}...`);
-    }
+  } catch (err) {
+    console.warn('Notice:', err?.message || err);
   }
 
-  console.log(`Successfully backfilled ${processed} conversations.`);
-  
   await mongoose.disconnect();
-  console.log('Disconnected. Migration complete.');
+  console.log('Disconnected. Done.');
   process.exit(0);
 }
 
-backfillConversations().catch(err => {
-  console.error('Migration failed:', err);
+cleanupLegacyConversations().catch((err) => {
+  console.error('Failed:', err);
   process.exit(1);
 });

@@ -1,61 +1,20 @@
+import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
-import Driver from '../driver/driver.model.js';
-import Customer from '../customer/customer.model.js';
 import WhatsAppMessage from './whatsappMessage.model.js';
-import WhatsAppConversation from './whatsappConversation.model.js';
-import Transporter from '../transporter/transporter.model.js';
 import { sendTextMessage as sendTextMessageService } from '../../services/whatsapp/api.js';
+import { resolveContactEntity } from '../../services/whatsapp/helper.js';
 
 /**
- * Resolve sender identity (Driver, Transporter, Customer) by phone number.
+ * Format template preview text for conversation snippets.
  */
-async function resolveSenderEntity(phone) {
-  if (!phone) return { entityType: 'Unknown', entityId: null, entityName: null, tenant: null };
-  const last10 = String(phone).replace(/\D/g, '').slice(-10);
-  if (!last10 || last10.length < 10) {
-    return { entityType: 'Unknown', entityId: null, entityName: null, tenant: null };
-  }
-
-  const phoneRegex = new RegExp(`${last10}$`);
-
-  // 1. Check Driver
-  const driver = await Driver.findOne({ driverCellNo: phoneRegex }).select('driverName tenant');
-  if (driver) {
-    return {
-      entityType: 'Driver',
-      entityId: driver._id,
-      entityName: driver.driverName,
-      tenant: driver.tenant,
-    };
-  }
-
-  // 2. Check Transporter
-  const transporter = await Transporter.findOne({ cellNo: phoneRegex }).select(
-    'transportName ownerName tenant'
-  );
-  if (transporter) {
-    return {
-      entityType: 'Transporter',
-      entityId: transporter._id,
-      entityName: transporter.transportName || transporter.ownerName,
-      tenant: transporter.tenant,
-    };
-  }
-
-  // 3. Check Customer
-  const customer = await Customer.findOne({ cellNo: phoneRegex }).select(
-    'customerName companyName tenant'
-  );
-  if (customer) {
-    return {
-      entityType: 'Customer',
-      entityId: customer._id,
-      entityName: customer.customerName || customer.companyName,
-      tenant: customer.tenant,
-    };
-  }
-
-  return { entityType: 'Unknown', entityId: null, entityName: null, tenant: null };
+function getTemplateSnippet(templateName) {
+  const map = {
+    lr_generation_template: '📄 LR Details',
+    driver_job_assigned: '🚚 Job Assigned',
+    transporter_payment_generated_v1: '💰 Payment Receipt',
+    login: '🔐 Verification Code',
+  };
+  return map[templateName] || `Template: ${templateName || 'Message'}`;
 }
 
 /**
@@ -147,7 +106,7 @@ const receiveWebhook = async (req, res) => {
             const senderName = contact?.profile?.name || null;
 
             // Resolve sender identity across registered entities
-            const entityResolution = await resolveSenderEntity(from);
+            const entityResolution = await resolveContactEntity(from);
             const resolvedTenantId = entityResolution.tenant || null;
 
             const content = {
@@ -236,36 +195,6 @@ const receiveWebhook = async (req, res) => {
               { $setOnInsert: messageDoc },
               { upsert: true, new: true }
             );
-
-            // Upsert WhatsAppConversation globally by contact phone
-            const updateDoc = {
-              $inc: { unreadCount: 1, totalMessages: 1 },
-              $set: {
-                lastMessage: {
-                  text: content.text || '[Media]',
-                  messageType: msgType,
-                  direction: 'inbound',
-                  timestamp: msgTimestamp,
-                  templateName: null,
-                },
-                lastMessageAt: msgTimestamp,
-                lastInboundAt: msgTimestamp,
-                displayName: senderName || entityResolution.entityName,
-                tenant: resolvedTenantId,
-                senderEntity: {
-                  entityType: entityResolution.entityType,
-                  entityId: entityResolution.entityId,
-                  entityName: entityResolution.entityName,
-                },
-              },
-              $setOnInsert: { contactPhone: from },
-            };
-
-            await WhatsAppConversation.findOneAndUpdate(
-              { contactPhone: from },
-              updateDoc,
-              { upsert: true, new: true }
-            );
           }
         }
       }
@@ -277,39 +206,157 @@ const receiveWebhook = async (req, res) => {
 
 /**
  * GET /api/whatsapp/conversations
+ * Groups all WhatsApp messages on the fly by contact phone.
  */
 const getConversations = asyncHandler(async (req, res) => {
   const { q, entityType, tenantId } = req.query;
   const { limit, skip, page } = req.pagination;
 
-  const query = {};
+  const matchStage = {};
 
   if (tenantId) {
-    query.tenant = tenantId;
+    matchStage.tenant = new mongoose.Types.ObjectId(tenantId);
   }
 
   if (entityType) {
-    query['senderEntity.entityType'] = entityType;
+    matchStage['senderEntity.entityType'] = entityType;
   }
 
   if (q && String(q).trim()) {
     const regex = new RegExp(String(q).trim(), 'i');
-    query.$or = [
+    matchStage.$or = [
       { contactPhone: regex },
-      { displayName: regex },
+      { senderName: regex },
       { 'senderEntity.entityName': regex },
     ];
   }
 
-  const [total, conversations] = await Promise.all([
-    WhatsAppConversation.countDocuments(query),
-    WhatsAppConversation.find(query)
-      .populate('tenant', 'companyName')
-      .sort({ lastMessageAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-  ]);
+  const pipeline = [
+    ...(Object.keys(matchStage).length > 0 ? [{ $match: matchStage }] : []),
+    { $sort: { timestamp: -1 } },
+    {
+      $group: {
+        _id: '$contactPhone',
+        contactPhone: { $first: '$contactPhone' },
+        lastMessageDoc: { $first: '$$ROOT' },
+        lastMessageAt: { $max: '$timestamp' },
+        lastInboundAt: {
+          $max: {
+            $cond: [{ $eq: ['$direction', 'inbound'] }, '$timestamp', null],
+          },
+        },
+        unreadCount: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ['$direction', 'inbound'] },
+                  { $ne: ['$status', 'read'] },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+        totalMessages: { $sum: 1 },
+        senderEntity: { $first: '$senderEntity' },
+        senderName: { $first: '$senderName' },
+        tenant: { $first: '$tenant' },
+      },
+    },
+    {
+      $lookup: {
+        from: 'tenants',
+        localField: 'tenant',
+        foreignField: '_id',
+        as: 'tenantDoc',
+      },
+    },
+    {
+      $addFields: {
+        tenant: {
+          $let: {
+            vars: { t: { $arrayElemAt: ['$tenantDoc', 0] } },
+            in: {
+              $cond: [
+                { $gt: [{ $size: '$tenantDoc' }, 0] },
+                {
+                  _id: '$$t._id',
+                  companyName: { $ifNull: ['$$t.companyName', '$$t.name'] },
+                },
+                null,
+              ],
+            },
+          },
+        },
+        displayName: {
+          $ifNull: ['$senderName', '$senderEntity.entityName', null],
+        },
+        lastMessage: {
+          text: {
+            $ifNull: [
+              '$lastMessageDoc.content.text',
+              {
+                $cond: [
+                  { $eq: ['$lastMessageDoc.messageType', 'template'] },
+                  {
+                    $concat: [
+                      'Template: ',
+                      { $ifNull: ['$lastMessageDoc.content.templateName', ''] },
+                    ],
+                  },
+                  {
+                    $cond: [
+                      { $ne: ['$lastMessageDoc.content.media', null] },
+                      '[Media]',
+                      '',
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          messageType: '$lastMessageDoc.messageType',
+          direction: '$lastMessageDoc.direction',
+          timestamp: '$lastMessageDoc.timestamp',
+          templateName: '$lastMessageDoc.content.templateName',
+        },
+      },
+    },
+    {
+      $project: {
+        tenantDoc: 0,
+        lastMessageDoc: 0,
+      },
+    },
+    { $sort: { lastMessageAt: -1 } },
+    {
+      $facet: {
+        metadata: [{ $count: 'total' }],
+        data: [{ $skip: skip }, { $limit: limit }],
+      },
+    },
+  ];
+
+  const result = await WhatsAppMessage.aggregate(pipeline);
+  const total = result[0]?.metadata[0]?.total || 0;
+  const rawConversations = result[0]?.data || [];
+
+  // Enhance template snippets for lastMessage preview if available
+  const conversations = rawConversations.map((c) => {
+    if (c.lastMessage?.messageType === 'template') {
+      const snippet = getTemplateSnippet(c.lastMessage.templateName);
+      return {
+        ...c,
+        lastMessage: {
+          ...c.lastMessage,
+          text: snippet,
+        },
+      };
+    }
+    return c;
+  });
 
   return res.status(200).json({
     success: true,
@@ -331,13 +378,10 @@ const getConversationMessages = asyncHandler(async (req, res) => {
   const { before } = req.query;
   const limit = parseInt(req.query.limit, 10) || 50;
 
-  const conversation = await WhatsAppConversation.findById(conversationId);
-  if (!conversation) {
-    return res.status(404).json({ message: 'Conversation not found' });
-  }
+  const contactPhone = decodeURIComponent(conversationId);
 
   const query = {
-    contactPhone: conversation.contactPhone,
+    contactPhone,
   };
 
   if (before) {
@@ -365,33 +409,14 @@ const sendTextMessage = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'conversationId and text are required' });
   }
 
-  const conversation = await WhatsAppConversation.findById(conversationId);
-  if (!conversation) {
-    return res.status(404).json({ message: 'Conversation not found' });
-  }
+  const contactPhone = decodeURIComponent(conversationId);
+  const entityResolution = await resolveContactEntity(contactPhone);
 
   const result = await sendTextMessageService({
-    tenantId: conversation.tenant,
-    to: conversation.contactPhone,
+    tenantId: entityResolution.tenant || null,
+    to: contactPhone,
     text,
   });
-
-  if (result.ok) {
-    const now = new Date();
-    await WhatsAppConversation.findByIdAndUpdate(conversationId, {
-      $inc: { totalMessages: 1 },
-      $set: {
-        lastMessage: {
-          text,
-          messageType: 'text',
-          direction: 'outbound',
-          timestamp: now,
-          templateName: null,
-        },
-        lastMessageAt: now,
-      },
-    });
-  }
 
   return res.status(result.ok ? 200 : 400).json(result);
 });
@@ -458,18 +483,11 @@ const getMediaProxy = asyncHandler(async (req, res) => {
  */
 const markConversationAsRead = asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
-
-  const conversation = await WhatsAppConversation.findById(conversationId);
-  if (!conversation) {
-    return res.status(404).json({ message: 'Conversation not found' });
-  }
-
-  conversation.unreadCount = 0;
-  await conversation.save();
+  const contactPhone = decodeURIComponent(conversationId);
 
   await WhatsAppMessage.updateMany(
     {
-      contactPhone: conversation.contactPhone,
+      contactPhone,
       direction: 'inbound',
       status: { $ne: 'read' },
     },
