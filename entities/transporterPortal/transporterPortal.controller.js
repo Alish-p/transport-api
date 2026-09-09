@@ -90,6 +90,7 @@ const getDashboard = asyncHandler(async (req, res) => {
             { _id: 1 },
           ).lean().then((subs) => subs.map((s) => s._id)) },
           tenant: new mongoose.Types.ObjectId(tenant),
+          status: { $ne: 'Cancelled' },
         },
       },
       { $group: { _id: null, total: { $sum: '$amount' } } },
@@ -228,7 +229,7 @@ function formatSubtripForTransporter(subtrip) {
 
   // Calculate advances total
   const totalAdvances = Array.isArray(subtrip.advances)
-    ? subtrip.advances.reduce((acc, a) => acc + (a.amount || 0), 0)
+    ? subtrip.advances.filter(a => a.status !== 'Cancelled').reduce((acc, a) => acc + (a.amount || 0), 0)
     : 0;
 
   const netPayable = Math.max(0, netFreightAmount - totalAdvances);
@@ -607,9 +608,10 @@ const getAdvances = asyncHandler(async (req, res) => {
   const sortDirection = order === 'asc' ? 1 : -1;
   const sortObj = { [sortField]: sortDirection, _id: -1 };
 
+  const finalQuery = { ...query, status: { $ne: 'Cancelled' } };
   const [filteredCount, rawAdvances] = await Promise.all([
-    TransporterAdvanceModel.countDocuments(query),
-    TransporterAdvanceModel.find(query)
+    TransporterAdvanceModel.countDocuments(finalQuery),
+    TransporterAdvanceModel.find(finalQuery)
       .populate('vehicleId', 'vehicleNo vehicleType')
       .populate('subtripId', 'subtripNo loadingPoint unloadingPoint startDate transporterPaymentReceiptId')
       .populate('pumpCd', 'name')

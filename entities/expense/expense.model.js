@@ -23,6 +23,11 @@ const expenseSchema = new Schema({
   dieselLtr: { type: Number },
   dieselPrice: { type: Number },
   paidThrough: { type: String },
+  status: {
+    type: String,
+    enum: ['Recorded', 'Cancelled'],
+    default: 'Recorded',
+  },
   variableSalary: { type: Number },
   fixedSalary: { type: Number },
   performanceSalary: { type: Number },

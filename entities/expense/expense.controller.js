@@ -250,24 +250,21 @@ const deleteExpense = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Expense not found" });
   }
 
-  // Step 2: If it's linked to a subtrip, remove reference
+  // Step 2: Set status to Cancelled and save
+  expense.status = 'Cancelled';
+  await expense.save();
+
+  // Step 3: Record subtrip event if linked to a subtrip
   if (expense.subtripId) {
-    await Subtrip.findOneAndUpdate(
-      { _id: expense.subtripId, tenant: req.tenant },
-      { $pull: { expenses: expense._id } }
-    );
     // Record subtrip event for expense deletion
     await recordSubtripEvent(
       expense.subtripId,
-      SUBTRIP_EVENT_TYPES.EXPENSE_DELETED,
+      SUBTRIP_EVENT_TYPES.EXPENSE_CANCELLED,
       { expenseType: expense.expenseType, amount: expense.amount },
       req.user,
       req.tenant
     );
   }
-
-  // Step 3: Delete the expense
-  await Expense.findOneAndDelete({ _id: id, tenant: req.tenant });
 
   // Step 4: Update Trip level cache
   if (expense.tripId) {
@@ -275,7 +272,7 @@ const deleteExpense = asyncHandler(async (req, res) => {
   }
 
   // Step 5: Respond
-  res.status(200).json({ message: "Expense deleted successfully" });
+  res.status(200).json({ message: "Expense cancelled successfully" });
 });
 
 export {
@@ -417,7 +414,7 @@ const exportExpenses = asyncHandler(async (req, res) => {
 
   // AGGREGATION PIPELINE
   const pipeline = [
-    { $match: query },
+    { $match: { ...query, status: { $ne: 'Cancelled' } } },
     { $sort: buildSortObject(orderBy === 'dieselRate' ? 'dieselPrice' : orderBy, order, { date: -1 }) },
     // Lookup Vehicle
     {

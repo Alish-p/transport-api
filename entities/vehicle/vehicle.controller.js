@@ -458,7 +458,7 @@ const getVehicleMonthlyAnalytics = asyncHandler(async (req, res) => {
     const amount = st.freightDetails?.freightAmount || 0;
     income[monthIdx] += amount;
 
-    const subtripExpense = (st.expenses || []).reduce((sum, e) => sum + (e.amount || 0), 0);
+    const subtripExpense = (st.expenses || []).filter(e => e.status !== 'Cancelled').reduce((sum, e) => sum + (e.amount || 0), 0);
     jobExp[monthIdx] += subtripExpense;
   });
 
@@ -466,6 +466,7 @@ const getVehicleMonthlyAnalytics = asyncHandler(async (req, res) => {
     vehicleId: id,
     tenant,
     expenseCategory: 'vehicle',
+    status: { $ne: 'Cancelled' },
     date: { $gte: startOfYear, $lte: endOfYear },
   }).select('date createdAt amount');
 

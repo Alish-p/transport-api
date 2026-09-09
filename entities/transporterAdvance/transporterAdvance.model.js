@@ -34,7 +34,7 @@ const transporterAdvanceSchema = new Schema(
     remarks: { type: String },
     status: {
       type: String,
-      enum: ['Pending', 'Recovered'],
+      enum: ['Pending', 'Recovered', 'Cancelled'],
       default: 'Pending',
     },
     transporterPaymentReceiptId: {

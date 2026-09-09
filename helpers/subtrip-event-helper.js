@@ -144,6 +144,16 @@ const compileDisplayMessage = (eventType, details = {}, user = null) => {
       return `${prefix}${label} advance removed for ${fCurrency(details.amount)}`;
     }
 
+    case SUBTRIP_EVENT_TYPES.EXPENSE_CANCELLED: {
+      const label = capitalize(details.expenseType || 'Expense');
+      return `${prefix}${label} expense cancelled for ${fCurrency(details.amount)}`;
+    }
+
+    case SUBTRIP_EVENT_TYPES.ADVANCE_CANCELLED: {
+      const label = capitalize(details.advanceType || 'Advance');
+      return `${prefix}${label} advance cancelled for ${fCurrency(details.amount)}`;
+    }
+
     case SUBTRIP_EVENT_TYPES.INVOICE_GENERATED:
       return `${prefix}Generated invoice [${details.invoiceNo}](/dashboard/invoice/${details.invoiceId}) for ${fCurrency(details.amount)}`;
 

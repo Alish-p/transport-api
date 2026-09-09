@@ -12,6 +12,7 @@ export const recalculateTripFinancials = async (tripId, tenant) => {
     // 2. Fetch all expenses linked to this trip and its subtrips
     const expenses = await Expense.find({
         tenant,
+        status: { $ne: 'Cancelled' },
         $or: [
             { tripId },
             { subtripId: { $in: subtripIds } },

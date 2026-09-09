@@ -904,6 +904,17 @@ export const buildExportSubtripsPipeline = (query) => [
         as: 'expensesData',
       },
     },
+    {
+      $addFields: {
+        expensesData: {
+          $filter: {
+            input: '$expensesData',
+            as: 'e',
+            cond: { $ne: ['$$e.status', 'Cancelled'] }
+          }
+        }
+      }
+    },
     // Lookup Advances
     {
       $lookup: {
@@ -912,6 +923,17 @@ export const buildExportSubtripsPipeline = (query) => [
         foreignField: '_id',
         as: 'advancesData',
       },
+    },
+    {
+      $addFields: {
+        advancesData: {
+          $filter: {
+            input: '$advancesData',
+            as: 'a',
+            cond: { $ne: ['$$a.status', 'Cancelled'] }
+          }
+        }
+      }
     },
     // Project and Calculate
     {

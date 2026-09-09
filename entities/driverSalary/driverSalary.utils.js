@@ -11,7 +11,7 @@ function calculateDriverSalary(subtrip) {
 
   // Filter only the expenses of type 'driver-salary'
   const driverSalaryExpenses = subtrip.expenses.filter(
-    (expense) => expense.expenseType === "Driver Salary"
+    (expense) => expense.expenseType === "Driver Salary" && expense.status !== 'Cancelled'
   );
 
   // Sum up the amounts of those expenses

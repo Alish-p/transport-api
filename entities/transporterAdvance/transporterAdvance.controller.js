@@ -125,14 +125,19 @@ const fetchPaginatedAdvances = asyncHandler(async (req, res) => {
     totalGiven: 0,
     totalRecovered: 0,
     totalPending: 0,
+    totalCancelled: 0,
     countGiven: 0,
     countRecovered: 0,
     countPending: 0,
+    countCancelled: 0,
   };
 
   aggregationResult.forEach((item) => {
-    totals.totalGiven += item.totalAmount;
-    totals.countGiven += item.count;
+    if (item._id !== 'Cancelled') {
+      totals.totalGiven += item.totalAmount;
+      totals.countGiven += item.count;
+    }
+    
     if (item._id === 'Recovered') {
       totals.totalRecovered = item.totalAmount;
       totals.countRecovered = item.count;
@@ -140,6 +145,10 @@ const fetchPaginatedAdvances = asyncHandler(async (req, res) => {
     if (item._id === 'Pending') {
       totals.totalPending = item.totalAmount;
       totals.countPending = item.count;
+    }
+    if (item._id === 'Cancelled') {
+      totals.totalCancelled = item.totalAmount;
+      totals.countCancelled = item.count;
     }
   });
 
@@ -252,7 +261,7 @@ const exportTransporterAdvances = asyncHandler(async (req, res) => {
   }
 
   const pipeline = [
-    { $match: finalQuery },
+    { $match: { ...finalQuery, status: { $ne: 'Cancelled' } } },
     { $sort: { date: -1 } },
     {
       $lookup: {
@@ -374,26 +383,21 @@ const deleteTransporterAdvance = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Cannot delete a recovered advance' });
   }
 
-  // Remove reference from subtrip
-  if (advance.subtripId) {
-    await Subtrip.findOneAndUpdate(
-      { _id: advance.subtripId, tenant: req.tenant },
-      { $pull: { advances: advance._id } }
-    );
+  advance.status = 'Cancelled';
+  await advance.save();
 
+  if (advance.subtripId) {
     // Record event
     await recordSubtripEvent(
       advance.subtripId,
-      SUBTRIP_EVENT_TYPES.ADVANCE_DELETED,
+      SUBTRIP_EVENT_TYPES.ADVANCE_CANCELLED,
       { advanceType: advance.advanceType, amount: advance.amount },
       req.user,
       req.tenant
     );
   }
 
-  await TransporterAdvance.findOneAndDelete({ _id: id, tenant: req.tenant });
-
-  res.status(200).json({ message: 'Advance deleted successfully' });
+  res.status(200).json({ message: 'Advance cancelled successfully' });
 });
 
 export {

@@ -29,6 +29,7 @@ const calculateTransporterPayment = (subtrip) => {
   } else if (Array.isArray(subtrip.expenses)) {
     deductionSource = subtrip.expenses;
   }
+  deductionSource = deductionSource.filter(item => item.status !== 'Cancelled');
   const totalExpense = deductionSource.reduce((acc, item) => acc + (item.amount || 0), 0);
 
   // 📉 Shortage Deduction

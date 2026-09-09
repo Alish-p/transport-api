@@ -21,3 +21,5 @@ export const ADVANCE_TYPES = [
   'Late Pouch Penalty',
   'Other',
 ];
+
+export const ADVANCE_STATUSES = { PENDING: 'Pending', RECOVERED: 'Recovered', CANCELLED: 'Cancelled' };

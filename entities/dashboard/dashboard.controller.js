@@ -265,6 +265,7 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
                     $and: [
                       { $eq: ["$subtripId", "$$subtripId"] },
                       { $eq: ["$tenant", req.tenant] },
+                      { $ne: ["$status", "Cancelled"] },
                     ],
                   },
                 },
@@ -316,6 +317,7 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
           $match: {
             tenant: req.tenant,
             expenseCategory: "vehicle",
+            status: { $ne: 'Cancelled' },
             date: { $gte: startOfYear, $lt: endOfYear },
           },
         },
@@ -429,6 +431,7 @@ const getMonthlySubtripExpenseSummary = asyncHandler(async (req, res) => {
         $match: {
           tenant: req.tenant,
           expenseCategory: EXPENSE_CATEGORIES.SUBTRIP,
+          status: { $ne: 'Cancelled' },
           date: { $gte: startDate, $lt: endDate },
         },
       },
@@ -1339,6 +1342,17 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
         },
       },
       {
+        $addFields: {
+          expenses: {
+            $filter: {
+              input: '$expenses',
+              as: 'e',
+              cond: { $ne: ['$$e.status', 'Cancelled'] }
+            }
+          }
+        }
+      },
+      {
         $lookup: {
           from: "trips",
           localField: "tripId",
@@ -1809,6 +1823,7 @@ const getDailySummary = asyncHandler(async (req, res) => {
     const expensesOnDate = await Expense.find({
       tenant: req.tenant,
       date: { $gte: startOfDay, $lt: endOfDay },
+      status: { $ne: 'Cancelled' },
     })
       .select(
         '_id date expenseCategory expenseType amount paidThrough remarks dieselLtr dieselPrice adblueLiters adbluePrice vehicleId subtripId pumpCd'
@@ -1824,6 +1839,7 @@ const getDailySummary = asyncHandler(async (req, res) => {
     const advancesOnDate = await TransporterAdvance.find({
       tenant: req.tenant,
       date: { $gte: startOfDay, $lt: endOfDay },
+      status: { $ne: 'Cancelled' },
     })
       .select(
         '_id date advanceType amount paidThrough remarks dieselLtr dieselPrice adblueLiters adbluePrice vehicleId subtripId pumpCd'
