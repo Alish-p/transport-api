@@ -181,7 +181,11 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
     );
 
     await TransporterAdvance.updateMany(
-      { subtripId: { $in: associatedSubtrips }, tenant: req.tenant },
+      {
+        subtripId: { $in: associatedSubtrips },
+        tenant: req.tenant,
+        status: 'Pending',
+      },
       { $set: { status: 'Recovered', transporterPaymentReceiptId: saved._id } },
       { session }
     );
@@ -399,7 +403,11 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       );
 
       await TransporterAdvance.updateMany(
-        { subtripId: { $in: associatedSubtrips }, tenant: req.tenant },
+        {
+          subtripId: { $in: associatedSubtrips },
+          tenant: req.tenant,
+          status: 'Pending',
+        },
         { $set: { status: 'Recovered', transporterPaymentReceiptId: saved._id } },
         { session }
       );
@@ -848,9 +856,31 @@ const deleteTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       { session }
     );
 
+    // Revert only Recovered advances to Pending
     await TransporterAdvance.updateMany(
-      { subtripId: { $in: receipt.associatedSubtrips }, tenant: req.tenant },
+      {
+        $or: [
+          { subtripId: { $in: receipt.associatedSubtrips } },
+          { transporterPaymentReceiptId: receipt._id },
+        ],
+        tenant: req.tenant,
+        status: 'Recovered',
+      },
       { $set: { status: 'Pending' }, $unset: { transporterPaymentReceiptId: "" } },
+      { session }
+    );
+
+    // Unset receipt link on non-Recovered advances (e.g. Cancelled) without altering their status
+    await TransporterAdvance.updateMany(
+      {
+        $or: [
+          { subtripId: { $in: receipt.associatedSubtrips } },
+          { transporterPaymentReceiptId: receipt._id },
+        ],
+        tenant: req.tenant,
+        status: { $ne: 'Recovered' },
+      },
+      { $unset: { transporterPaymentReceiptId: "" } },
       { session }
     );
 
