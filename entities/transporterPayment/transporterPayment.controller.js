@@ -106,11 +106,14 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
         freightAmount: totalFreightAmount,
         shortageWeight: st.shortageWeight || 0,
         shortageAmount: st.shortageAmount || 0,
-        expenses: deductionSource.map((item) => ({
-          expenseType: item.advanceType || item.expenseType,
-          amount: item.amount,
-          remarks: item.remarks,
-        })),
+        expenses: deductionSource
+          .filter((item) => item.status !== 'Cancelled')
+          .map((item) => ({
+            expenseType: item.advanceType || item.expenseType,
+            amount: item.amount,
+            remarks: item.remarks,
+            status: item.status,
+          })),
         totalExpense,
         totalTransporterPayment,
       };
@@ -320,11 +323,14 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
           freightAmount: totalFreightAmount,
           shortageWeight: st.shortageWeight || 0,
           shortageAmount: st.shortageAmount || 0,
-          expenses: deductionSource.map((exp) => ({
-            expenseType: exp.advanceType || exp.expenseType,
-            amount: exp.amount,
-            remarks: exp.remarks,
-          })),
+          expenses: deductionSource
+            .filter((exp) => exp.status !== 'Cancelled')
+            .map((exp) => ({
+              expenseType: exp.advanceType || exp.expenseType,
+              amount: exp.amount,
+              remarks: exp.remarks,
+              status: exp.status,
+            })),
           totalExpense,
           totalTransporterPayment,
         };
@@ -535,7 +541,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
     let receipts;
     if (['dieselTotal', 'tripAdvanceTotal', 'podAmount'].includes(orderBy)) {
       const sortDirection = order === 'asc' ? 1 : -1;
-      
+
       const pipeline = [
         { $match: aggMatch },
         {
@@ -608,7 +614,7 @@ const fetchTransporterPaymentReceipts = asyncHandler(async (req, res) => {
       ];
 
       receipts = await TransporterPayment.aggregate(pipeline);
-      
+
       receipts = receipts.map(r => {
         if (r.transporterId) {
           r.transporterId = {
@@ -738,7 +744,7 @@ const updateTransporterPaymentReceipt = asyncHandler(async (req, res) => {
   if (!wasPaid && updatedReceipt.status === 'paid') {
     const tenant = await Tenant.findById(req.tenant).select("name");
     const transporter = updatedReceipt.transporterId;
-    
+
     try {
       const waRes = await sendTransporterPaymentNotification({
         tenantId: req.tenant,
