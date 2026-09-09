@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 
 import Tenant from './tenant.model.js';
+import { toDotNotation } from '../../utils/tenant-utils.js';
 import { generateUploadUrl, buildPublicFileUrl, deleteObjectFromS3, buildDatedFilename } from '../../services/s3.service.js';
 
 function sanitizeSegment(input, toLower = true) {
@@ -30,9 +31,27 @@ const fetchTenantById = asyncHandler(async (req, res) => {
 
 // Update Tenant
 const updateTenant = asyncHandler(async (req, res) => {
-  const tenant = await Tenant.findByIdAndUpdate(req.tenant, req.body, {
-    new: true,
-  });
+  const updatePayload = toDotNotation(req.body);
+
+  if (Object.keys(updatePayload).length === 0) {
+    const existing = await Tenant.findById(req.tenant);
+    return res.status(200).json(existing);
+  }
+
+  const tenant = await Tenant.findByIdAndUpdate(
+    req.tenant,
+    { $set: updatePayload },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  if (!tenant) {
+    res.status(404).json({ message: 'Tenant not found' });
+    return;
+  }
+
   res.status(200).json(tenant);
 });
 
