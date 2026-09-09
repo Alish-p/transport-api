@@ -216,10 +216,20 @@ export const fetchAllTasks = asyncHandler(async (req, res) => {
   const query = addTenantToQuery(req);
 
   // Add filters if they exist
-  if (status) query.status = status;
+  if (status) {
+    if (typeof status === 'string' && status.includes(',')) {
+      query.status = { $in: status.split(',').map((s) => s.trim()) };
+    } else if (Array.isArray(status)) {
+      query.status = { $in: status };
+    } else {
+      query.status = status;
+    }
+  }
   if (priority) query.priority = priority;
   if (department) query.department = department;
-  if (assignees) query.assignees = assignees;
+  if (assignees) {
+    query.assignees = assignees === 'me' ? req.user._id : assignees;
+  }
 
   const tasks = await Task.find(query)
     .populate("reporter", "name email")
