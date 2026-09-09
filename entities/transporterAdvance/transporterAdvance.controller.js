@@ -379,8 +379,12 @@ const deleteTransporterAdvance = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Advance not found' });
   }
 
+  if (advance.status === 'Cancelled') {
+    return res.status(400).json({ message: 'Advance is already cancelled' });
+  }
+
   if (advance.status === 'Recovered') {
-    return res.status(400).json({ message: 'Cannot delete a recovered advance' });
+    return res.status(400).json({ message: 'Cannot cancel a recovered advance' });
   }
 
   advance.status = 'Cancelled';

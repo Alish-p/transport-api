@@ -250,6 +250,10 @@ const deleteExpense = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Expense not found" });
   }
 
+  if (expense.status === 'Cancelled') {
+    return res.status(400).json({ message: "Expense is already cancelled" });
+  }
+
   // Step 2: Set status to Cancelled and save
   expense.status = 'Cancelled';
   await expense.save();
