@@ -87,11 +87,13 @@ const createDriverSalary = asyncHandler(async (req, res) => {
         shortageWeight: st.shortageWeight,
         shortageAmount: st.shortageAmount,
 
-        expenses: st.expenses.map((ex) => ({
-          expenseType: ex.expenseType,
-          amount: ex.amount,
-          remarks: ex.remarks,
-        })),
+        expenses: st.expenses
+          .filter((ex) => ex.status !== 'Cancelled')
+          .map((ex) => ({
+            expenseType: ex.expenseType,
+            amount: ex.amount,
+            remarks: ex.remarks,
+          })),
 
         totalDriverSalary,
       };
@@ -269,11 +271,13 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
           shortageWeight: st.shortageWeight,
           shortageAmount: st.shortageAmount,
 
-          expenses: st.expenses.map((ex) => ({
-            expenseType: ex.expenseType,
-            amount: ex.amount,
-            remarks: ex.remarks,
-          })),
+          expenses: st.expenses
+            .filter((ex) => ex.status !== 'Cancelled')
+            .map((ex) => ({
+              expenseType: ex.expenseType,
+              amount: ex.amount,
+              remarks: ex.remarks,
+            })),
 
           totalDriverSalary,
         };
