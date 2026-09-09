@@ -186,3 +186,38 @@ export function getCurrentFiscalYearShort() {
   const endShort = String(endYear).slice(-2);
   return `${startShort}-${endShort}`;
 }
+
+export function fDateTimeDuration(startDate, endDate) {
+  if (!startDate || !endDate) {
+    return null;
+  }
+
+  const start = dayjs(startDate);
+  const end = dayjs(endDate);
+
+  if (!start.isValid() || !end.isValid()) {
+    return 'Invalid time value';
+  }
+
+  const diffMs = end.diff(start);
+  if (diffMs < 0) {
+    return '-';
+  }
+  const durationObj = dayjs.duration(diffMs);
+
+  const days = Math.floor(durationObj.asDays());
+  const hours = durationObj.asHours() % 24;
+
+  let result = '';
+  if (days > 0) {
+    result += `${days} ${days === 1 ? 'day' : 'days'}`;
+  }
+
+  if (hours > 0) {
+    if (result) result += ' ';
+    const formattedHours = Number.isInteger(hours) ? hours : hours.toFixed(1);
+    result += `${formattedHours} ${hours === 1 ? 'hour' : 'hours'}`;
+  }
+
+  return result || '0 hours';
+}

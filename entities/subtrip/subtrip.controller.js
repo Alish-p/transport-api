@@ -10,6 +10,7 @@ import Vehicle from '../vehicle/vehicle.model.js';
 import Transporter from '../transporter/transporter.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
 import { generateUploadUrl } from '../../services/s3.service.js';
+import { fDateTimeDuration } from '../../utils/time-utils.js';
 import { recalculateTripFinancials } from '../trip/trip.service.js';
 import { buildChangedFields } from '../../utils/serialize-field-value.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
@@ -843,6 +844,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     grade: { header: 'Grade', key: 'grade', width: 15 },
     startDate: { header: 'Dispatch Date', key: 'startDate', width: 20 },
     endDate: { header: 'Received Date', key: 'endDate', width: 20 },
+    jobDuration: { header: 'Job Duration', key: 'jobDuration', width: 18 },
     ewayExpiryDate: { header: 'E-Way Bill Expiry Date', key: 'ewayExpiryDate', width: 20 },
     loadingPoint: { header: 'Loading Point', key: 'loadingPoint', width: 20 },
     unloadingPoint: { header: 'Unloading Point', key: 'unloadingPoint', width: 20 },
@@ -954,6 +956,14 @@ const exportSubtrips = asyncHandler(async (req, res) => {
         }
       }
       else if (key === 'profitAndLoss') row[key] = Math.round(profitAndLoss * 100) / 100;
+      else if (key === 'jobDuration') {
+        if (!doc.startDate || !doc.endDate) {
+          row[key] = '-';
+        } else {
+          const duration = fDateTimeDuration(doc.startDate, doc.endDate);
+          row[key] = duration || '-';
+        }
+      }
       else if (key === 'startDate' || key === 'endDate' || key === 'ewayExpiryDate') {
         row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
       }
