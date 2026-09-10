@@ -6,7 +6,7 @@ export const recalculateTripFinancials = async (tripId, tenant) => {
     if (!tripId) return;
 
     // 1. Fetch all subtrips for this trip
-    const subtrips = await Subtrip.find({ tripId, tenant }).lean();
+    const subtrips = await Subtrip.find({ tripId, tenant, subtripStatus: { $ne: 'cancelled' } }).lean();
     const subtripIds = subtrips.map(st => st._id);
 
     // 2. Fetch all expenses linked to this trip and its subtrips

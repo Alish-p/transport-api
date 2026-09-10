@@ -401,6 +401,7 @@ const getCustomerSubtripMonthlyData = asyncHandler(async (req, res) => {
           customerId: new mongoose.Types.ObjectId(id),
           startDate: { $gte: startOfYear, $lt: endOfYear },
           isEmpty: false,
+          subtripStatus: { $ne: 'cancelled' },
         },
       },
       {

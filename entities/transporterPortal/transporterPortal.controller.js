@@ -86,7 +86,7 @@ const getDashboard = asyncHandler(async (req, res) => {
       {
         $match: {
           subtripId: { $in: await SubtripModel.find(
-            { vehicleId: { $in: vehicleObjectIds }, tenant },
+            { vehicleId: { $in: vehicleObjectIds }, tenant, subtripStatus: { $ne: 'cancelled' } },
             { _id: 1 },
           ).lean().then((subs) => subs.map((s) => s._id)) },
           tenant: new mongoose.Types.ObjectId(tenant),
@@ -212,6 +212,7 @@ const getVehicleById = asyncHandler(async (req, res) => {
  */
 function formatSubtripForTransporter(subtrip) {
   if (!subtrip) return subtrip;
+  if (subtrip.subtripStatus === 'cancelled') return null;
 
   const grossFreightAmount = subtrip.freightDetails?.freightAmount || 0;
   const commissionAmount = subtrip.commissionDetails?.commissionAmount || 0;
@@ -301,6 +302,7 @@ const getSubtrips = asyncHandler(async (req, res) => {
   const baseQuery = {
     vehicleId: { $in: vehicleIds },
     tenant,
+    subtripStatus: { $ne: 'cancelled' },
   };
 
   const COMPLETED_STATUSES = ['Received', 'received', 'Billed', 'billed'];

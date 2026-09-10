@@ -154,6 +154,9 @@ const compileDisplayMessage = (eventType, details = {}, user = null) => {
       return `${prefix}${label} advance cancelled for ${fCurrency(details.amount)}`;
     }
 
+    case SUBTRIP_EVENT_TYPES.SUBTRIP_CANCELLED:
+      return `${prefix}Job cancelled${details.remarks ? `: ${details.remarks}` : ''}`;
+
     case SUBTRIP_EVENT_TYPES.INVOICE_GENERATED:
       return `${prefix}Generated invoice [${details.invoiceNo}](/dashboard/invoice/${details.invoiceId}) for ${fCurrency(details.amount)}`;
 

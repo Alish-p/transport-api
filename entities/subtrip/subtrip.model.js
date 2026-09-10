@@ -88,6 +88,7 @@ const subtripSchema = new Schema({
   // Incase of any error
   hasError: { type: Boolean, default: false },
   errorRemarks: { type: String },
+  cancellationRemarks: { type: String },
   vehicleAssignment: { type: String, enum: ['schedule', 'adhock'], default: 'schedule' },
   remarks: { type: String },
 

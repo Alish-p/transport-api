@@ -13,6 +13,7 @@ export const SUBTRIP_STATUS = {
   ERROR: 'error',
   RECEIVED: 'received',
   BILLED: 'billed',
+  CANCELLED: 'cancelled',
 };
 
 export const SUBTRIP_EXPENSE_TYPES = {

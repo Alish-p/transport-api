@@ -52,6 +52,7 @@ const createDriverSalary = asyncHandler(async (req, res) => {
       _id: { $in: associatedSubtrips },
       driverSalaryId: null, // requires this field on Subtrip
       tenant: req.tenant,
+      subtripStatus: { $ne: 'cancelled' }
     })
       .populate("vehicleId")
       .populate("expenses")
@@ -236,6 +237,7 @@ const createBulkDriverSalaries = asyncHandler(async (req, res) => {
         _id: { $in: associatedSubtrips },
         driverSalaryId: null,
         tenant: req.tenant,
+        subtripStatus: { $ne: 'cancelled' }
       })
         .populate("vehicleId")
         .populate("expenses")

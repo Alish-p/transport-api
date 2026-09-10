@@ -68,7 +68,7 @@ const fetchTrips = asyncHandler(async (req, res) => {
     if (isTripSheetReady === "true") {
       const tripsWithNonBilledSubtrips = await Subtrip.find({
         tenant: req.tenant,
-        subtripStatus: { $ne: SUBTRIP_STATUS.BILLED },
+        subtripStatus: { $nin: [SUBTRIP_STATUS.BILLED, SUBTRIP_STATUS.CANCELLED] },
         tripId: { $ne: null },
       }).distinct("tripId");
 
@@ -763,7 +763,7 @@ const exportTrips = asyncHandler(async (req, res) => {
   if (isTripSheetReady === "true") {
     const tripsWithNonBilledSubtrips = await Subtrip.find({
       tenant: req.tenant,
-      subtripStatus: { $ne: SUBTRIP_STATUS.BILLED },
+      subtripStatus: { $nin: [SUBTRIP_STATUS.BILLED, SUBTRIP_STATUS.CANCELLED] },
       tripId: { $ne: null },
     }).distinct("tripId");
 

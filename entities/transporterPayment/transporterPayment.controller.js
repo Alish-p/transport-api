@@ -54,6 +54,7 @@ const createTransporterPaymentReceipt = asyncHandler(async (req, res) => {
       _id: { $in: associatedSubtrips },
       transporterPaymentReceiptId: null,
       tenant: req.tenant,
+      subtripStatus: { $ne: 'cancelled' }
     })
       .populate({ path: "vehicleId" })
       .populate("customerId")
@@ -272,6 +273,7 @@ const createBulkTransporterPaymentReceipts = asyncHandler(async (req, res) => {
         _id: { $in: associatedSubtrips },
         transporterPaymentReceiptId: null,
         tenant: req.tenant,
+        subtripStatus: { $ne: 'cancelled' }
       })
         .populate({ path: "vehicleId" })
         .populate("customerId")

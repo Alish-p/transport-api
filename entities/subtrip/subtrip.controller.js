@@ -482,6 +482,13 @@ const updateSubtrip = asyncHandler(async (req, res) => {
     });
   }
 
+  // Block editing if subtrip is cancelled
+  if (existingSubtrip.subtripStatus === SUBTRIP_STATUS.CANCELLED) {
+    return res.status(400).json({
+      message: 'Cannot edit a cancelled subtrip.',
+    });
+  }
+
   // Check for ewayBill uniqueness if it's being updated
   if (req.body.ewayBill && req.body.ewayBill !== existingSubtrip.ewayBill) {
     const duplicateEwayBill = await Subtrip.findOne({
@@ -549,7 +556,7 @@ const updateSubtrip = asyncHandler(async (req, res) => {
   res.status(200).json(updatedSubtrip);
 });
 
-// Delete Subtrip
+// Cancel Subtrip (Soft Delete)
 const deleteSubtrip = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -560,10 +567,14 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Subtrip not found" });
   }
 
-  // ──────────────────────────────────────────────────────────
-  // OPTIONAL: Block deletion if subtrip is Billed or has
-  // financial references (invoiceId, driverSalaryId, transporterPaymentReceiptId)
-  // ──────────────────────────────────────────────────────────
+  // 2. Block if already cancelled
+  if (subtrip.subtripStatus === SUBTRIP_STATUS.CANCELLED) {
+    return res.status(400).json({
+      message: "Subtrip is already cancelled",
+    });
+  }
+
+  // 3. Block if billed or has financial documents
   if (
     subtrip.subtripStatus === SUBTRIP_STATUS.BILLED ||
     subtrip.invoiceId ||
@@ -572,39 +583,51 @@ const deleteSubtrip = asyncHandler(async (req, res) => {
   ) {
     return res.status(400).json({
       message:
-        "Cannot delete subtrip because it is closed or has associated financial documents.",
+        "Cannot cancel subtrip because it is closed or has associated financial documents.",
     });
   }
 
   try {
-    // 2. Delete all related expenses
-    //    (Subtrip.expenses is an array of expense _ids)
+    // 4. Cascade-cancel all related expenses
     if (subtrip.expenses && subtrip.expenses.length > 0) {
-      await Expense.deleteMany({ _id: { $in: subtrip.expenses } });
+      await Expense.updateMany(
+        { _id: { $in: subtrip.expenses }, status: { $ne: 'Cancelled' } },
+        { $set: { status: 'Cancelled' } }
+      );
     }
 
-    // 2b. Delete all related advances
+    // 5. Cascade-cancel all related advances
     if (subtrip.advances && subtrip.advances.length > 0) {
-      await TransporterAdvance.deleteMany({ _id: { $in: subtrip.advances } });
+      await TransporterAdvance.updateMany(
+        { _id: { $in: subtrip.advances }, status: { $ne: 'Cancelled' } },
+        { $set: { status: 'Cancelled' } }
+      );
     }
 
-    // 3. Delete the subtrip itself
-    await Subtrip.findOneAndDelete({ _id: id, tenant: req.tenant });
+    // 6. Soft-delete: set status to cancelled
+    const cancellationRemarks = req.body?.cancellationRemarks || req.body?.remarks || '';
+    subtrip.subtripStatus = SUBTRIP_STATUS.CANCELLED;
+    subtrip.cancellationRemarks = cancellationRemarks || undefined;
+    await subtrip.save();
 
-    // 4. Remove the deleted subtrip ID from the Trip's `subtrips` array
-    const trip = await Trip.findOne({ subtrips: id, tenant: req.tenant });
-    if (trip) {
-      trip.subtrips.pull(id);
-      await trip.save();
+    // 7. Record cancellation event
+    await recordSubtripEvent(
+      subtrip._id,
+      SUBTRIP_EVENT_TYPES.SUBTRIP_CANCELLED,
+      { remarks: cancellationRemarks },
+      req.user,
+      req.tenant
+    );
 
-      // Ensure updated trip financials are cached
-      await recalculateTripFinancials(trip._id, req.tenant);
+    // 8. Recalculate Trip financials (keep subtrip in trip array)
+    if (subtrip.tripId) {
+      await recalculateTripFinancials(subtrip.tripId, req.tenant);
     }
 
-    res.status(200).json({ message: "Subtrip deleted successfully" });
+    res.status(200).json({ message: "Subtrip cancelled successfully" });
   } catch (error) {
     res.status(500).json({
-      message: "An error occurred while deleting the subtrip",
+      message: "An error occurred while cancelling the subtrip",
       error: error.message,
     });
   }

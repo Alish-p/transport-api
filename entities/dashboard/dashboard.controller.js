@@ -51,7 +51,7 @@ const getTotalCounts = asyncHandler(async (req, res) => {
     Transporter.countDocuments(addTenantToQuery(req)),
     Customer.countDocuments(addTenantToQuery(req)),
     Invoice.countDocuments(addTenantToQuery(req)),
-    Subtrip.countDocuments(addTenantToQuery(req)),
+    Subtrip.countDocuments({ ...addTenantToQuery(req), subtripStatus: { $ne: SUBTRIP_STATUS.CANCELLED } }),
   ]);
 
 
@@ -101,6 +101,7 @@ const getCustomerMonthlyFreight = asyncHandler(async (req, res) => {
           ...tenantMatch,
           customerId: { $ne: null },
           startDate: { $gte: startDate, $lt: endDate },
+          subtripStatus: { $ne: SUBTRIP_STATUS.CANCELLED },
         },
       },
       {
@@ -243,6 +244,7 @@ const getSubtripMonthlyData = asyncHandler(async (req, res) => {
             tenant: req.tenant,
             startDate: { $gte: startOfYear, $lt: endOfYear },
             isEmpty: false,
+            subtripStatus: { $ne: SUBTRIP_STATUS.CANCELLED },
           },
         },
         {
@@ -497,6 +499,7 @@ const getMonthlyMaterialWeightSummary = asyncHandler(async (req, res) => {
           tenant: req.tenant,
           materialType: { $ne: null },
           startDate: { $gte: startDate, $lt: endDate },
+          subtripStatus: { $ne: SUBTRIP_STATUS.CANCELLED },
         },
       },
       {
@@ -562,6 +565,7 @@ const getMonthlyDestinationSubtrips = asyncHandler(async (req, res) => {
           tenant: req.tenant,
           unloadingPoint: { $ne: null },
           startDate: { $gte: startDate, $lt: endDate },
+          subtripStatus: { $ne: SUBTRIP_STATUS.CANCELLED },
         },
       },
       {
@@ -1319,7 +1323,7 @@ const getMonthlyVehicleSubtripSummary = asyncHandler(async (req, res) => {
           tenant: req.tenant,
           startDate: { $gte: startDate, $lt: endDate },
           subtripStatus: {
-            $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED],
+            $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED, SUBTRIP_STATUS.CANCELLED],
           },
         },
       },
@@ -1506,7 +1510,7 @@ const getMonthlyDriverSummary = asyncHandler(async (req, res) => {
           tenant: req.tenant,
           startDate: { $gte: startDate, $lt: endDate },
           subtripStatus: {
-            $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED],
+            $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED, SUBTRIP_STATUS.CANCELLED],
           },
         },
       },
@@ -1593,7 +1597,7 @@ const getMonthlyTransporterSummary = asyncHandler(async (req, res) => {
           tenant: req.tenant,
           startDate: { $gte: startDate, $lt: endDate },
           subtripStatus: {
-            $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED],
+            $nin: [SUBTRIP_STATUS.IN_QUEUE, SUBTRIP_STATUS.LOADED, SUBTRIP_STATUS.CANCELLED],
           },
         },
       },
