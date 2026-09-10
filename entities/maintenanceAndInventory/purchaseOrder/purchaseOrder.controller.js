@@ -246,7 +246,7 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
 
     const sortObj = buildSortObject(orderBy, order, { createdAt: -1 });
 
-    const [orders, totalsAgg, receivedValueAgg] = await Promise.all([
+    const [orders, totalsAgg] = await Promise.all([
       PurchaseOrder.find(query)
         .populate('vendor', 'name phone address')
         .populate('partLocation', 'name address')
@@ -263,20 +263,6 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
             _id: '$status',
             count: { $sum: 1 },
             amount: { $sum: '$total' },
-          },
-        },
-      ]),
-      // Compute per-PO actual received value and qty totals (lean — no full receipts)
-      PurchaseOrder.aggregate([
-        { $match: aggQuery },
-        { $skip: skip },
-        { $limit: limit },
-        {
-          $project: {
-            actualReceivedValue: { $sum: '$receipts.totalAmount' },
-            totalQtyOrdered: { $sum: '$lines.quantityOrdered' },
-            totalQtyReceived: { $sum: '$lines.quantityReceived' },
-            closedAt: 1,
           },
         },
       ]),
@@ -308,16 +294,26 @@ const fetchPurchaseOrders = asyncHandler(async (req, res) => {
       totals.all.amount += t.amount;
     });
 
-    // Merge computed fields onto orders
-    const receivedValueMap = new Map(receivedValueAgg.map((r) => [r._id.toString(), r]));
+    // Compute received value and quantity totals per order
     const enrichedOrders = orders.map((o) => {
-      const computed = receivedValueMap.get(o._id.toString()) || {};
+      const actualReceivedValue = (o.receipts || []).reduce(
+        (sum, r) => sum + (Number(r.totalAmount) || 0),
+        0,
+      );
+      const totalQtyOrdered = (o.lines || []).reduce(
+        (sum, l) => sum + (Number(l.quantityOrdered) || 0),
+        0,
+      );
+      const totalQtyReceived = (o.lines || []).reduce(
+        (sum, l) => sum + (Number(l.quantityReceived) || 0),
+        0,
+      );
+
       return {
         ...o,
-        actualReceivedValue: computed.actualReceivedValue || 0,
-        totalQtyOrdered: computed.totalQtyOrdered || 0,
-        totalQtyReceived: computed.totalQtyReceived || 0,
-        closedAt: computed.closedAt || null,
+        actualReceivedValue: Math.round(actualReceivedValue * 100) / 100,
+        totalQtyOrdered,
+        totalQtyReceived,
       };
     });
 
