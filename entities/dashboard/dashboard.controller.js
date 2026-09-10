@@ -1745,7 +1745,7 @@ const getDailySummary = asyncHandler(async (req, res) => {
 
       if (!or.length) return [];
 
-      return Subtrip.find({ tenant: req.tenant, $or: or })
+      return Subtrip.find({ tenant: req.tenant, subtripStatus: { $ne: SUBTRIP_STATUS.CANCELLED }, $or: or })
         .select(
           '_id subtripNo startDate endDate loadingPoint unloadingPoint loadingWeight freightDetails materialType subtripStatus customerId vehicleId driverId'
         )
