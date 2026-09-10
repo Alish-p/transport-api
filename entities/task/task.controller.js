@@ -7,8 +7,16 @@ import { addTenantToQuery } from '../../utils/tenant-utils.js';
 // @route   POST /api/tasks
 // @access  Private
 export const createTask = asyncHandler(async (req, res) => {
+  const taskData = { ...req.body };
+  if (taskData.assignees) {
+    taskData.assignees = taskData.assignees.map((user) => user._id || user);
+  }
+  if (taskData.vehicles) {
+    taskData.vehicles = taskData.vehicles.map((v) => v._id || v);
+  }
+
   const task = await Task.create({
-    ...req.body,
+    ...taskData,
     reporter: req.user._id,
     tenant: req.tenant,
   });
@@ -29,7 +37,7 @@ export const createTask = asyncHandler(async (req, res) => {
 // @route   PUT /api/tasks/:taskId
 // @access  Private
 export const updateTask = asyncHandler(async (req, res) => {
-  const { status, assignees } = req.body;
+  const { status, assignees, vehicles } = req.body;
 
   const task = await Task.findOne({
     _id: req.params.taskId,
@@ -43,7 +51,12 @@ export const updateTask = asyncHandler(async (req, res) => {
 
   // Handle assignees array - extract _ids
   if (assignees) {
-    req.body.assignees = assignees.map((user) => user._id);
+    req.body.assignees = assignees.map((user) => user._id || user);
+  }
+
+  // Handle vehicles array - extract _ids
+  if (vehicles) {
+    req.body.vehicles = vehicles.map((v) => v._id || v);
   }
 
   // Add activity for status change if status is being updated
@@ -107,6 +120,8 @@ export const getTask = asyncHandler(async (req, res) => {
   })
     .populate("reporter", "name email")
     .populate("assignees", "name email")
+    .populate("vehicles", "vehicleNo isOwn vehicleType")
+    .populate("driver", "driverName driverCellNo")
     .populate("activities.user", "name email");
 
   if (!task) {
@@ -235,7 +250,7 @@ export const fetchAllTasks = asyncHandler(async (req, res) => {
     .populate("reporter", "name email")
     .populate("assignees", "name email")
     .populate("activities.user", "name email")
-    .populate("vehicle", "vehicleNo")
+    .populate("vehicles", "vehicleNo isOwn vehicleType")
     .populate("driver", "driverName driverCellNo")
     .sort({ order: 1, updatedAt: -1 });
 

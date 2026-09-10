@@ -9,6 +9,7 @@ const taskSchema = z.object({
     status: z.enum(Object.values(TASK_STATUSES)).optional(),
     departments: z.array(z.string()).optional(),
     assignees: z.array(z.string()).optional(),
+    vehicles: z.array(z.string()).optional(),
     due: z.array(z.coerce.date()).optional(),
     description: z.string().optional(),
   }),

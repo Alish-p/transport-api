@@ -57,10 +57,12 @@ const taskSchema = new Schema(
         ref: "User",
       },
     ],
-    vehicle: {
-      type: Schema.Types.ObjectId,
-      ref: "Vehicle",
-    },
+    vehicles: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Vehicle",
+      },
+    ],
     driver: {
       type: Schema.Types.ObjectId,
       ref: "Driver",
