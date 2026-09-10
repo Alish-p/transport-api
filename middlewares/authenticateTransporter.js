@@ -42,6 +42,23 @@ const authenticateTransporter = asyncHandler(async (req, res, next) => {
     const tenantId = typeof decoded.tenant === 'object' ? decoded.tenant._id : decoded.tenant;
     req.transporter = transporter;
     req.tenant = new mongoose.Types.ObjectId(tenantId);
+
+    // Update last seen / active time in background (throttled to once every 5 minutes)
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    if (
+      !transporter.lastLoginAt ||
+      Date.now() - new Date(transporter.lastLoginAt).getTime() > FIVE_MINUTES_MS
+    ) {
+      setImmediate(() => {
+        TransporterModel.updateOne(
+          { _id: transporter._id },
+          { $set: { lastLoginAt: new Date() } }
+        ).catch((updateErr) => {
+          console.error('Failed to update transporter lastLoginAt:', updateErr);
+        });
+      });
+    }
+
     next();
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
