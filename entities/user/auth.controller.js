@@ -125,7 +125,8 @@ async function resolveUserTenantsAndActive(user, requestedTenantId = null) {
 
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  const user = await UserModel.findOne({ $or: [{ email }, { mobile: email }] });
+  const normalizedEmail = email?.toLowerCase().trim();
+  const user = await UserModel.findOne({ $or: [{ email: normalizedEmail }, { mobile: normalizedEmail }] });
   const matched = user ? await user.matchPassword(password) : false;
 
   if (user && matched) {
@@ -171,7 +172,8 @@ const getUser = asyncHandler(async (req, res) => {
 
 const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  const user = await UserModel.findOne({ email });
+  const normalizedEmail = email?.toLowerCase().trim();
+  const user = await UserModel.findOne({ email: normalizedEmail });
 
   // Generic response to prevent email enumeration
   if (!user) {
@@ -204,7 +206,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
 const resetPassword = asyncHandler(async (req, res) => {
   const { email, code, password } = req.body;
-  const user = await UserModel.findOne({ email });
+  const normalizedEmail = email?.toLowerCase().trim();
+  const user = await UserModel.findOne({ email: normalizedEmail });
 
   if (!user || user.otp !== code || !user.otpExpiresAt || user.otpExpiresAt < new Date()) {
     return res.status(400).json({ message: 'Invalid or expired OTP.' });
