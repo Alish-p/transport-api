@@ -189,6 +189,7 @@ const tenantSchema = new Schema(
         },
         defaultFreightModel: { type: String, enum: FREIGHT_MODEL_ENUM, default: 'per_ton' },
         allowedFreightModels: [{ type: String, enum: FREIGHT_MODEL_ENUM }],
+        lrTemplate: { type: String, default: 'standard' },
         fields: { type: Map, of: fieldConfigEntrySchema, default: {} },
       },
       expense: {
