@@ -16,6 +16,8 @@ const subtripSchema = new Schema({
   driverId: { type: Schema.Types.ObjectId, ref: "Driver", required: true },
   vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle", required: true },
   customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
+  billingParty: { type: String, enum: ['consignor', 'consignee'], default: 'consignor' },
+  consigneeCustomerId: { type: Schema.Types.ObjectId, ref: "Customer" },
   expenses: [{ type: Schema.Types.ObjectId, ref: "Expense" }],
   advances: [{ type: Schema.Types.ObjectId, ref: "TransporterAdvance" }],
 

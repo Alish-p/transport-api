@@ -38,6 +38,8 @@ const jobCreateSchema = z.object({
 
       // Loaded-only fields (required when isEmpty=false)
       customerId: z.string().optional(),
+      billingParty: z.enum(['consignor', 'consignee']).default('consignor').optional(),
+      consigneeCustomerId: z.string().optional(),
       consignee: z.string().optional(),
       loadingWeight: z.number().optional(),
       freightDetails: z.object({

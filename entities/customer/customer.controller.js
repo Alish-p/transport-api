@@ -84,7 +84,7 @@ const fetchCustomers = asyncHandler(async (req, res) => {
       query.gstEnabled = gstEnabled === 'true' || gstEnabled === true;
     }
     if (customerType) {
-      query.customerType = customerType;
+      query.customerType = { $in: [customerType, 'both'] };
     }
 
     const [customers, total] = await Promise.all([
