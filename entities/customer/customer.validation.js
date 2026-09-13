@@ -3,6 +3,7 @@ import { z } from 'zod';
 const customerSchema = z.object({
   body: z.object({
     customerName: z.string().min(1, 'Customer name is required'),
+    customerType: z.enum(['consignor', 'consignee', 'both']).default('consignor').optional(),
     gstEnabled: z.boolean(),
     address: z.string().min(1, 'Address is required'),
     state: z.string().min(1, 'State is required'),

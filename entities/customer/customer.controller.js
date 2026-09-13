@@ -64,7 +64,7 @@ const createCustomer = asyncHandler(async (req, res) => {
 const fetchCustomers = asyncHandler(async (req, res) => {
   try {
     // Support explicit filters from UI instead of generic `search`
-    const { customerName, cellNo, gstIn, gstEnabled } = req.query;
+    const { customerName, cellNo, gstIn, gstEnabled, customerType } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -82,6 +82,9 @@ const fetchCustomers = asyncHandler(async (req, res) => {
     }
     if (gstEnabled !== undefined && gstEnabled !== '') {
       query.gstEnabled = gstEnabled === 'true' || gstEnabled === true;
+    }
+    if (customerType) {
+      query.customerType = customerType;
     }
 
     const [customers, total] = await Promise.all([
@@ -106,7 +109,7 @@ const fetchCustomers = asyncHandler(async (req, res) => {
 // Fetch Light Customers (only name, state, cellNo)
 const fetchCustomersSummary = asyncHandler(async (req, res) => {
   const customers = await Customer.find({ tenant: req.tenant }).select(
-    "customerName state cellNo address gstEnabled"
+    "customerName customerType state cellNo address gstEnabled"
   );
   res.status(200).json(customers);
 });

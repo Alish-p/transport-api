@@ -5,6 +5,11 @@ import { toTitleCase } from '../../utils/format-string.js';
 // Define the customer schema
 const CustomerSchema = new Schema({
   customerName: { type: String, required: true, trim: true, set: toTitleCase },
+  customerType: {
+    type: String,
+    enum: ['consignor', 'consignee', 'both'],
+    default: 'consignor',
+  },
   GSTNo: { type: String },
   gstEnabled: { type: Boolean, required: true },
   PANNo: { type: String },
