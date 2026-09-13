@@ -67,6 +67,11 @@ const invoiceSchema = new Schema(
       required: true,
       index: true,
     },
+    billingParty: {
+      type: String,
+      enum: ['consignor', 'consignee'],
+      default: 'consignor',
+    },
 
     invoiceStatus: {
       type: String,

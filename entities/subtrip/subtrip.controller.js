@@ -2,7 +2,6 @@ import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 
 import Subtrip from './subtrip.model.js';
-import Trip from '../trip/trip.model.js';
 import Driver from '../driver/driver.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import Expense from '../expense/expense.model.js';
@@ -42,6 +41,7 @@ const populateSubtrip = (query) =>
     })
     .populate("intentFuelPump")
     .populate("customerId")
+    .populate("consigneeCustomerId")
     .populate({
       path: "vehicleId",
       populate: { path: "transporter", model: "Transporter" },

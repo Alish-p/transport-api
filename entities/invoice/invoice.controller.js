@@ -19,6 +19,7 @@ import {
 const createInvoice = asyncHandler(async (req, res) => {
   const {
     customerId,
+    billingParty = 'consignor',
     subtripIds,
     additionalCharges = [],
     notes = "",
@@ -131,6 +132,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     // 7. Save Invoice
     const invoice = new Invoice({
       customerId,
+      billingParty,
       invoiceNo,
       issueDate: issueDateTime,
       dueDate,

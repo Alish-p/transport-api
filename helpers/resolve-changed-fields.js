@@ -11,11 +11,12 @@ import Customer from '../entities/customer/customer.model.js';
  *   - labelField : the field on that model that contains the human-readable value
  */
 const REF_FIELD_CONFIG = {
-  driverId:      { displayKey: 'driver',   model: Driver,   labelField: 'driverName'   },
-  customerId:    { displayKey: 'customer', model: Customer, labelField: 'customerName' },
-  vehicleId:     { displayKey: 'vehicle',  model: Vehicle,  labelField: 'vehicleNo'    },
-  intentFuelPump:{ displayKey: 'pump',     model: Pump,     labelField: 'name'         },
-  tripId:        { displayKey: 'trip',     model: Trip,     labelField: 'tripNo'       },
+  driverId:            { displayKey: 'driver',            model: Driver,   labelField: 'driverName'   },
+  customerId:          { displayKey: 'customer',          model: Customer, labelField: 'customerName' },
+  consigneeCustomerId: { displayKey: 'consigneeCustomer', model: Customer, labelField: 'customerName' },
+  vehicleId:           { displayKey: 'vehicle',           model: Vehicle,  labelField: 'vehicleNo'    },
+  intentFuelPump:      { displayKey: 'pump',              model: Pump,     labelField: 'name'         },
+  tripId:              { displayKey: 'trip',              model: Trip,     labelField: 'tripNo'       },
 };
 
 /**

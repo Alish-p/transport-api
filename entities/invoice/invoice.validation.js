@@ -3,6 +3,7 @@ import { z } from 'zod';
 const invoiceSchema = z.object({
   body: z.object({
     customerId: z.string().min(1, "Customer is required"),
+    billingParty: z.enum(['consignor', 'consignee']).default('consignor').optional(),
     dueDate: z.coerce.date().optional(),
     subtripIds: z
       .array(z.string())

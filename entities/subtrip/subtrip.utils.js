@@ -110,6 +110,7 @@ export const buildSubtripQuery = async (req, queryParams) => {
     subtripNo,
     tripId,
     customerId,
+    billingParty,
     subtripStatus,
     invoiceId,
     driverSalaryId,
@@ -155,7 +156,17 @@ export const buildSubtripQuery = async (req, queryParams) => {
 
   // Direct ID filters (safe cast to ObjectId for aggregation support)
   if (tripId) query.tripId = toObjectId(tripId);
-  if (customerId) query.customerId = toObjectId(customerId);
+  if (customerId) {
+    if (billingParty === 'consignee') {
+      query.consigneeCustomerId = toObjectId(customerId);
+      query.billingParty = 'consignee';
+    } else if (billingParty === 'consignor') {
+      query.customerId = toObjectId(customerId);
+      query.billingParty = 'consignor';
+    } else {
+      query.customerId = toObjectId(customerId);
+    }
+  }
   if (invoiceId) query.invoiceId = toObjectId(invoiceId);
   if (driverSalaryId) query.driverSalaryId = toObjectId(driverSalaryId);
   if (driverId) query.driverId = toObjectId(driverId);
@@ -471,6 +482,11 @@ export const validateJobCreateInput = ({ body, vehicle, formConfig }) => {
       err.status = 400;
       throw err;
     }
+    if (body.billingParty === 'consignee' && !body.consigneeCustomerId) {
+      const err = new Error('consigneeCustomerId is required when billingParty is consignee');
+      err.status = 400;
+      throw err;
+    }
     if (isFieldRequired('consignee') && (!body.consignee || !body.consignee.trim())) {
       const err = new Error('consignee is required for loaded/market job');
       err.status = 400;
@@ -682,6 +698,8 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
 
     Object.assign(subtripFields, {
       customerId: body.customerId,
+      billingParty: body.billingParty || 'consignor',
+      consigneeCustomerId: body.billingParty === 'consignee' ? body.consigneeCustomerId : undefined,
       consignee: body.consignee,
       loadingWeight: body.loadingWeight,
       freightDetails: {
@@ -944,6 +962,7 @@ export const buildExportSubtripsPipeline = (query) => [
         driverName: '$driver.driverName',
         driverCellNo: '$driver.driverCellNo',
         customerName: '$customer.customerName',
+        billingParty: 1,
         loadingPoint: 1,
         unloadingPoint: 1,
         invoiceNo: 1,
