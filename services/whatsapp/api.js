@@ -1,6 +1,6 @@
+import { recordOutboundMessage } from "./helper.js";
 import { formatPhoneE164ish } from "../../utils/format-utils.js";
 import { GRAPH_API_VERSION, getGlobalWhatsAppConfig, getTenantWhatsAppConfig } from "./config.js";
-import { recordOutboundMessage } from "./helper.js";
 
 async function sendTemplateMessage({
   tenantId,
@@ -133,5 +133,5 @@ async function sendTextMessage({ tenantId = null, to, text }) {
   }
 }
 
-export { sendTemplateMessage, sendTextMessage };
+export { sendTextMessage, sendTemplateMessage };
 

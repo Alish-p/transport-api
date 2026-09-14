@@ -3,63 +3,57 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { fileURLToPath } from 'url';
 
+import Counter from '../model/Counter.js';
+import Trip from '../entities/trip/trip.model.js';
+import Loan from '../entities/loan/loan.model.js';
+// Fuel & Tyres Models
+import Pump from '../entities/pump/pump.model.js';
+import Tyre from '../entities/tyre/tyre.model.js';
+// Tasks, Activity & Counter Models
+import Task from '../entities/task/task.model.js';
+import UserModel from '../entities/user/user.model.js';
+// Core Models
+import Tenant from '../entities/tenant/tenant.model.js';
+import Driver from '../entities/driver/driver.model.js';
+// Fleet & Operations Models
+import Vehicle from '../entities/vehicle/vehicle.model.js';
+import Subtrip from '../entities/subtrip/subtrip.model.js';
+import Challan from '../entities/challan/challan.model.js';
+import Invoice from '../entities/invoice/invoice.model.js';
+import Expense from '../entities/expense/expense.model.js';
+import FuelPrice from '../entities/pump/fuelPrice.model.js';
+import EwayBill from '../entities/ewaybill/ewaybill.model.js';
+// Billing, Parties & Finance Models
+import Customer from '../entities/customer/customer.model.js';
+import Activity from '../entities/activity/activity.model.js';
+// S3 Service
+import { deleteObjectFromS3 } from '../services/s3.service.js';
+import TyreHistory from '../entities/tyre/tyre-history.model.js';
+import ChallanLookup from '../entities/challan/challanLookup.model.js';
+import GpsSnapshot from '../entities/gpsSnapshot/gpsSnapshot.model.js';
+import Transporter from '../entities/transporter/transporter.model.js';
+import DriverSalary from '../entities/driverSalary/driverSalary.model.js';
+import SubtripEvent from '../entities/subtripEvent/subtripEvent.model.js';
+import Part from '../entities/maintenanceAndInventory/part/part.model.js';
+import VehicleLookup from '../entities/vehicleLookup/vehicleLookup.model.js';
+import CustomerTarget from '../entities/customerTarget/customerTarget.model.js';
+// Maintenance & Inventory Models
+import Vendor from '../entities/maintenanceAndInventory/vendor/vendor.model.js';
+import VehicleDocument from '../entities/vehicleDocument/vehicleDocument.model.js';
+import TenantMembership from '../entities/tenantMembership/tenantMembership.model.js';
+import PartStock from '../entities/maintenanceAndInventory/partStock/partStock.model.js';
+import WorkOrder from '../entities/maintenanceAndInventory/workOrder/workOrder.model.js';
+import TransporterPayment from '../entities/transporterPayment/transporterPayment.model.js';
+import TransporterAdvance from '../entities/transporterAdvance/transporterAdvance.model.js';
+import TransporterEwayBillCache from '../entities/ewaybill/transporter-ewaybill-cache.model.js';
+import PartLocation from '../entities/maintenanceAndInventory/partLocation/partLocation.model.js';
+import PurchaseOrder from '../entities/maintenanceAndInventory/purchaseOrder/purchaseOrder.model.js';
+import PartTransaction from '../entities/maintenanceAndInventory/partTransaction/partTransaction.model.js';
+
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
-
-// S3 Service
-import { deleteObjectFromS3 } from '../services/s3.service.js';
-
-// Core Models
-import Tenant from '../entities/tenant/tenant.model.js';
-import UserModel from '../entities/user/user.model.js';
-import TenantMembership from '../entities/tenantMembership/tenantMembership.model.js';
-
-// Fleet & Operations Models
-import Vehicle from '../entities/vehicle/vehicle.model.js';
-import VehicleDocument from '../entities/vehicleDocument/vehicleDocument.model.js';
-import VehicleLookup from '../entities/vehicleLookup/vehicleLookup.model.js';
-import Driver from '../entities/driver/driver.model.js';
-import DriverSalary from '../entities/driverSalary/driverSalary.model.js';
-import Trip from '../entities/trip/trip.model.js';
-import Subtrip from '../entities/subtrip/subtrip.model.js';
-import SubtripEvent from '../entities/subtripEvent/subtripEvent.model.js';
-import Challan from '../entities/challan/challan.model.js';
-import ChallanLookup from '../entities/challan/challanLookup.model.js';
-import EwayBill from '../entities/ewaybill/ewaybill.model.js';
-import TransporterEwayBillCache from '../entities/ewaybill/transporter-ewaybill-cache.model.js';
-import GpsSnapshot from '../entities/gpsSnapshot/gpsSnapshot.model.js';
-
-// Billing, Parties & Finance Models
-import Customer from '../entities/customer/customer.model.js';
-import CustomerTarget from '../entities/customerTarget/customerTarget.model.js';
-import Transporter from '../entities/transporter/transporter.model.js';
-import TransporterPayment from '../entities/transporterPayment/transporterPayment.model.js';
-import TransporterAdvance from '../entities/transporterAdvance/transporterAdvance.model.js';
-import Invoice from '../entities/invoice/invoice.model.js';
-import Expense from '../entities/expense/expense.model.js';
-import Loan from '../entities/loan/loan.model.js';
-
-// Fuel & Tyres Models
-import Pump from '../entities/pump/pump.model.js';
-import FuelPrice from '../entities/pump/fuelPrice.model.js';
-import Tyre from '../entities/tyre/tyre.model.js';
-import TyreHistory from '../entities/tyre/tyre-history.model.js';
-
-// Maintenance & Inventory Models
-import Vendor from '../entities/maintenanceAndInventory/vendor/vendor.model.js';
-import Part from '../entities/maintenanceAndInventory/part/part.model.js';
-import PartStock from '../entities/maintenanceAndInventory/partStock/partStock.model.js';
-import PartLocation from '../entities/maintenanceAndInventory/partLocation/partLocation.model.js';
-import PartTransaction from '../entities/maintenanceAndInventory/partTransaction/partTransaction.model.js';
-import PurchaseOrder from '../entities/maintenanceAndInventory/purchaseOrder/purchaseOrder.model.js';
-import WorkOrder from '../entities/maintenanceAndInventory/workOrder/workOrder.model.js';
-
-// Tasks, Activity & Counter Models
-import Task from '../entities/task/task.model.js';
-import Activity from '../entities/activity/activity.model.js';
-import Counter from '../model/Counter.js';
 
 const TENANT_SCOPED_MODELS = [
   { name: 'Trips', model: Trip },
@@ -145,7 +139,7 @@ async function analyzeUsers(tenantId) {
   const singleTenantUsers = [];
 
   for (const membership of memberships) {
-    const user = membership.user;
+    const {user} = membership;
     if (!user) continue;
 
     if (user.role === 'super') {

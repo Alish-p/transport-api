@@ -1,15 +1,16 @@
 import { Router } from 'express';
+
+import pagination from '../../middlewares/pagination.js';
+import { authenticate, requireSuperuser } from '../../middlewares/auth.js';
 import {
   verifyWebhook,
-  receiveWebhook,
-  getConversations,
-  getConversationMessages,
-  sendTextMessage,
-  markConversationAsRead,
   getMediaProxy,
+  receiveWebhook,
+  sendTextMessage,
+  getConversations,
+  markConversationAsRead,
+  getConversationMessages,
 } from './whatsapp.controller.js';
-import { authenticate, requireSuperuser } from '../../middlewares/auth.js';
-import pagination from '../../middlewares/pagination.js';
 
 const router = Router();
 

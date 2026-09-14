@@ -12,8 +12,8 @@
  *   - This is idempotent — safe to run multiple times
  */
 
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 
 dotenv.config();
 
@@ -29,7 +29,7 @@ async function migrate() {
   await mongoose.connect(MONGO_URI);
   console.log('Connected.');
 
-  const db = mongoose.connection.db;
+  const {db} = mongoose.connection;
 
   // Backfill expenses
   const expenseResult = await db.collection('expenses').updateMany(

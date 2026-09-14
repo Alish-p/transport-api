@@ -21,6 +21,7 @@ import challanRouter from '../entities/challan/challan.routes.js';
 import customerRouter from '../entities/customer/customer.routes.js';
 import ewayBillRouter from '../entities/ewaybill/ewaybill.routes.js';
 import activityRouter from '../entities/activity/activity.routes.js';
+import whatsappRouter from '../entities/whatsapp/whatsapp.routes.js';
 import dashboardRouter from '../entities/dashboard/dashboard.routes.js';
 import superuserRouter from '../entities/superuser/superuser.routes.js';
 import gpsSnapshotRouter from '../entities/gpsSnapshot/gpsSnapshot.routes.js';
@@ -29,11 +30,10 @@ import driverSalaryRouter from '../entities/driverSalary/driverSalary.routes.js'
 import subtripEventRouter from '../entities/subtripEvent/subtripEvent.routes.js';
 import customerTargetRouter from '../entities/customerTarget/customerTarget.routes.js';
 import vehicleDocumentRouter from '../entities/vehicleDocument/vehicleDocument.routes.js';
+import transporterPortalRouter from '../entities/transporterPortal/transporterPortal.routes.js';
 import transporterPaymentRouter from '../entities/transporterPayment/transporterPayment.routes.js';
 import transporterAdvanceRouter from '../entities/transporterAdvance/transporterAdvance.routes.js';
 import maintenanceAndInventoryRouter from '../entities/maintenanceAndInventory/maintenanceAndInventory.routes.js';
-import transporterPortalRouter from '../entities/transporterPortal/transporterPortal.routes.js';
-import whatsappRouter from '../entities/whatsapp/whatsapp.routes.js';
 
 const router = express.Router();
 

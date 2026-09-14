@@ -1,14 +1,14 @@
 import asyncHandler from 'express-async-handler';
 
-import { toDotNotation } from '../../utils/tenant-utils.js';
-import { sendPaymentReceiptEmail } from '../../services/email.service.js';
-import Driver from '../driver/driver.model.js';
-import Invoice from '../invoice/invoice.model.js';
-import Customer from '../customer/customer.model.js';
-import Subtrip from '../subtrip/subtrip.model.js';
-import Tenant from '../tenant/tenant.model.js';
-import Transporter from '../transporter/transporter.model.js';
 import UserModel from '../user/user.model.js';
+import Driver from '../driver/driver.model.js';
+import Tenant from '../tenant/tenant.model.js';
+import Invoice from '../invoice/invoice.model.js';
+import Subtrip from '../subtrip/subtrip.model.js';
+import Customer from '../customer/customer.model.js';
+import { toDotNotation } from '../../utils/tenant-utils.js';
+import Transporter from '../transporter/transporter.model.js';
+import { sendPaymentReceiptEmail } from '../../services/email.service.js';
 import TenantMembership from '../tenantMembership/tenantMembership.model.js';
 import TransporterPayment from '../transporterPayment/transporterPayment.model.js';
 

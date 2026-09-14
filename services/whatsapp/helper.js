@@ -1,9 +1,9 @@
+import User from '../../entities/user/user.model.js';
 import Driver from '../../entities/driver/driver.model.js';
 import Customer from '../../entities/customer/customer.model.js';
-import Transporter from '../../entities/transporter/transporter.model.js';
-import User from '../../entities/user/user.model.js';
-import WhatsAppMessage from '../../entities/whatsapp/whatsappMessage.model.js';
 import { formatPhoneE164ish } from '../../utils/format-utils.js';
+import Transporter from '../../entities/transporter/transporter.model.js';
+import WhatsAppMessage from '../../entities/whatsapp/whatsappMessage.model.js';
 
 /**
  * Resolve contact identity (Driver, Transporter, Customer, User) by phone number.

@@ -1,20 +1,20 @@
 import express from 'express';
 
-import { requestOtp, verifyOtp, selectTransporter } from './transporterPortalAuth.controller.js';
+import { authenticateTransporter } from '../../middlewares/authenticateTransporter.js';
+import { verifyOtp, requestOtp, selectTransporter } from './transporterPortalAuth.controller.js';
 import {
-  getDashboard,
+  getLoans,
   getProfile,
   getVehicles,
-  getVehicleById,
   getSubtrips,
-  getSubtripById,
   getPayments,
-  getPaymentById,
   getAdvances,
-  getLoans,
   getLoanById,
+  getDashboard,
+  getVehicleById,
+  getSubtripById,
+  getPaymentById,
 } from './transporterPortal.controller.js';
-import { authenticateTransporter } from '../../middlewares/authenticateTransporter.js';
 
 const router = express.Router();
 

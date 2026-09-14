@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+
 import { getPaymentReceiptEmailTemplate } from '../utils/templates/payment-receipt-template.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);

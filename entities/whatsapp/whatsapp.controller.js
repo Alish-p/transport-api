@@ -1,8 +1,9 @@
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
+
 import WhatsAppMessage from './whatsappMessage.model.js';
-import { sendTextMessage as sendTextMessageService } from '../../services/whatsapp/api.js';
 import { resolveContactEntity } from '../../services/whatsapp/helper.js';
+import { sendTextMessage as sendTextMessageService } from '../../services/whatsapp/api.js';
 
 /**
  * Format template preview text for conversation snippets.
@@ -49,7 +50,7 @@ const receiveWebhook = async (req, res) => {
   res.sendStatus(200);
 
   try {
-    const body = req.body;
+    const {body} = req;
     if (!body || body.object !== 'whatsapp_business_account') {
       return;
     }
@@ -59,7 +60,7 @@ const receiveWebhook = async (req, res) => {
       const changes = Array.isArray(entry.changes) ? entry.changes : [];
       for (const change of changes) {
         if (change.field !== 'messages') continue;
-        const value = change.value;
+        const {value} = change;
         if (!value) continue;
 
         const phoneNumberId = value.metadata?.phone_number_id;
@@ -95,7 +96,7 @@ const receiveWebhook = async (req, res) => {
           const contacts = Array.isArray(value.contacts) ? value.contacts : [];
 
           for (const msg of value.messages) {
-            const from = msg.from;
+            const {from} = msg;
             const msgId = msg.id;
             const msgType = msg.type || 'text';
             const msgTimestamp = msg.timestamp
@@ -507,10 +508,10 @@ const markConversationAsRead = asyncHandler(async (req, res) => {
 
 export {
   verifyWebhook,
-  receiveWebhook,
-  getConversations,
-  getConversationMessages,
-  sendTextMessage,
-  markConversationAsRead,
   getMediaProxy,
+  receiveWebhook,
+  sendTextMessage,
+  getConversations,
+  markConversationAsRead,
+  getConversationMessages,
 };

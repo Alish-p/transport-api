@@ -1,12 +1,12 @@
 import mongoose from 'mongoose';
 import asyncHandler from 'express-async-handler';
 
+import LoanModel from '../loan/loan.model.js';
 import VehicleModel from '../vehicle/vehicle.model.js';
 import SubtripModel from '../subtrip/subtrip.model.js';
 import TransporterModel from '../transporter/transporter.model.js';
 import TransporterPaymentModel from '../transporterPayment/transporterPayment.model.js';
 import TransporterAdvanceModel from '../transporterAdvance/transporterAdvance.model.js';
-import LoanModel from '../loan/loan.model.js';
 
 
 // ----------------------------------------------------------------------
@@ -19,7 +19,7 @@ import LoanModel from '../loan/loan.model.js';
  */
 const getDashboard = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   // Get all vehicles for this transporter (active and inactive)
   const vehicleIds = await VehicleModel.find(
@@ -271,7 +271,7 @@ function formatSubtripForTransporter(subtrip) {
  */
 const getSubtrips = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
-  const tenant = req.tenant;
+  const {tenant} = req;
   const { status = 'all', search, order = 'desc', orderBy = 'startDate' } = req.query;
 
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -407,7 +407,7 @@ const getSubtrips = asyncHandler(async (req, res) => {
  */
 const getSubtripById = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
-  const tenant = req.tenant;
+  const {tenant} = req;
 
   const vehicles = await VehicleModel.find(
     { transporter: transporterId, tenant },
@@ -445,7 +445,7 @@ const getSubtripById = asyncHandler(async (req, res) => {
  */
 const getPayments = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
-  const tenant = req.tenant;
+  const {tenant} = req;
   const { search, order = 'desc', orderBy = 'issueDate' } = req.query;
 
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -505,7 +505,7 @@ const getPayments = asyncHandler(async (req, res) => {
  */
 const getPaymentById = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
-  const tenant = req.tenant;
+  const {tenant} = req;
   const { id } = req.params;
 
   const query = {
@@ -533,7 +533,7 @@ const getPaymentById = asyncHandler(async (req, res) => {
  */
 const getAdvances = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
-  const tenant = req.tenant;
+  const {tenant} = req;
   const { status = 'all', search, order = 'desc', orderBy = 'date' } = req.query;
 
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -724,7 +724,7 @@ const getAdvances = asyncHandler(async (req, res) => {
  */
 const getLoans = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
-  const tenant = req.tenant;
+  const {tenant} = req;
   const { status = 'all', search, order = 'desc', orderBy = 'disbursementDate' } = req.query;
 
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -817,7 +817,7 @@ const getLoans = asyncHandler(async (req, res) => {
  */
 const getLoanById = asyncHandler(async (req, res) => {
   const transporterId = req.transporter._id;
-  const tenant = req.tenant;
+  const {tenant} = req;
   const { id } = req.params;
 
   const query = {
@@ -840,17 +840,17 @@ const getLoanById = asyncHandler(async (req, res) => {
 });
 
 export {
-  getDashboard,
+  getLoans,
   getProfile,
   getVehicles,
-  getVehicleById,
   getSubtrips,
-  getSubtripById,
   getPayments,
-  getPaymentById,
   getAdvances,
-  getLoans,
   getLoanById,
+  getDashboard,
+  getVehicleById,
+  getSubtripById,
+  getPaymentById,
 };
 
 

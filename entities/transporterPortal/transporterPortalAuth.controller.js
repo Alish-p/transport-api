@@ -258,4 +258,4 @@ const selectTransporter = asyncHandler(async (req, res) => {
   });
 });
 
-export { requestOtp, verifyOtp, selectTransporter };
+export { verifyOtp, requestOtp, selectTransporter };

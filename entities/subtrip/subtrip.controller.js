@@ -14,10 +14,10 @@ import { recalculateTripFinancials } from '../trip/trip.service.js';
 import { buildChangedFields } from '../../utils/serialize-field-value.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
-import { SUBTRIP_STATUS, FREIGHT_MODELS, CONCRETE_FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
 import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import { resolveChangedFieldLabels } from '../../helpers/resolve-changed-fields.js';
 import { sendLRGenerationNotification, sendDriverJobAssignedNotification } from '../../services/whatsapp.service.js';
+import { SUBTRIP_STATUS, FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS, CONCRETE_FREIGHT_MODELS } from './subtrip.constants.js';
 import {
   buildSubtripQuery,
   resolveTripForJob,
@@ -372,7 +372,7 @@ const receiveLR = asyncHandler(async (req, res) => {
   const isOwn = subtrip.vehicleId?.isOwn ?? true;
 
   if (effectiveFreightModel === FREIGHT_MODELS.PER_KM || effectiveFreightModel === FREIGHT_MODELS.HYBRID) {
-    const endKm = incomingFreightDetails.endKm;
+    const {endKm} = incomingFreightDetails;
     if (endKm === undefined || endKm === null || endKm === '') {
       return res.status(400).json({ message: 'Billing End KM is required' });
     }
