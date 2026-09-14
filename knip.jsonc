@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
+  "entry": [
+    "scripts/**/*.js"
+  ],
+  "project": [
+    "**/*.js"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [],
+  "ignore": []
+}
