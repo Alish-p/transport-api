@@ -135,7 +135,8 @@ export const validateSubtripConfig = async (req, res, next) => {
 
     let bodyToValidate = { ...req.body };
     if (req.method === 'PUT' && req.params.id) {
-      const existing = await Subtrip.findOne({ _id: req.params.id, tenant: req.tenant._id }).lean();
+      const tenantId = req.tenant?._id || req.tenant;
+      const existing = await Subtrip.findOne({ _id: req.params.id, tenant: tenantId }).lean();
       if (existing) {
         bodyToValidate = {
           ...existing,
