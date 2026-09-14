@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "backup:db": "node scripts/backup-db.js",
     "purge:tenant": "node scripts/purge-tenant.js",
+    "migrate:consignor-billing": "node scripts/migrate-billing-party-to-consignor.js",
     "lint:fix": "eslint --fix \"**/*.{js,jsx,ts,tsx}\"",
     "cron:driver-expiry": "node scripts/cron/driver-expiry.js",
     "cron:task-archive": "node scripts/cron/task-archive.js",

@@ -14,7 +14,7 @@ import { recalculateTripFinancials } from '../trip/trip.service.js';
 import { buildChangedFields } from '../../utils/serialize-field-value.js';
 import { recordSubtripEvent } from '../../helpers/subtrip-event-helper.js';
 import { SUBTRIP_EVENT_TYPES } from '../subtripEvent/subtripEvent.constants.js';
-import { SUBTRIP_STATUS  , FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
+import { SUBTRIP_STATUS, FREIGHT_MODELS, CONCRETE_FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
 import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import { resolveChangedFieldLabels } from '../../helpers/resolve-changed-fields.js';
 import { sendLRGenerationNotification, sendDriverJobAssignedNotification } from '../../services/whatsapp.service.js';
@@ -319,22 +319,70 @@ const receiveLR = asyncHandler(async (req, res) => {
   }
 
   // Dynamic Validation based on Freight Model and Ownership
-  const freightModel = subtrip.freightDetails?.freightModel || 'per_ton';
-  const startKm = subtrip.freightDetails?.startKm || 0;
+  const incomingFreightDetails = req.body.freightDetails || {};
+  const effectiveFreightModel = incomingFreightDetails.freightModel || subtrip.freightDetails?.freightModel;
+
+  // Determine allowed concrete models based on tenant configuration
+  const tenantAllowedModels = req.tenant?.config?.subtrip?.allowedFreightModels;
+  const concreteTenantModels =
+    Array.isArray(tenantAllowedModels) && tenantAllowedModels.length > 0
+      ? tenantAllowedModels.filter(
+          (m) => m !== FREIGHT_MODELS.TO_BE_BILLED && CONCRETE_FREIGHT_MODELS.includes(m)
+        )
+      : CONCRETE_FREIGHT_MODELS;
+  const allowedModelsToUse =
+    concreteTenantModels.length > 0 ? concreteTenantModels : CONCRETE_FREIGHT_MODELS;
+
+  if (
+    !effectiveFreightModel ||
+    effectiveFreightModel === FREIGHT_MODELS.TO_BE_BILLED ||
+    !allowedModelsToUse.includes(effectiveFreightModel)
+  ) {
+    return res.status(400).json({
+      message: `Freight model must be selected to complete receive (cannot be 'To Be Billed Later'). Allowed: ${allowedModelsToUse.join(', ')}`,
+    });
+  }
+
+  // Validate required model fields
+  if (effectiveFreightModel === FREIGHT_MODELS.PER_TON || effectiveFreightModel === FREIGHT_MODELS.PER_KL) {
+    const rate = incomingFreightDetails.rate !== undefined ? incomingFreightDetails.rate : subtrip.freightDetails?.rate;
+    if (rate === undefined || rate === null || rate === '' || Number(rate) < 0) {
+      return res.status(400).json({ message: 'Valid freight rate is required' });
+    }
+  } else if (effectiveFreightModel === FREIGHT_MODELS.FIXED) {
+    const freightAmount = incomingFreightDetails.freightAmount !== undefined ? incomingFreightDetails.freightAmount : subtrip.freightDetails?.freightAmount;
+    if (freightAmount === undefined || freightAmount === null || freightAmount === '' || Number(freightAmount) < 0) {
+      return res.status(400).json({ message: 'Valid freight amount is required for Fixed model' });
+    }
+  } else if (effectiveFreightModel === FREIGHT_MODELS.HYBRID) {
+    const baseAmt = incomingFreightDetails.freightAmount !== undefined ? incomingFreightDetails.freightAmount : subtrip.freightDetails?.freightAmount;
+    const baseKm = incomingFreightDetails.baseKm !== undefined ? incomingFreightDetails.baseKm : subtrip.freightDetails?.baseKm;
+    const rate = incomingFreightDetails.rate !== undefined ? incomingFreightDetails.rate : subtrip.freightDetails?.rate;
+    if (baseAmt === undefined || baseAmt === null || baseAmt === '' || baseKm === undefined || baseKm === null || baseKm === '' || rate === undefined || rate === null || rate === '') {
+      return res.status(400).json({ message: 'Base freight amount, base KM, and extra rate are required for Hybrid model' });
+    }
+  } else if (effectiveFreightModel === FREIGHT_MODELS.PER_HOUR) {
+    const rate = incomingFreightDetails.rate !== undefined ? incomingFreightDetails.rate : subtrip.freightDetails?.rate;
+    if (rate === undefined || rate === null || rate === '' || Number(rate) < 0) {
+      return res.status(400).json({ message: 'Valid hourly freight rate is required' });
+    }
+  }
+
+  const startKm = incomingFreightDetails.startKm !== undefined ? incomingFreightDetails.startKm : (subtrip.freightDetails?.startKm || 0);
   const isOwn = subtrip.vehicleId?.isOwn ?? true;
 
-  if (freightModel === 'per_km' || freightModel === 'hybrid') {
-    const endKm = req.body.freightDetails?.endKm;
+  if (effectiveFreightModel === FREIGHT_MODELS.PER_KM || effectiveFreightModel === FREIGHT_MODELS.HYBRID) {
+    const endKm = incomingFreightDetails.endKm;
     if (endKm === undefined || endKm === null || endKm === '') {
       return res.status(400).json({ message: 'Billing End KM is required' });
     }
-    if (Number(endKm) < startKm) {
+    if (Number(endKm) < Number(startKm)) {
       return res.status(400).json({ message: `Billing End KM cannot be less than Start KM (${startKm})` });
     }
   }
 
   if (!isOwn) {
-    if (freightModel === 'per_ton' || freightModel === 'per_kl') {
+    if (effectiveFreightModel === FREIGHT_MODELS.PER_TON || effectiveFreightModel === FREIGHT_MODELS.PER_KL) {
       const commRate = req.body.commissionDetails?.commissionRate;
       if (commRate === undefined || commRate === null || commRate === '') {
         return res.status(400).json({ message: 'Commission rate is required for market vehicles' });

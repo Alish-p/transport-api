@@ -5,7 +5,17 @@ export const FREIGHT_MODELS = {
   FIXED: 'fixed',
   PER_HOUR: 'per_hour',
   HYBRID: 'hybrid',
+  TO_BE_BILLED: 'to_be_billed',
 };
+
+export const CONCRETE_FREIGHT_MODELS = [
+  FREIGHT_MODELS.PER_TON,
+  FREIGHT_MODELS.PER_KL,
+  FREIGHT_MODELS.PER_KM,
+  FREIGHT_MODELS.FIXED,
+  FREIGHT_MODELS.PER_HOUR,
+  FREIGHT_MODELS.HYBRID,
+];
 
 export const SUBTRIP_STATUS = {
   IN_QUEUE: 'in-queue',

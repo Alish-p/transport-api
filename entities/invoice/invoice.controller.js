@@ -10,7 +10,7 @@ import { INVOICE_STATUS } from './invoice.constants.js';
 import { calculateInvoiceSummary } from './invoice.utils.js';
 import { buildSortObject } from '../../utils/query-utils.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import { SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
+import { FREIGHT_MODELS, SUBTRIP_STATUS } from '../subtrip/subtrip.constants.js';
 import {
   recordSubtripEvent,
   SUBTRIP_EVENT_TYPES,
@@ -37,7 +37,7 @@ const createInvoice = asyncHandler(async (req, res) => {
 
   // 2. Parse issueDate and validate non-future date
   const issueDateTime = issueDate ? new Date(issueDate) : new Date();
-  if (isNaN(issueDateTime.getTime())) {
+  if (Number.isNaN(issueDateTime.getTime())) {
     return res.status(400).json({ message: "Invalid issue date provided." });
   }
   const endOfToday = new Date();
@@ -97,6 +97,19 @@ const createInvoice = asyncHandler(async (req, res) => {
       return res.status(400).json({
         message: "Some subtrips are either not received or already invoiced.",
         failedSubtrips,
+      });
+    }
+
+    const unpricedSubtrips = subtrips.filter(
+      (st) =>
+        !st.freightDetails?.freightModel ||
+        st.freightDetails.freightModel === FREIGHT_MODELS.TO_BE_BILLED
+    );
+    if (unpricedSubtrips.length > 0) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        message: "Some subtrips have unresolved freight models ('To Be Billed Later'). Please update their freight details before invoicing.",
+        failedSubtrips: unpricedSubtrips.map((s) => s.subtripNo || s._id),
       });
     }
 
@@ -674,7 +687,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
     totalIgst += (doc.igst || 0);
 
     exportColumns.forEach((col) => {
-      const {key} = col;
+      const { key } = col;
       if (key === 'issueDate' || key === 'dueDate') {
         row[key] = doc[key] ? new Date(doc[key]).toISOString().split('T')[0] : '-';
       } else if (key === 'balanceAmount' || key === 'remainingAmount') {
@@ -694,7 +707,7 @@ const exportInvoices = asyncHandler(async (req, res) => {
   // Footer Row
   const totalRow = {};
   exportColumns.forEach((col) => {
-    const {key} = col;
+    const { key } = col;
     if (key === 'invoiceNo') totalRow[key] = 'TOTAL';
     else if (key === 'totalAmountBeforeTax') totalRow[key] = Math.round(totalTaxable * 100) / 100;
     else if (key === 'taxAmount') totalRow[key] = Math.round(totalTax * 100) / 100;
