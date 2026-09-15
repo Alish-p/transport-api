@@ -12,6 +12,7 @@ import { deleteObjectFromS3 } from '../../services/s3.service.js';
 import { getAllFleetxVehicleData } from '../../helpers/fleetx.js';
 import VehicleLookup from '../vehicleLookup/vehicleLookup.model.js';
 import VehicleDocument from '../vehicleDocument/vehicleDocument.model.js';
+import { REQUIRED_DOC_TYPES, DEFAULT_EXPIRING_DAYS } from '../vehicleDocument/vehicleDocument.constants.js';
 import { extractDocuments, fetchVehicleByNumber, normalizeVehicleDetails } from '../../helpers/webcorevision.js';
 
 // Get Tyre Layouts
@@ -100,10 +101,67 @@ const quickCreateVehicle = asyncHandler(async (req, res) => {
   res.status(201).json(newVehicle);
 });
 
+/**
+ * Computes the overall document status for a vehicle and aggregates count metrics.
+ * Priority hierarchy: Expired > Expiring > Missing > Valid
+ */
+export const computeVehicleDocumentStatus = (
+  docs = [],
+  requiredTypes = REQUIRED_DOC_TYPES,
+  expiringDays = DEFAULT_EXPIRING_DAYS,
+  now = new Date()
+) => {
+  const expiringThreshold = new Date(now.getTime() + expiringDays * 24 * 60 * 60 * 1000);
+
+  // Determine missing required document types
+  const presentTypes = new Set(docs.map((d) => d.docType));
+  const missingCount = requiredTypes.filter((t) => !presentTypes.has(t)).length;
+
+  let expiredCount = 0;
+  let expiringCount = 0;
+  let validCount = 0;
+
+  for (const d of docs) {
+    if (!d.expiryDate) {
+      validCount += 1;
+      continue;
+    }
+    const exp = new Date(d.expiryDate);
+    if (exp < now) {
+      expiredCount += 1;
+    } else if (exp <= expiringThreshold) {
+      expiringCount += 1;
+    } else {
+      validCount += 1;
+    }
+  }
+
+  // Determine priority status
+  let status = 'Valid';
+  if (expiredCount > 0) {
+    status = 'Expired';
+  } else if (expiringCount > 0) {
+    status = 'Expiring';
+  } else if (missingCount > 0 || docs.length === 0) {
+    status = 'Missing';
+  } else {
+    status = 'Valid';
+  }
+
+  return {
+    status,
+    expiredCount,
+    expiringCount,
+    missingCount,
+    validCount,
+    totalActiveDocs: docs.length,
+  };
+};
+
 // Fetch Vehicles with pagination and search
 const fetchVehicles = asyncHandler(async (req, res) => {
   try {
-    const { vehicleNo, vehicleType, isOwn, transporter, noOfTyres, isActive } = req.query;
+    const { vehicleNo, vehicleType, isOwn, transporter, noOfTyres, isActive, includeDocStatus } = req.query;
     const { limit, skip } = req.pagination;
 
     const query = addTenantToQuery(req);
@@ -148,13 +206,48 @@ const fetchVehicles = asyncHandler(async (req, res) => {
         Vehicle.countDocuments({ ...query, isOwn: false }),
       ]);
 
+    let results = vehicles;
+
+    // Optionally attach document status metrics if requested
+    if (includeDocStatus === 'true' || includeDocStatus === true) {
+      const vehicleIds = vehicles.map((v) => v._id);
+      const activeDocs = await VehicleDocument.find({
+        tenant: req.tenant,
+        vehicle: { $in: vehicleIds },
+        isActive: true,
+      })
+        .select('vehicle docType expiryDate')
+        .lean();
+
+      // Group active documents by vehicle ID
+      const docsByVehicle = new Map();
+      for (const doc of activeDocs) {
+        const vKey = String(doc.vehicle);
+        if (!docsByVehicle.has(vKey)) docsByVehicle.set(vKey, []);
+        docsByVehicle.get(vKey).push(doc);
+      }
+
+      const now = new Date();
+      results = vehicles.map((v) => {
+        const vObj = v.toObject ? v.toObject() : { ...v };
+        const vDocs = docsByVehicle.get(String(v._id)) || [];
+        vObj.documentStatus = computeVehicleDocumentStatus(
+          vDocs,
+          REQUIRED_DOC_TYPES,
+          DEFAULT_EXPIRING_DAYS,
+          now
+        );
+        return vObj;
+      });
+    }
+
     res.status(200).json({
-      results: vehicles,
+      results,
       total,
       totalOwnVehicle,
       totalMarketVehicle,
       startRange: skip + 1,
-      endRange: skip + vehicles.length,
+      endRange: skip + results.length,
     });
   } catch (error) {
     res.status(500).json({
@@ -163,6 +256,7 @@ const fetchVehicles = asyncHandler(async (req, res) => {
     });
   }
 });
+
 
 // fetch vehicles
 const fetchVehiclesSummary = asyncHandler(async (req, res) => {

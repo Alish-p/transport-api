@@ -4,7 +4,7 @@ import Tenant from '../tenant/tenant.model.js';
 import Vehicle from '../vehicle/vehicle.model.js';
 import VehicleDocument from './vehicleDocument.model.js';
 import { addTenantToQuery } from '../../utils/tenant-utils.js';
-import { REQUIRED_DOC_TYPES } from './vehicleDocument.constants.js';
+import { REQUIRED_DOC_TYPES, DEFAULT_EXPIRING_DAYS } from './vehicleDocument.constants.js';
 import { extractDocuments, fetchVehicleByNumber } from '../../helpers/webcorevision.js';
 import { generateUploadUrl, buildPublicFileUrl, deleteObjectFromS3, buildDatedFilename, createPresignedGetUrl } from '../../services/s3.service.js';
 
@@ -241,7 +241,7 @@ export const fetchDocumentsList = asyncHandler(async (req, res) => {
   const { limit, skip } = req.pagination || { limit: 10, skip: 0 };
 
   const now = new Date();
-  const windowDays = Number(days) > 0 ? Number(days) : 30;
+  const windowDays = Number(days) > 0 ? Number(days) : DEFAULT_EXPIRING_DAYS;
   const expiringEnd = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
 
   // Build base document query

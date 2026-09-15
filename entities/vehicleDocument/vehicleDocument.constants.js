@@ -17,6 +17,9 @@ export const REQUIRED_DOC_TYPES = [
   'Tax',
 ];
 
+// Default threshold in days to consider a vehicle document as expiring
+export const DEFAULT_EXPIRING_DAYS = 15;
+
 
 // Document types used across vehicle documents UI
 export const DOC_TYPES = [
