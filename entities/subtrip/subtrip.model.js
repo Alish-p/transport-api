@@ -40,6 +40,7 @@ const subtripSchema = new Schema({
   // Material details
   materialType: { type: String },
   quantity: { type: Number },
+  quantityUnit: { type: String, enum: ['bags', 'box', 'loose', 'other'], default: 'other' },
   grade: { type: String },
   diNumber: { type: String },
   docs: [{ type: String }],

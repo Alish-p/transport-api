@@ -57,6 +57,7 @@ const jobCreateSchema = z.object({
       materialType: z.string().optional(),
       ewayBill: z.string().optional(),
       quantity: z.number().optional(),
+      quantityUnit: z.enum(['bags', 'box', 'loose', 'other']).optional(),
       grade: z.string().optional(),
       shipmentNo: z.string().optional(),
       orderNo: z.string().optional(),

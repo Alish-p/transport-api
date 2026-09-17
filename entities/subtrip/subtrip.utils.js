@@ -560,7 +560,7 @@ export const resolveTripForJob = async ({ vehicle, body, session, tenant }) => {
   }
   const activeTrip = openTrips[0] || null;
 
-  let {tripDecision} = body;
+  let { tripDecision } = body;
   // Determine default decision when none is provided
   if (!tripDecision) {
     if (activeTrip) {
@@ -672,8 +672,8 @@ export const resolveTripForJob = async ({ vehicle, body, session, tenant }) => {
 export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVehicle, isLoaded }) => {
   const startDate = body.startDate ? new Date(body.startDate) : null;
   const ewayExpiryDate = body.ewayExpiryDate ? new Date(body.ewayExpiryDate) : null;
-  const {loadingPoint} = body;
-  const {unloadingPoint} = body;
+  const { loadingPoint } = body;
+  const { unloadingPoint } = body;
   const freightDetails = body.freightDetails || {};
 
   const subtripFields = {
@@ -725,6 +725,7 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
       materialType: body.materialType,
       ewayBill: body.ewayBill,
       quantity: body.quantity,
+      quantityUnit: body.quantityUnit || 'other',
       grade: body.grade,
       shipmentNo: body.shipmentNo,
       orderNo: body.orderNo,
@@ -868,167 +869,167 @@ export const handleJobAdvancesAndExpenses = async ({ newSubtrip, body, vehicleId
  * Builds the aggregation pipeline for exporting subtrips to Excel.
  */
 export const buildExportSubtripsPipeline = (query) => [
-    { $match: query },
-    // Sort
-    { $sort: { startDate: -1 } },
-    // Lookup Trip
-    {
-      $lookup: {
-        from: 'trips',
-        localField: 'tripId',
-        foreignField: '_id',
-        as: 'trip',
-      },
+  { $match: query },
+  // Sort
+  { $sort: { startDate: -1 } },
+  // Lookup Trip
+  {
+    $lookup: {
+      from: 'trips',
+      localField: 'tripId',
+      foreignField: '_id',
+      as: 'trip',
     },
-    { $unwind: { path: '$trip', preserveNullAndEmptyArrays: true } },
-    // Lookup Customer
-    {
-      $lookup: {
-        from: 'customers',
-        localField: 'customerId',
-        foreignField: '_id',
-        as: 'customer',
-      },
+  },
+  { $unwind: { path: '$trip', preserveNullAndEmptyArrays: true } },
+  // Lookup Customer
+  {
+    $lookup: {
+      from: 'customers',
+      localField: 'customerId',
+      foreignField: '_id',
+      as: 'customer',
     },
-    { $unwind: { path: '$customer', preserveNullAndEmptyArrays: true } },
-    // Lookup Driver
-    {
-      $lookup: {
-        from: 'drivers',
-        localField: 'driverId',
-        foreignField: '_id',
-        as: 'driver',
-      },
+  },
+  { $unwind: { path: '$customer', preserveNullAndEmptyArrays: true } },
+  // Lookup Driver
+  {
+    $lookup: {
+      from: 'drivers',
+      localField: 'driverId',
+      foreignField: '_id',
+      as: 'driver',
     },
-    { $unwind: { path: '$driver', preserveNullAndEmptyArrays: true } },
-    // Lookup Vehicle
-    {
-      $lookup: {
-        from: 'vehicles',
-        localField: 'vehicleId',
-        foreignField: '_id',
-        as: 'vehicle',
-      },
+  },
+  { $unwind: { path: '$driver', preserveNullAndEmptyArrays: true } },
+  // Lookup Vehicle
+  {
+    $lookup: {
+      from: 'vehicles',
+      localField: 'vehicleId',
+      foreignField: '_id',
+      as: 'vehicle',
     },
-    { $unwind: { path: '$vehicle', preserveNullAndEmptyArrays: true } },
-    // Lookup Transporter (nested in vehicle)
-    {
-      $lookup: {
-        from: 'transporters',
-        localField: 'vehicle.transporter',
-        foreignField: '_id',
-        as: 'transporter',
-      },
+  },
+  { $unwind: { path: '$vehicle', preserveNullAndEmptyArrays: true } },
+  // Lookup Transporter (nested in vehicle)
+  {
+    $lookup: {
+      from: 'transporters',
+      localField: 'vehicle.transporter',
+      foreignField: '_id',
+      as: 'transporter',
     },
-    { $unwind: { path: '$transporter', preserveNullAndEmptyArrays: true } },
-    // Lookup Expenses
-    {
-      $lookup: {
-        from: 'expenses',
-        localField: 'expenses',
-        foreignField: '_id',
-        as: 'expensesData',
-      },
+  },
+  { $unwind: { path: '$transporter', preserveNullAndEmptyArrays: true } },
+  // Lookup Expenses
+  {
+    $lookup: {
+      from: 'expenses',
+      localField: 'expenses',
+      foreignField: '_id',
+      as: 'expensesData',
     },
-    {
-      $addFields: {
-        expensesData: {
-          $filter: {
-            input: '$expensesData',
-            as: 'e',
-            cond: { $ne: ['$$e.status', 'Cancelled'] }
-          }
+  },
+  {
+    $addFields: {
+      expensesData: {
+        $filter: {
+          input: '$expensesData',
+          as: 'e',
+          cond: { $ne: ['$$e.status', 'Cancelled'] }
         }
       }
-    },
-    // Lookup Advances
-    {
-      $lookup: {
-        from: 'transporteradvances',
-        localField: 'advances',
-        foreignField: '_id',
-        as: 'advancesData',
-      },
-    },
-    {
-      $addFields: {
-        advancesData: {
-          $filter: {
-            input: '$advancesData',
-            as: 'a',
-            cond: { $ne: ['$$a.status', 'Cancelled'] }
-          }
-        }
-      }
-    },
-    // Project and Calculate
-    {
-      $project: {
-        subtripNo: 1,
-        tripNo: '$trip.tripNo',
-        vehicleNo: '$vehicle.vehicleNo',
-        driverName: '$driver.driverName',
-        driverCellNo: '$driver.driverCellNo',
-        customerName: '$customer.customerName',
-        billingParty: 1,
-        loadingPoint: 1,
-        unloadingPoint: 1,
-        invoiceNo: 1,
-        shipmentNo: 1,
-        orderNo: 1,
-        referenceSubtripNo: 1,
-        ewayBill: 1,
-        consignee: 1,
-        materialType: 1,
-        quantity: 1,
-        grade: 1,
-        startDate: 1,
-        endDate: 1,
-        ewayExpiryDate: 1,
-        loadingWeight: 1,
-        unloadingWeight: 1,
-        shortageWeight: 1,
-        shortageAmount: 1,
-        rate: '$freightDetails.rate',
-        freightAmount: '$freightDetails.freightAmount',
-        commissionRate: '$commissionDetails.commissionRate',
-        subtripStatus: 1,
-        errorRemarks: 1,
-        hasError: 1,
-        remarks: 1,
-        transporterName: '$transporter.transportName',
-        isOwn: '$vehicle.isOwn',
-        commissionAmount: '$commissionDetails.commissionAmount',
-        // Calculate Total Expenses
-        totalExpenses: { $sum: '$expensesData.amount' },
-        // Calculate Total Advances
-        totalAdvances: { $sum: '$advancesData.amount' },
-      },
-    },
-    {
-      $addFields: {
-        // Calculate Freight
-        calculatedFreight: '$freightAmount',
-      },
-    },
-    {
-      $addFields: {
-        // Calculate P&L
-        profitAndLoss: {
-          $cond: {
-            if: { $eq: ['$isOwn', false] },
-            then: { $ifNull: ['$commissionAmount', 0] },
-            else: { $subtract: ['$calculatedFreight', '$totalExpenses'] },
-          },
-        },
-        // Format route
-        route: {
-          $concat: [
-            { $ifNull: ['$loadingPoint', ''] },
-            ' → ',
-            { $ifNull: ['$unloadingPoint', ''] }
-          ]
-        }
-      },
     }
-  ];
+  },
+  // Lookup Advances
+  {
+    $lookup: {
+      from: 'transporteradvances',
+      localField: 'advances',
+      foreignField: '_id',
+      as: 'advancesData',
+    },
+  },
+  {
+    $addFields: {
+      advancesData: {
+        $filter: {
+          input: '$advancesData',
+          as: 'a',
+          cond: { $ne: ['$$a.status', 'Cancelled'] }
+        }
+      }
+    }
+  },
+  // Project and Calculate
+  {
+    $project: {
+      subtripNo: 1,
+      tripNo: '$trip.tripNo',
+      vehicleNo: '$vehicle.vehicleNo',
+      driverName: '$driver.driverName',
+      driverCellNo: '$driver.driverCellNo',
+      customerName: '$customer.customerName',
+      billingParty: 1,
+      loadingPoint: 1,
+      unloadingPoint: 1,
+      invoiceNo: 1,
+      shipmentNo: 1,
+      orderNo: 1,
+      referenceSubtripNo: 1,
+      ewayBill: 1,
+      consignee: 1,
+      materialType: 1,
+      quantity: 1,
+      grade: 1,
+      startDate: 1,
+      endDate: 1,
+      ewayExpiryDate: 1,
+      loadingWeight: 1,
+      unloadingWeight: 1,
+      shortageWeight: 1,
+      shortageAmount: 1,
+      rate: '$freightDetails.rate',
+      freightAmount: '$freightDetails.freightAmount',
+      commissionRate: '$commissionDetails.commissionRate',
+      subtripStatus: 1,
+      errorRemarks: 1,
+      hasError: 1,
+      remarks: 1,
+      transporterName: '$transporter.transportName',
+      isOwn: '$vehicle.isOwn',
+      commissionAmount: '$commissionDetails.commissionAmount',
+      // Calculate Total Expenses
+      totalExpenses: { $sum: '$expensesData.amount' },
+      // Calculate Total Advances
+      totalAdvances: { $sum: '$advancesData.amount' },
+    },
+  },
+  {
+    $addFields: {
+      // Calculate Freight
+      calculatedFreight: '$freightAmount',
+    },
+  },
+  {
+    $addFields: {
+      // Calculate P&L
+      profitAndLoss: {
+        $cond: {
+          if: { $eq: ['$isOwn', false] },
+          then: { $ifNull: ['$commissionAmount', 0] },
+          else: { $subtract: ['$calculatedFreight', '$totalExpenses'] },
+        },
+      },
+      // Format route
+      route: {
+        $concat: [
+          { $ifNull: ['$loadingPoint', ''] },
+          ' → ',
+          { $ifNull: ['$unloadingPoint', ''] }
+        ]
+      }
+    },
+  }
+];
