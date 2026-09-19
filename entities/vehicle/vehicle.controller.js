@@ -533,7 +533,11 @@ const getVehicleMonthlyAnalytics = asyncHandler(async (req, res) => {
     startDate: { $gte: startOfYear, $lte: endOfYear },
   })
     .select('startDate createdAt freightDetails expenses')
-    .populate('expenses', 'amount');
+    .populate({
+      path: 'expenses',
+      match: { status: { $ne: 'Cancelled' } },
+      select: 'amount status',
+    });
 
   const jobs = Array(12).fill(0);
   const income = Array(12).fill(0);
