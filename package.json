@@ -14,7 +14,9 @@
     "lint:fix": "eslint --fix \"**/*.{js,jsx,ts,tsx}\"",
     "cron:driver-expiry": "node scripts/cron/driver-expiry.js",
     "cron:task-archive": "node scripts/cron/task-archive.js",
-    "cron:gps-snapshot": "node scripts/cron/gps-snapshot.js"
+    "cron:gps-snapshot": "node scripts/cron/gps-snapshot.js",
+    "copy:tenant-expense-types": "node scripts/copy-tenant-expense-types.js",
+    "copy:tenant-subtrip-config": "node scripts/copy-tenant-subtrip-config.js"
   },
   "author": "",
   "license": "ISC",
