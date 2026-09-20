@@ -704,6 +704,11 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
       calculatedFreightAmount = parsedRate * parsedWeight;
     }
 
+    const isGivenByTransporter = (body.driverAdvanceGivenBy || '').toString().toLowerCase().includes('transporter');
+    const calculatedAdvanceFromCustomer = isGivenByTransporter
+      ? (typeof body.driverAdvance === 'number' ? body.driverAdvance : (Number(body.driverAdvance) || 0))
+      : (body.advanceFromCustomer || 0);
+
     Object.assign(subtripFields, {
       customerId: body.customerId,
       billingParty: body.billingParty || 'consignor',
@@ -734,6 +739,7 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
       initialAdvanceDiesel: body.initialAdvanceDiesel,
       initialAdvanceDieselUnit: body.initialAdvanceDieselUnit,
       driverAdvanceGivenBy: body.driverAdvanceGivenBy,
+      advanceFromCustomer: calculatedAdvanceFromCustomer,
     });
     if (body.pumpCd) subtripFields.intentFuelPump = body.pumpCd;
   } else if (
@@ -763,6 +769,7 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
 export const handleJobAdvancesAndExpenses = async ({ newSubtrip, body, vehicleId, isOwnVehicle, session, tenant }) => {
   const normGivenBy = (body.driverAdvanceGivenBy || '').toString().toLowerCase();
   const isGivenByPump = normGivenBy.includes('pump');
+  const isGivenByTransporter = normGivenBy.includes('transporter');
   const normDieselUnit = (body.initialAdvanceDieselUnit || '').toString().toLowerCase();
 
   const needsSubtripUpdate =
@@ -777,8 +784,18 @@ export const handleJobAdvancesAndExpenses = async ({ newSubtrip, body, vehicleId
     if (body.driverAdvance !== undefined) patch.initialTripAdvance = body.driverAdvance;
     if (body.initialAdvanceDiesel !== undefined) patch.initialAdvanceDiesel = body.initialAdvanceDiesel;
     if (body.initialAdvanceDieselUnit !== undefined) patch.initialAdvanceDieselUnit = body.initialAdvanceDieselUnit;
-    if (body.driverAdvanceGivenBy)
-      patch.driverAdvanceGivenBy = isGivenByPump ? 'Fuel Pump' : 'Self';
+    if (body.driverAdvanceGivenBy) {
+      if (isGivenByTransporter) {
+        patch.driverAdvanceGivenBy = 'Transporter';
+        patch.advanceFromCustomer = typeof body.driverAdvance === 'number' ? body.driverAdvance : (Number(body.driverAdvance) || 0);
+      } else if (isGivenByPump) {
+        patch.driverAdvanceGivenBy = 'Fuel Pump';
+        patch.advanceFromCustomer = 0;
+      } else {
+        patch.driverAdvanceGivenBy = 'Self';
+        patch.advanceFromCustomer = 0;
+      }
+    }
     if (body.pumpCd) patch.intentFuelPump = body.pumpCd;
     if (Object.keys(patch).length) {
       await Subtrip.updateOne({ _id: newSubtrip._id, tenant }, { $set: patch }, { session });
@@ -788,8 +805,8 @@ export const handleJobAdvancesAndExpenses = async ({ newSubtrip, body, vehicleId
   const expensesToInsert = [];
   const advancesToInsert = [];
 
-  // Driver Advance: add if > 0
-  if (typeof body.driverAdvance === 'number' && body.driverAdvance > 0) {
+  // Driver Advance: add as expense/advance only if > 0 and NOT given by transporter (transporter advance is tracked via advanceFromCustomer)
+  if (typeof body.driverAdvance === 'number' && body.driverAdvance > 0 && !isGivenByTransporter) {
     if (isOwnVehicle) {
       expensesToInsert.push({
         tenant,

@@ -7,7 +7,7 @@ const CustomerSchema = new Schema({
   customerName: { type: String, required: true, trim: true, set: toTitleCase },
   customerType: {
     type: String,
-    enum: ['consignor', 'consignee'],
+    enum: ['consignor', 'consignee', 'transporter'],
     default: 'consignor',
   },
   GSTNo: { type: String },

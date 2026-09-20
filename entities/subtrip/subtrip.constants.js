@@ -44,6 +44,7 @@ export const SUBTRIP_EXPENSE_TYPES = {
 export const DRIVER_ADVANCE_GIVEN_BY_OPTIONS = {
   SELF: 'Self',
   FUEL_PUMP: 'Fuel Pump',
+  TRANSPORTER: 'Transporter',
 };
 
 export const FIELD_CONFIG_DEFAULTS = {

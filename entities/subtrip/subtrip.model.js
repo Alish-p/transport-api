@@ -66,6 +66,10 @@ const subtripSchema = new Schema({
   },
   tds: { type: Number },
 
+  // Advance given by the customer/transporter to the driver or company
+  // Used when own vehicle is loaded by an external transporter
+  advanceFromCustomer: { type: Number, default: 0 },
+
   // Fuel management (Fuel Intent)
   initialAdvanceDiesel: { type: Schema.Types.Mixed },
   initialAdvanceDieselUnit: { type: String, enum: ['litre', 'amount'], default: undefined },

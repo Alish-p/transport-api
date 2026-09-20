@@ -3,7 +3,7 @@ import { z } from 'zod';
 import Subtrip from './subtrip.model.js';
 import Tenant from '../tenant/tenant.model.js';
 import { getStartOfTodayIST } from '../../utils/time-utils.js';
-import { FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
+import { FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS, DRIVER_ADVANCE_GIVEN_BY_OPTIONS } from './subtrip.constants.js';
 
 const subtripSchema = z.object({
   body: z.object({
@@ -69,8 +69,11 @@ const jobCreateSchema = z.object({
       driverAdvance: z.number().optional(),
       initialAdvanceDiesel: z.any().optional(),
       initialAdvanceDieselUnit: z.enum(['litre', 'amount']).optional(),
-      driverAdvanceGivenBy: z.enum(['Self', 'Fuel Pump']).optional(),
+      driverAdvanceGivenBy: z.enum(Object.values(DRIVER_ADVANCE_GIVEN_BY_OPTIONS)).optional(),
       pumpCd: z.string().optional(),
+
+      // Advance from customer/transporter to driver (transporter-loaded own vehicle)
+      advanceFromCustomer: z.number().min(0, 'Advance must be non-negative').optional().default(0),
     })
     .superRefine((body, ctx) => {
       const isLoaded = !body.isEmpty; // market treated as loaded in controller
@@ -115,7 +118,7 @@ export const validateSubtripConfig = async (req, res, next) => {
   try {
     // req.tenant is just an ObjectId from auth middleware
     const tenantDoc = await Tenant.findById(req.tenant).lean();
-    
+
     if (!tenantDoc) {
       const error = new Error('Tenant not found');
       error.status = 404;
@@ -124,14 +127,14 @@ export const validateSubtripConfig = async (req, res, next) => {
 
     const config = tenantDoc.config?.subtrip || {};
     const defaults = FIELD_CONFIG_DEFAULTS.subtrip;
-    
+
     let fields = config.fields || defaults.fields;
     if (fields instanceof Map) {
       fields = Object.fromEntries(fields);
     }
-    
+
     const allowedModels = config.allowedFreightModels?.length ? config.allowedFreightModels : defaults.allowedFreightModels;
-    
+
     const errors = [];
 
     let bodyToValidate = { ...req.body };

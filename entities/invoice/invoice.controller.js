@@ -131,13 +131,24 @@ const createInvoice = asyncHandler(async (req, res) => {
       totalAmount: (st.freightDetails?.freightAmount || 0) - (st.shortageAmount || 0),
       startDate: st.startDate,
       invoiceNo: st.invoiceNo,
+      advanceFromCustomer: st.advanceFromCustomer || 0,
     }));
+
+    // 5.1 Auto-add advance deductions for subtrips with advanceFromCustomer > 0
+    const advanceDeductions = subtrips
+      .filter((st) => (st.advanceFromCustomer || 0) > 0)
+      .map((st) => ({
+        label: `Advance to Driver  (${st.subtripNo})`,
+        amount: -(st.advanceFromCustomer),
+      }));
+
+    const allAdditionalCharges = [...additionalCharges, ...advanceDeductions];
 
     // 6. Summary and tax
     const tenant = await Tenant.findById(req.tenant).select("address.state");
     const tenantState = tenant?.address?.state || "";
     const summary = calculateInvoiceSummary(
-      { invoicedSubTrips: subtrips, additionalCharges },
+      { invoicedSubTrips: subtrips, additionalCharges: allAdditionalCharges },
       customer,
       tenantState
     );
@@ -150,7 +161,7 @@ const createInvoice = asyncHandler(async (req, res) => {
       issueDate: issueDateTime,
       dueDate,
       notes,
-      additionalCharges,
+      additionalCharges: allAdditionalCharges,
       taxBreakup: summary.taxBreakup,
       subtripSnapshot,
       invoicedSubTrips: subtripIds,

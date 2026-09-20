@@ -44,6 +44,7 @@ const subtripSnapshotSchema = new Schema(
     totalAmount: Number,
     startDate: Date,
     invoiceNo: String,
+    advanceFromCustomer: Number,
   },
   { _id: false }
 );
