@@ -8,6 +8,7 @@ import Expense from '../expense/expense.model.js';
 import { TRIP_STATUS } from '../trip/trip.constants.js';
 import { getStartOfTodayIST } from '../../utils/time-utils.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
+import Customer from '../customer/customer.model.js';
 import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
 import { SUBTRIP_STATUS, FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
 
@@ -145,6 +146,7 @@ export const buildSubtripQuery = async (req, queryParams) => {
     epodSigned,
     shortage,
     freightModel,
+    loadSource,
   } = queryParams;
 
   const query = { tenant: req.tenant };
@@ -156,6 +158,29 @@ export const buildSubtripQuery = async (req, queryParams) => {
     query.isEmpty = false;
   } else if (isEmpty !== undefined) {
     query.isEmpty = isEmpty === 'true' || isEmpty === true;
+  }
+
+  // Handle loadSource filter ('transporter_loaded' vs 'direct')
+  if (loadSource === 'transporter_loaded' || loadSource === 'transporter') {
+    const transporterCustomers = await Customer.find({
+      tenant: req.tenant,
+      customerType: 'transporter',
+    })
+      .select('_id')
+      .lean();
+    const customerIds = transporterCustomers.map((c) => c._id);
+    query.customerId = { $in: customerIds };
+  } else if (loadSource === 'direct') {
+    const transporterCustomers = await Customer.find({
+      tenant: req.tenant,
+      customerType: 'transporter',
+    })
+      .select('_id')
+      .lean();
+    const customerIds = transporterCustomers.map((c) => c._id);
+    if (customerIds.length > 0) {
+      query.customerId = { $nin: customerIds };
+    }
   }
 
   // Direct ID filters (safe cast to ObjectId for aggregation support)
@@ -310,7 +335,15 @@ export const buildSubtripQuery = async (req, queryParams) => {
 
   // Shortage filter
   if (shortage === 'yes') {
-    query.$or = [{ shortageWeight: { $gt: 0 } }, { shortageAmount: { $gt: 0 } }];
+    const shortageConditions = [{ shortageWeight: { $gt: 0 } }, { shortageAmount: { $gt: 0 } }];
+    if (query.$or) {
+      query.$and = (query.$and || []).concat([{ $or: query.$or }, { $or: shortageConditions }]);
+      delete query.$or;
+    } else if (query.$and) {
+      query.$and.push({ $or: shortageConditions });
+    } else {
+      query.$or = shortageConditions;
+    }
   } else if (shortage === 'no') {
     query.shortageWeight = { $in: [0, null] };
     query.shortageAmount = { $in: [0, null] };
