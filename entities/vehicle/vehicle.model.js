@@ -2,7 +2,7 @@ import { model, Schema } from 'mongoose';
 
 // Vehicle Schema
 const vehicleSchema = new Schema({
-  vehicleNo: { type: String, required: true, unique: true },
+  vehicleNo: { type: String, required: true },
   vehicleType: { type: String, required: true },
   modelType: { type: String },
   vehicleCompany: { type: String },
@@ -26,5 +26,7 @@ const vehicleSchema = new Schema({
   currentOdometer: { type: Number, default: 0 },
   currentOdometerUpdatedAt: { type: Date },
 });
+
+vehicleSchema.index({ vehicleNo: 1, tenant: 1 }, { unique: true });
 
 export default model("Vehicle", vehicleSchema);

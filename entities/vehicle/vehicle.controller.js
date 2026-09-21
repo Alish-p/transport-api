@@ -31,6 +31,15 @@ const createVehicle = asyncHandler(async (req, res) => {
     req.body.transporter = null;
   }
 
+  // Check for duplicate vehicle number (case-insensitive)
+  const existingVehicle = await Vehicle.findOne({ 
+    vehicleNo: { $regex: new RegExp(`^${req.body.vehicleNo.trim()}$`, "i") }, 
+    tenant: req.tenant 
+  });
+  if (existingVehicle) {
+    return res.status(400).json({ message: "Vehicle with this number already exists." });
+  }
+
   const vehicle = new Vehicle({ ...req.body, tenant: req.tenant });
   const newVehicle = await vehicle.save();
 
@@ -80,6 +89,15 @@ const quickCreateVehicle = asyncHandler(async (req, res) => {
   }
 
   const now = new Date();
+
+  // Check for duplicate vehicle number (case-insensitive)
+  const existingVehicle = await Vehicle.findOne({ 
+    vehicleNo: { $regex: new RegExp(`^${vehicleNo.trim()}$`, "i") }, 
+    tenant: req.tenant 
+  });
+  if (existingVehicle) {
+    return res.status(400).json({ message: "Vehicle with this number already exists." });
+  }
 
   const vehicle = new Vehicle({
     vehicleNo,
@@ -294,6 +312,17 @@ const updateVehicle = asyncHandler(async (req, res) => {
 
   if (req.body.currentOdometer !== undefined) {
     req.body.currentOdometerUpdatedAt = new Date();
+  }
+
+  if (req.body.vehicleNo) {
+    const existingVehicle = await Vehicle.findOne({
+      vehicleNo: { $regex: new RegExp(`^${req.body.vehicleNo.trim()}$`, "i") },
+      tenant: req.tenant,
+      _id: { $ne: id }
+    });
+    if (existingVehicle) {
+      return res.status(400).json({ message: "Vehicle with this number already exists." });
+    }
   }
 
   const vehicle = await Vehicle.findOneAndUpdate(
