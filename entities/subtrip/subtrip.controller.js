@@ -19,6 +19,7 @@ import { resolveChangedFieldLabels } from '../../helpers/resolve-changed-fields.
 import { sendLRGenerationNotification, sendDriverJobAssignedNotification } from '../../services/whatsapp.service.js';
 import { SUBTRIP_STATUS, FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS, CONCRETE_FREIGHT_MODELS } from './subtrip.constants.js';
 import {
+  toObjectId,
   buildSubtripQuery,
   resolveTripForJob,
   buildSubtripPayload,
@@ -1239,6 +1240,40 @@ const createJob = asyncHandler(async (req, res) => {
   }
 });
 
+// Fetch last reference job number for a customer (or tenant)
+const fetchLastReferenceNumber = asyncHandler(async (req, res) => {
+  try {
+    const { customerId, excludeSubtripId } = req.query;
+
+    const query = {
+      tenant: req.tenant,
+      referenceSubtripNo: { $exists: true, $nin: [null, ''] },
+    };
+
+    if (customerId) {
+      query.customerId = toObjectId(customerId);
+    }
+
+    if (excludeSubtripId) {
+      query._id = { $ne: toObjectId(excludeSubtripId) };
+    }
+
+    const lastSubtrip = await Subtrip.findOne(query)
+      .sort({ createdAt: -1, _id: -1 })
+      .select('referenceSubtripNo')
+      .lean();
+
+    res.status(200).json({
+      referenceSubtripNo: lastSubtrip?.referenceSubtripNo || null,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'An error occurred while fetching last reference number',
+      error: error.message,
+    });
+  }
+});
+
 export {
   receiveLR,
   resolveLR,
@@ -1255,4 +1290,5 @@ export {
   getEpodUploadUrlPublic,
   fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
+  fetchLastReferenceNumber,
 };

@@ -17,6 +17,7 @@ import {
   fetchPaginatedSubtrips,
   fetchSubtripsByStatuses,
   fetchSubtripsByTransporter,
+  fetchLastReferenceNumber,
 } from './subtrip.controller.js';
 
 const router = Router();
@@ -34,6 +35,7 @@ router.post(
 // --- Utility Routes ---
 router.get('/export', authenticate, exportSubtrips);
 router.get('/upload-url', authenticate, getDocumentUploadUrl);
+router.get('/last-reference-number', authenticate, fetchLastReferenceNumber);
 
 // --- Read / Fetch Subtrips ---
 router.get('/pagination', authenticate, pagination, fetchPaginatedSubtrips);
