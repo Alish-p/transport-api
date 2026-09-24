@@ -391,7 +391,15 @@ export const resolveSubtripFinancials = (subtrip, updateData) => {
   if (model === FREIGHT_MODELS.TO_BE_BILLED) {
     fdToUse.freightAmount = 0;
     cdToUse.commissionAmount = 0;
-  } else if (model === FREIGHT_MODELS.PER_TON || model === FREIGHT_MODELS.PER_KL || model === FREIGHT_MODELS.PER_KM || model === FREIGHT_MODELS.PER_HOUR || model === FREIGHT_MODELS.FIXED) {
+  } else if (model === FREIGHT_MODELS.FIXED) {
+    // Fixed model: preserve existing freightAmount unless explicitly updated
+    const submittedAmount = updateData.freightDetails?.freightAmount;
+    if (submittedAmount !== undefined && submittedAmount !== null && submittedAmount !== '') {
+      fdToUse.freightAmount = Number(submittedAmount) || 0;
+    } else {
+      fdToUse.freightAmount = Number(currentFd.freightAmount ?? fdToUse.freightAmount) || 0;
+    }
+  } else if (model === FREIGHT_MODELS.PER_TON || model === FREIGHT_MODELS.PER_KL || model === FREIGHT_MODELS.PER_KM || model === FREIGHT_MODELS.PER_HOUR) {
     const expectedFreight = calculateSubtripFreightAmount({
       ...fdToUse,
       loadingWeight: weightToUse,
@@ -406,11 +414,14 @@ export const resolveSubtripFinancials = (subtrip, updateData) => {
       if (Math.abs(submittedAmount - expectedFreight) > 0.01) {
         freightAmountToStore = submittedAmount; // User override
       }
+    } else if (!updateData.freightDetails && updateData.loadingWeight === undefined && currentFd.freightAmount !== undefined && expectedFreight === 0) {
+      // If no freight-relevant fields changed and expected is 0 (e.g. per_km before receive), preserve current freightAmount
+      freightAmountToStore = currentFd.freightAmount;
     }
 
     fdToUse.freightAmount = freightAmountToStore;
   } else if (model === FREIGHT_MODELS.HYBRID) {
-    const baseFreight = Number(currentFd.freightAmount) || 0;
+    const baseFreight = Number(updateData.freightDetails?.freightAmount !== undefined ? updateData.freightDetails.freightAmount : currentFd.freightAmount) || 0;
     const expectedFreight = calculateSubtripFreightAmount({
       ...fdToUse,
       loadingWeight: weightToUse,
