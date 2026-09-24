@@ -10,7 +10,7 @@ import { getStartOfTodayIST } from '../../utils/time-utils.js';
 import { EXPENSE_CATEGORIES } from '../expense/expense.constants.js';
 import Customer from '../customer/customer.model.js';
 import TransporterAdvance from '../transporterAdvance/transporterAdvance.model.js';
-import { SUBTRIP_STATUS, FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS } from './subtrip.constants.js';
+import { SUBTRIP_STATUS, FREIGHT_MODELS, FIELD_CONFIG_DEFAULTS, DRIVER_ADVANCE_GIVEN_BY_OPTIONS } from './subtrip.constants.js';
 
 /**
  * Pure calculator function that calculates the gross freight amount of a subtrip.
@@ -737,8 +737,15 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
       calculatedFreightAmount = parsedRate * parsedWeight;
     }
 
-    const isGivenByTransporter = (body.driverAdvanceGivenBy || '').toString().toLowerCase().includes('transporter');
-    const calculatedAdvanceFromCustomer = isGivenByTransporter
+    const normGivenBy = (body.driverAdvanceGivenBy || '').toString().toLowerCase();
+    const isGivenByCustomer = [
+      DRIVER_ADVANCE_GIVEN_BY_OPTIONS.TRANSPORTER,
+      DRIVER_ADVANCE_GIVEN_BY_OPTIONS.CONSIGNOR,
+      DRIVER_ADVANCE_GIVEN_BY_OPTIONS.CONSIGNEE,
+    ]
+      .map((opt) => opt.toLowerCase())
+      .includes(normGivenBy);
+    const calculatedAdvanceFromCustomer = isGivenByCustomer
       ? (typeof body.driverAdvance === 'number' ? body.driverAdvance : (Number(body.driverAdvance) || 0))
       : (body.advanceFromCustomer || 0);
 
@@ -802,7 +809,13 @@ export const buildSubtripPayload = ({ body, vehicle, tripToUse, tenant, isOwnVeh
 export const handleJobAdvancesAndExpenses = async ({ newSubtrip, body, vehicleId, isOwnVehicle, session, tenant }) => {
   const normGivenBy = (body.driverAdvanceGivenBy || '').toString().toLowerCase();
   const isGivenByPump = normGivenBy.includes('pump');
-  const isGivenByTransporter = normGivenBy.includes('transporter');
+  const isGivenByCustomer = [
+    DRIVER_ADVANCE_GIVEN_BY_OPTIONS.TRANSPORTER,
+    DRIVER_ADVANCE_GIVEN_BY_OPTIONS.CONSIGNOR,
+    DRIVER_ADVANCE_GIVEN_BY_OPTIONS.CONSIGNEE,
+  ]
+    .map((opt) => opt.toLowerCase())
+    .includes(normGivenBy);
   const normDieselUnit = (body.initialAdvanceDieselUnit || '').toString().toLowerCase();
 
   const needsSubtripUpdate =
@@ -818,14 +831,17 @@ export const handleJobAdvancesAndExpenses = async ({ newSubtrip, body, vehicleId
     if (body.initialAdvanceDiesel !== undefined) patch.initialAdvanceDiesel = body.initialAdvanceDiesel;
     if (body.initialAdvanceDieselUnit !== undefined) patch.initialAdvanceDieselUnit = body.initialAdvanceDieselUnit;
     if (body.driverAdvanceGivenBy) {
-      if (isGivenByTransporter) {
-        patch.driverAdvanceGivenBy = 'Transporter';
+      if (isGivenByCustomer) {
+        const canonical = Object.values(DRIVER_ADVANCE_GIVEN_BY_OPTIONS).find(
+          (opt) => opt.toLowerCase() === normGivenBy
+        ) || body.driverAdvanceGivenBy;
+        patch.driverAdvanceGivenBy = canonical;
         patch.advanceFromCustomer = typeof body.driverAdvance === 'number' ? body.driverAdvance : (Number(body.driverAdvance) || 0);
       } else if (isGivenByPump) {
-        patch.driverAdvanceGivenBy = 'Fuel Pump';
+        patch.driverAdvanceGivenBy = DRIVER_ADVANCE_GIVEN_BY_OPTIONS.FUEL_PUMP;
         patch.advanceFromCustomer = 0;
       } else {
-        patch.driverAdvanceGivenBy = 'Self';
+        patch.driverAdvanceGivenBy = DRIVER_ADVANCE_GIVEN_BY_OPTIONS.SELF;
         patch.advanceFromCustomer = 0;
       }
     }
@@ -838,8 +854,8 @@ export const handleJobAdvancesAndExpenses = async ({ newSubtrip, body, vehicleId
   const expensesToInsert = [];
   const advancesToInsert = [];
 
-  // Driver Advance: add as expense/advance only if > 0 and NOT given by transporter (transporter advance is tracked via advanceFromCustomer)
-  if (typeof body.driverAdvance === 'number' && body.driverAdvance > 0 && !isGivenByTransporter) {
+  // Driver Advance: add as expense/advance only if > 0 and NOT given by customer (customer advance is tracked via advanceFromCustomer)
+  if (typeof body.driverAdvance === 'number' && body.driverAdvance > 0 && !isGivenByCustomer) {
     if (isOwnVehicle) {
       expensesToInsert.push({
         tenant,
