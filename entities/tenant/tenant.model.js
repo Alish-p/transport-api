@@ -127,6 +127,9 @@ const tenantSchema = new Schema(
     logoKey: { type: String, default: null }, // S3 object key for logo
     logoUrl: { type: String, default: null }, // Public URL (CloudFront/CDN or S3 public)
     logoUpdatedAt: { type: Date, default: null },
+    signatureKey: { type: String, default: null }, // S3 object key for authorized signature
+    signatureUrl: { type: String, default: null }, // Public URL (CloudFront/CDN or S3 public)
+    signatureUpdatedAt: { type: Date, default: null },
     address: {
       line1: { type: String, required: true },
       line2: String,

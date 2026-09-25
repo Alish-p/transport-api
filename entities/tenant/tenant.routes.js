@@ -7,6 +7,8 @@ import {
   setTenantLogo,
   fetchTenantById,
   getLogoUploadUrl,
+  setTenantSignature,
+  getSignatureUploadUrl,
 } from './tenant.controller.js';
 
 const router = Router();
@@ -39,6 +41,21 @@ router.put(
   authenticate,
   checkPermission('tenant', 'update'),
   setTenantLogo,
+);
+
+// Branding: tenant authorized signature
+router.get(
+  '/branding/signature/upload-url',
+  authenticate,
+  checkPermission('tenant', 'update'),
+  getSignatureUploadUrl,
+);
+
+router.put(
+  '/branding/signature',
+  authenticate,
+  checkPermission('tenant', 'update'),
+  setTenantSignature,
 );
 
 // All payment history and super-only details moved to /api/super

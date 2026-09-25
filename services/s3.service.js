@@ -87,7 +87,7 @@ export async function generateUploadUrl({
   if (pattern === 'standard') {
     const idPart = id ? `${id}_` : '';
     key = `logos/${entityType}/${tenantId}/${subFolder}/${fileNamePrefix}_${idPart}${timestamp}_${rand}.${fileExtension}`;
-  } else if (pattern === 'tenant-logo') {
+  } else if (pattern === 'tenant-logo' || pattern === 'tenant-signature') {
     key = `logos/${tenantSegment}/${filename}`;
   } else if (pattern === 'vehicle-doc') {
     key = `${tenantSegment}/vehicles/${vehicleSegment}/${docTypeSegment}/${filename}`;
