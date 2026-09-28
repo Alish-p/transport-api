@@ -539,11 +539,16 @@ const updateSubtrip = asyncHandler(async (req, res) => {
   }
 
   // Check for ewayBill uniqueness if it's being updated
+  if (req.body.ewayBill !== undefined) {
+    req.body.ewayBill = typeof req.body.ewayBill === 'string' ? req.body.ewayBill.trim() : req.body.ewayBill;
+  }
+
   if (req.body.ewayBill && req.body.ewayBill !== existingSubtrip.ewayBill) {
     const duplicateEwayBill = await Subtrip.findOne({
       tenant: req.tenant,
       ewayBill: req.body.ewayBill,
       _id: { $ne: id }, // Exclude the current subtrip
+      subtripStatus: { $ne: SUBTRIP_STATUS.CANCELLED },
     });
 
     if (duplicateEwayBill) {
@@ -1123,10 +1128,15 @@ const createJob = asyncHandler(async (req, res) => {
     });
 
     // Check for ewayBill uniqueness if loaded and ewayBill provided
+    if (req.body.ewayBill !== undefined) {
+      req.body.ewayBill = typeof req.body.ewayBill === 'string' ? req.body.ewayBill.trim() : req.body.ewayBill;
+    }
+
     if (isLoaded && req.body.ewayBill) {
       const existingSubtrip = await Subtrip.findOne({
         tenant: req.tenant,
         ewayBill: req.body.ewayBill,
+        subtripStatus: { $ne: SUBTRIP_STATUS.CANCELLED },
       }).session(session);
 
       if (existingSubtrip) {
