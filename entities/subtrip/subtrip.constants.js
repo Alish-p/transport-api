@@ -60,7 +60,7 @@ export const FIELD_CONFIG_DEFAULTS = {
       ewayExpiryDate: { visibility: 'optional', label: 'Eway Expiry Date' },
       shipmentNo: { visibility: 'optional', label: 'Shipment No' },
       orderNo: { visibility: 'optional', label: 'Order No' },
-      referenceSubtripNo: { visibility: 'optional', label: 'Reference Job No' },
+      referenceSubtripNo: { visibility: 'optional', label: 'Manual LR No' },
       diNumber: { visibility: 'optional', label: 'DI/DO No' },
       consignee: { visibility: 'required', label: 'Consignee' },
       loadingPoint: { visibility: 'required', label: 'Loading Point' },

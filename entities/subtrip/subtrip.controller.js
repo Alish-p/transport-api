@@ -914,7 +914,7 @@ const exportSubtrips = asyncHandler(async (req, res) => {
     invoiceNo: { header: 'Invoice No', key: 'invoiceNo', width: 15 },
     shipmentNo: { header: 'Shipment No', key: 'shipmentNo', width: 15 },
     orderNo: { header: 'Order No', key: 'orderNo', width: 15 },
-    referenceSubtripNo: { header: 'Reference Job No', key: 'referenceSubtripNo', width: 20 },
+    referenceSubtripNo: { header: 'Manual LR No', key: 'referenceSubtripNo', width: 20 },
     ewayBill: { header: 'E-way Bill No', key: 'ewayBill', width: 20 },
     consignee: { header: 'Consignee', key: 'consignee', width: 20 },
     materialType: { header: 'Material', key: 'materialType', width: 20 },
